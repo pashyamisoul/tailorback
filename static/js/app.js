@@ -201,10 +201,16 @@ document.addEventListener('click', (e) => {
     btn.textContent = isTerminal ? '◑ editorial mode' : '◐ terminal mode';
   };
   sync();
-  btn.addEventListener('click', () => {
+ btn.addEventListener('click', () => {
     const next = root.getAttribute('data-theme') === 'terminal' ? 'editorial' : 'terminal';
     root.setAttribute('data-theme', next);
     localStorage.setItem('tb-theme', next);
     sync();
+    if (next === 'terminal') {
+      root.classList.remove('crt-boot');
+      void root.offsetWidth;            // restart the animation
+      root.classList.add('crt-boot');
+      setTimeout(() => root.classList.remove('crt-boot'), 900);
+    }
   });
 })();
