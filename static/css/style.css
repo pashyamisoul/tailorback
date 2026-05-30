@@ -228,71 +228,150 @@ footer {
   .match-grid { grid-template-columns: 1fr; }
 }
 
-.dl-group {
-  display: inline-flex; align-items: center; gap: .4rem;
-  margin-right: 1rem;
-}
-.dl-label {
-  font-family: "Spline Sans Mono", monospace; font-size: .72rem;
-  text-transform: uppercase; letter-spacing: .12em; color: var(--ink-soft);
-  margin-right: .15rem;
-}
-.dl-pdf { background: var(--ink); }
-.dl-pdf:hover { background: var(--accent); }
 
-.analysis-panel {
-  border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 1.6rem 1.7rem; margin: 2rem 0; background: #fcfaf5;
+/* ============================================================
+   TERMINAL THEME — colors + fonts ONLY, identical layout
+   Smooth fade on toggle. <html data-theme="terminal">
+   ============================================================ */
+
+/* smooth color transition for the recolor effect */
+body, .panel, .masthead, textarea, input[type="url"], .dropzone, .go,
+.seg, .analysis-panel, .match-col, .preview-card, .dl-btn, .toast,
+.score-bar, .score-fill, .dim-bar, .dim-fill, footer, #themeToggle,
+.hero h1, .lede, legend, .num{
+  transition: background-color .35s ease, color .35s ease,
+              border-color .35s ease, fill .35s ease;
 }
-.analysis-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
-.analysis-kicker {
-  font-family: "Spline Sans Mono", monospace; font-size: .72rem;
-  text-transform: uppercase; letter-spacing: .14em; color: var(--ink-soft);
+
+/* ---- terminal palette ---- */
+html[data-theme="terminal"]{
+  --paper:#0d1117; --paper-2:#161b22; --ink:#c9d1d9; --ink-soft:#8b949e;
+  --line:#30363d; --accent:#39d353; --accent-deep:#2ea043;
 }
-.analysis-head h3 { font-family: "Fraunces", serif; font-size: 1.4rem; margin-top: .3rem; max-width: 46ch; }
-.score-badge { font-family: "Fraunces", serif; font-weight: 900; font-size: 2.6rem; line-height: 1; white-space: nowrap; }
-.score-max { font-size: 1rem; color: var(--ink-soft); font-weight: 400; }
-.score-bar { height: 8px; background: var(--line); border-radius: 99px; margin: 1rem 0 1.4rem; overflow: hidden; }
-.score-fill { height: 100%; width: 0; transition: width .8s ease; }
-.dimensions { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 1.6rem; margin-bottom: 1.4rem; }
-.dim-top { display: flex; justify-content: space-between; font-size: .9rem; }
-.dim-name { font-weight: 600; }
-.dim-score { font-family: "Spline Sans Mono", monospace; color: var(--ink-soft); }
-.dim-bar { height: 5px; background: var(--line); border-radius: 99px; margin: .35rem 0; overflow: hidden; }
-.dim-fill { height: 100%; background: var(--ink); }
-.dim-note { font-size: .82rem; color: var(--ink-soft); line-height: 1.35; }
-.analysis-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.6rem; margin-bottom: 1.2rem; }
-.an-strong { font-family: "Fraunces", serif; color: var(--good); margin-bottom: .5rem; }
-.an-improve { font-family: "Fraunces", serif; color: var(--warn); margin-bottom: .5rem; }
-.an-col ul { list-style: none; display: flex; flex-direction: column; gap: .4rem; }
-.an-col li { font-size: .88rem; padding-left: 1.1rem; position: relative; line-height: 1.4; }
-.an-col li::before { content: "›"; position: absolute; left: 0; color: var(--ink-soft); }
-.an-missing h4 { font-family: "Fraunces", serif; margin-bottom: .5rem; }
-.missing-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
-.missing-chips span {
-  font-family: "Spline Sans Mono", monospace; font-size: .74rem; padding: .3rem .6rem;
-  border: 1px solid var(--warn); color: var(--warn); border-radius: 99px;
+html[data-theme="terminal"] body{
+  background:var(--paper); color:var(--ink);
+  font-family:"JetBrains Mono","Spline Sans Mono",ui-monospace,monospace;
 }
-@media (max-width: 640px) { .dimensions, .analysis-cols { grid-template-columns: 1fr; } }
-.dl-menu { position: relative; display: inline-block; margin-right: .8rem; }
-.dl-btn {
-  font-family: "Spline Sans Mono", monospace; font-size: .82rem;
-  color: var(--paper); background: var(--accent); border: none; cursor: pointer;
-  padding: .7rem 1.1rem; border-radius: var(--radius); transition: .18s;
-  display: inline-flex; align-items: center; gap: .5rem;
+html[data-theme="terminal"] .grain{display:none}
+
+/* hero: same size/spacing as editorial, just mono + color */
+html[data-theme="terminal"] .hero h1{
+  font-family:"JetBrains Mono",monospace; font-style:normal;
 }
-.dl-btn:hover { background: var(--accent-deep); }
-.dl-caret { font-size: .7rem; opacity: .8; }
-.dl-options {
-  position: absolute; top: calc(100% + 4px); left: 0; min-width: 100%;
-  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
-  box-shadow: 0 6px 20px rgba(0,0,0,.12); overflow: hidden; z-index: 50;
-  opacity: 0; visibility: hidden; transform: translateY(-4px); transition: .15s;
+html[data-theme="terminal"] .hero h1 .ink{ color:var(--accent); font-style:normal; }
+html[data-theme="terminal"] .hero h1::before{
+  content:"$ tailorback --init"; display:block; color:var(--accent);
+  font-size:.9rem; font-weight:400; margin-bottom:.7rem; letter-spacing:0;
 }
-.dl-menu:hover .dl-options,
-.dl-menu.open .dl-options { opacity: 1; visibility: visible; transform: translateY(0); }
-.dl-options a {
-  display: block; padding: .6rem 1rem; font-family: "Spline Sans Mono", monospace;
-  font-size: .8rem; color: var(--ink); text-decoration: none; white-space: nowrap;
+html[data-theme="terminal"] .lede{ color:var(--ink-soft); }
+html[data-theme="terminal"] .lede em{ color:var(--ink); font-style:normal; border-bottom:1px dashed var(--accent); }
+
+/* panels / inputs / buttons: color + font only, no layout change */
+html[data-theme="terminal"] .panel{ background:var(--paper-2); }
+html[data-theme="terminal"] legend{ font-family:"JetBrains Mono",monospace; color:var(--ink); }
+html[data-theme="terminal"] .num{ background:var(--accent); color:var(--paper); border:none; border-radius:4px; }
+html[data-theme="terminal"] .seg{ font-family:"JetBrains Mono",monospace; color:var(--ink-soft); }
+html[data-theme="terminal"] .seg.active{ background:var(--accent); color:var(--paper); }
+html[data-theme="terminal"] textarea,
+html[data-theme="terminal"] input[type="url"]{
+  background:var(--paper); color:var(--ink); font-family:"JetBrains Mono",monospace;
 }
-.dl-options a:hover { background: var(--paper-2); color: var(--accent); }
+html[data-theme="terminal"] .hint{ color:var(--ink-soft); }
+html[data-theme="terminal"] .hint::before{ content:"// "; color:var(--accent); }
+html[data-theme="terminal"] .dropzone{ background:var(--paper); }
+html[data-theme="terminal"] .dz-icon{ color:var(--accent); }
+html[data-theme="terminal"] .dz-main{ color:var(--ink); }
+html[data-theme="terminal"] .dz-sub{ color:var(--ink-soft); }
+html[data-theme="terminal"] .dz-file{ color:var(--accent); }
+html[data-theme="terminal"] .go{ background:var(--accent); color:var(--paper); font-family:"JetBrains Mono",monospace; }
+html[data-theme="terminal"] .go::before{ content:"\25B6  "; }
+html[data-theme="terminal"] .go:hover{ background:var(--accent-deep); }
+html[data-theme="terminal"] .ethics{ color:var(--ink-soft); }
+html[data-theme="terminal"] .ethics::before{ content:"# "; color:var(--accent); }
+
+/* results */
+html[data-theme="terminal"] .result-head h2{ font-family:"JetBrains Mono",monospace; }
+html[data-theme="terminal"] .dl-btn{ background:var(--accent); color:var(--paper); font-family:"JetBrains Mono",monospace; }
+html[data-theme="terminal"] .dl-btn:hover{ background:var(--accent-deep); }
+html[data-theme="terminal"] .dl-options{ background:var(--paper-2); }
+html[data-theme="terminal"] .dl-options a{ color:var(--ink); font-family:"JetBrains Mono",monospace; }
+html[data-theme="terminal"] .dl-options a:hover{ background:var(--paper); color:var(--accent); }
+
+/* analysis */
+html[data-theme="terminal"] .analysis-panel{ background:var(--paper-2); }
+html[data-theme="terminal"] .analysis-head h3{ color:var(--ink); font-family:"JetBrains Mono",monospace; }
+html[data-theme="terminal"] .score-badge{ color:var(--accent); font-family:"JetBrains Mono",monospace; }
+html[data-theme="terminal"] .score-bar{ background:var(--paper); }
+html[data-theme="terminal"] .score-fill{ background:var(--accent); }
+html[data-theme="terminal"] .dim-bar{ background:var(--paper); }
+html[data-theme="terminal"] .dim-fill{ background:#58a6ff; }
+html[data-theme="terminal"] .dim-note, html[data-theme="terminal"] .dim-score{ color:var(--ink-soft); }
+html[data-theme="terminal"] .an-strong{ color:#3fb950; }
+html[data-theme="terminal"] .an-improve{ color:#e3b341; }
+html[data-theme="terminal"] .missing-chips span{ border-color:#e3b341; color:#e3b341; }
+
+html[data-theme="terminal"] .match-col{ background:var(--paper-2); }
+html[data-theme="terminal"] .match-col.covered h3{ color:#3fb950; }
+html[data-theme="terminal"] .match-col.missing h3{ color:#e3b341; }
+html[data-theme="terminal"] .match-col.covered li::before{ color:#3fb950; }
+html[data-theme="terminal"] .match-col.missing li::before{ color:#e3b341; }
+
+html[data-theme="terminal"] .preview-card{ background:var(--paper-2); }
+html[data-theme="terminal"] .pv-summary{ color:var(--ink-soft); }
+
+html[data-theme="terminal"] .overlay{ background:rgba(13,17,23,.92); }
+html[data-theme="terminal"] .loader{ background:var(--paper-2); }
+html[data-theme="terminal"] #loaderText{ color:var(--ink); font-family:"JetBrains Mono",monospace; }
+
+html[data-theme="terminal"] footer{ color:var(--ink-soft); font-family:"JetBrains Mono",monospace; }
+html[data-theme="terminal"] .dot{ color:var(--accent); }
+html[data-theme="terminal"] .toast{ background:var(--paper-2); color:var(--ink); font-family:"JetBrains Mono",monospace; }
+
+/* ---- toggle button: lives INSIDE masthead, aligns in BOTH themes ---- */
+.masthead{ display:flex; align-items:center; justify-content:space-between; }
+.masthead nav{ display:flex; align-items:center; gap:1.2rem; }
+#themeToggle{
+  font-family:"Spline Sans Mono",monospace; font-size:.72rem; letter-spacing:.04em;
+  padding:.4rem .75rem; border-radius:6px; cursor:pointer;
+  border:1px solid var(--line); background:transparent; color:var(--ink-soft);
+  white-space:nowrap; transition:.18s;
+}
+#themeToggle:hover{ border-color:var(--accent); color:var(--accent); }
+html[data-theme="terminal"] #themeToggle{ font-family:"JetBrains Mono",monospace; }
+
+/* ---- CRT power-on: dramatic, plays only when entering terminal ---- */
+
+/* freeze the colour fade during boot so the snap stays crisp */
+html.crt-boot body,
+html.crt-boot .panel, html.crt-boot .masthead, html.crt-boot textarea,
+html.crt-boot .seg, html.crt-boot .go, html.crt-boot .hero h1,
+html.crt-boot .lede, html.crt-boot legend, html.crt-boot .num{
+  transition: none !important;
+}
+
+@keyframes crt-on{
+  0%   { opacity:0; transform:scaleY(.0015); filter:brightness(6) contrast(2); }
+  8%   { opacity:1; transform:scaleY(.0015); filter:brightness(6) contrast(2); }
+  18%  { transform:scaleY(.05); filter:brightness(5); }
+  40%  { transform:scaleY(1);   filter:brightness(2.2); }
+  55%  { filter:brightness(.7); }
+  70%  { filter:brightness(1.25); }
+  85%  { filter:brightness(.92); }
+  100% { filter:brightness(1); }
+}
+html.crt-boot body{ animation:crt-on .85s cubic-bezier(.2,.7,.2,1); transform-origin:center; }
+
+/* black "no-signal" flash, then green scanline glow that lingers */
+html.crt-boot body::after{
+  content:""; position:fixed; inset:0; z-index:999; pointer-events:none;
+  background:
+    linear-gradient(rgba(57,211,83,.18), transparent 45%),
+    repeating-linear-gradient(rgba(0,0,0,.18) 0 2px, transparent 2px 4px);
+  animation:crt-glow .85s ease-out forwards;
+}
+@keyframes crt-glow{
+  0%   { opacity:1; background-color:#000; }
+  12%  { opacity:1; background-color:#000; }
+  13%  { background-color:transparent; }
+  100% { opacity:0; background-color:transparent; }
+}

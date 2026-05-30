@@ -6,3 +6,4 @@ uploads/*
 generated/*
 !uploads/.gitkeep
 !generated/.gitkeep
+.DS_Store
