@@ -189,3 +189,22 @@ document.addEventListener('click', (e) => {
   // Clicked a download link or anywhere else: close all.
   openMenus.forEach(m => m.classList.remove('open'));
 });
+
+// Theme toggle (editorial ↔ terminal), remembered across reloads.
+(function () {
+  const root = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const saved = localStorage.getItem('tb-theme');
+  if (saved) root.setAttribute('data-theme', saved);
+  const sync = () => {
+    const isTerminal = root.getAttribute('data-theme') === 'terminal';
+    btn.textContent = isTerminal ? '◑ editorial mode' : '◐ terminal mode';
+  };
+  sync();
+  btn.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'terminal' ? 'editorial' : 'terminal';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('tb-theme', next);
+    sync();
+  });
+})();

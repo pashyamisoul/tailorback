@@ -9,7 +9,7 @@ import json
 import os
 import httpx
 
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-2.5-flash-lite"
 ENDPOINT = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
     f"{MODEL}:generateContent"
@@ -183,9 +183,23 @@ def generate_all(cv_text, jd_text):
         "{\"name\": \"Structure & Format\", \"score\": int, \"note\": str}, "
         "{\"name\": \"Impact & Quantification\", \"score\": int, \"note\": str}], "
         "\"strengths\": [str], \"improvements\": [str], \"missing_keywords\": [str]}}\n\n"
-        "The 'analysis' must evaluate the CURRENT uploaded resume (not the tailored one), "
-        "candidly, against the job."
+        "The 'analysis' must evaluate the CURRENT uploaded resume (not the tailored "
+        "one), candidly, against the job. SCORE DETERMINISTICALLY using this exact "
+        "rubric so the same resume and job always produce the same score:\n"
+        "- Job Match (0-100): percentage of the job's must-have responsibilities the "
+        "resume clearly evidences. Count them: (evidenced / total) * 100, rounded.\n"
+        "- Keyword Coverage (0-100): of the job's keywords/hard-skills, the percentage "
+        "that appear in the resume. Count them: (present / total) * 100, rounded.\n"
+        "- Structure & Format (0-100): start at 100, subtract 10 for each missing "
+        "standard section (summary, skills, experience, education), subtract 10 if no "
+        "quantified achievements exist, subtract 10 if contact info is incomplete.\n"
+        "- Impact & Quantification (0-100): percentage of experience bullets that "
+        "contain a concrete metric or number, times 100, rounded.\n"
+        "overall_score = round(0.40*JobMatch + 0.30*KeywordCoverage + "
+        "0.15*Structure + 0.15*Impact). Compute each number from the rubric above; "
+        "do not estimate or vary it. Identical inputs MUST yield an identical score."
     )
+    
     user = (
         "JOB DESCRIPTION:\n\"\"\"\n" + jd_text + "\n\"\"\"\n\n"
         "CANDIDATE'S CURRENT RESUME:\n\"\"\"\n" + cv_text + "\n\"\"\"\n\n"
