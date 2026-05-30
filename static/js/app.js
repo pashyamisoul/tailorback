@@ -49,12 +49,36 @@ function toast(msg, warn = false) {
 // ---- loader ----
 const overlay = document.getElementById('overlay');
 const loaderText = document.getElementById('loaderText');
-const steps = ['Reading the job…', 'Understanding your CV…', 'Matching to requirements…', 'Writing your documents…'];
+const steps = [
+  'parsing job description',
+  'reading your CV',
+  'cross-referencing requirements',
+  'reframing your experience (no fabrication)',
+  'drafting your cover letter',
+  'scoring against the role',
+];
 let stepTimer;
 function startLoader() {
   overlay.classList.remove('hidden');
-  let i = 0; loaderText.textContent = steps[0];
-  stepTimer = setInterval(() => { i = (i + 1) % steps.length; loaderText.textContent = steps[i]; }, 2200);
+  loaderText.innerHTML = '';
+  let i = 0;
+  const advance = () => {
+    loaderText.querySelectorAll('.log-active').forEach(el => {
+      el.classList.remove('log-active');
+      el.classList.add('log-done');
+    });
+    if (i < steps.length) {
+      const line = document.createElement('div');
+      line.className = 'log-line log-active';
+      line.textContent = steps[i];
+      loaderText.appendChild(line);
+      i++;
+    } else {
+      clearInterval(stepTimer);
+    }
+  };
+  advance();
+  stepTimer = setInterval(advance, 1600);
 }
 function stopLoader() { overlay.classList.add('hidden'); clearInterval(stepTimer); }
 

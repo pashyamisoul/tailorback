@@ -339,39 +339,72 @@ html[data-theme="terminal"] .toast{ background:var(--paper-2); color:var(--ink);
 #themeToggle:hover{ border-color:var(--accent); color:var(--accent); }
 html[data-theme="terminal"] #themeToggle{ font-family:"JetBrains Mono",monospace; }
 
-/* ---- CRT power-on: dramatic, plays only when entering terminal ---- */
+/* ============================================================
+   RESTORED: results / analysis / download / loader layout
+   (base layout — terminal colors already override above)
+   ============================================================ */
 
-/* freeze the colour fade during boot so the snap stays crisp */
-html.crt-boot body,
-html.crt-boot .panel, html.crt-boot .masthead, html.crt-boot textarea,
-html.crt-boot .seg, html.crt-boot .go, html.crt-boot .hero h1,
-html.crt-boot .lede, html.crt-boot legend, html.crt-boot .num{
-  transition: none !important;
+/* download dropdowns */
+.dl-menu{ position:relative; display:inline-block; }
+.dl-btn{
+  font-family:"Spline Sans Mono",monospace; font-size:.82rem;
+  color:var(--paper); background:var(--ink); border:none; cursor:pointer;
+  padding:.7rem 1.1rem; border-radius:6px; display:inline-flex; align-items:center; gap:.5rem;
 }
+.dl-btn:hover{ opacity:.9; }
+.dl-caret{ font-size:.7rem; opacity:.8; }
+.dl-options{
+  position:absolute; top:calc(100% + 4px); left:0; min-width:100%;
+  background:var(--paper-2); border:1px solid var(--line); border-radius:6px;
+  overflow:hidden; z-index:50; opacity:0; visibility:hidden; transform:translateY(-4px);
+  transition:.15s;
+}
+.dl-menu:hover .dl-options, .dl-menu.open .dl-options{ opacity:1; visibility:visible; transform:translateY(0); }
+.dl-options a{ display:block; padding:.6rem 1rem; font-size:.8rem; color:var(--ink); text-decoration:none; white-space:nowrap; }
+.dl-options a:hover{ background:var(--paper); }
 
-@keyframes crt-on{
-  0%   { opacity:0; transform:scaleY(.0015); filter:brightness(6) contrast(2); }
-  8%   { opacity:1; transform:scaleY(.0015); filter:brightness(6) contrast(2); }
-  18%  { transform:scaleY(.05); filter:brightness(5); }
-  40%  { transform:scaleY(1);   filter:brightness(2.2); }
-  55%  { filter:brightness(.7); }
-  70%  { filter:brightness(1.25); }
-  85%  { filter:brightness(.92); }
-  100% { filter:brightness(1); }
+/* analysis panel */
+.analysis-panel{
+  background:var(--paper-2); border:1px solid var(--line); border-radius:8px;
+  padding:1.5rem 1.6rem; margin:2rem 0;
 }
-html.crt-boot body{ animation:crt-on .85s cubic-bezier(.2,.7,.2,1); transform-origin:center; }
+.analysis-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; }
+.analysis-kicker{ color:var(--ink-soft); font-size:.72rem; text-transform:uppercase; letter-spacing:.1em; }
+.analysis-head h3{ font-family:"Fraunces",serif; font-size:1.25rem; font-weight:600; margin-top:.3rem; max-width:48ch; }
+.score-badge{ font-family:"Fraunces",serif; font-size:2.6rem; font-weight:900; color:var(--accent); white-space:nowrap; line-height:1; }
+.score-max{ font-size:1rem; color:var(--ink-soft); font-weight:400; }
+.score-bar{ height:6px; background:var(--paper); border:1px solid var(--line); border-radius:99px; margin:1rem 0 1.4rem; overflow:hidden; }
+.score-fill{ height:100%; width:0; transition:width .8s ease; background:var(--accent); }
+.dimensions{ display:grid; grid-template-columns:1fr 1fr; gap:1rem 1.6rem; margin-bottom:1.4rem; }
+.dim-top{ display:flex; justify-content:space-between; font-size:.88rem; }
+.dim-name{ font-weight:600; }
+.dim-score{ color:var(--ink-soft); }
+.dim-bar{ height:4px; background:var(--paper); border-radius:99px; margin:.35rem 0; overflow:hidden; }
+.dim-fill{ height:100%; background:var(--ink); }
+.dim-note{ font-size:.8rem; color:var(--ink-soft); line-height:1.4; }
+.analysis-cols{ display:grid; grid-template-columns:1fr 1fr; gap:1.6rem; margin-bottom:1.2rem; }
+.an-strong{ color:var(--good); margin-bottom:.5rem; font-size:.95rem; }
+.an-improve{ color:var(--warn); margin-bottom:.5rem; font-size:.95rem; }
+.an-col ul{ list-style:none; display:flex; flex-direction:column; gap:.4rem; }
+.an-col li{ font-size:.84rem; padding-left:1.1rem; position:relative; line-height:1.45; }
+.an-col li::before{ content:"›"; position:absolute; left:0; color:var(--ink-soft); }
+.an-missing h4{ margin-bottom:.5rem; font-size:.95rem; }
+.missing-chips{ display:flex; flex-wrap:wrap; gap:.4rem; }
+.missing-chips span{ font-size:.72rem; padding:.28rem .55rem; border:1px solid var(--warn); color:var(--warn); border-radius:99px; }
 
-/* black "no-signal" flash, then green scanline glow that lingers */
-html.crt-boot body::after{
-  content:""; position:fixed; inset:0; z-index:999; pointer-events:none;
-  background:
-    linear-gradient(rgba(57,211,83,.18), transparent 45%),
-    repeating-linear-gradient(rgba(0,0,0,.18) 0 2px, transparent 2px 4px);
-  animation:crt-glow .85s ease-out forwards;
-}
-@keyframes crt-glow{
-  0%   { opacity:1; background-color:#000; }
-  12%  { opacity:1; background-color:#000; }
-  13%  { background-color:transparent; }
-  100% { opacity:0; background-color:transparent; }
-}
+/* terminal loader styling (base supports the terminal look; bars hidden in terminal) */
+.loader{ text-align:center; }
+.loader::before{ content:""; }
+html[data-theme="terminal"] .loader{ text-align:left; background:var(--paper-2); border:1px solid var(--line); border-radius:6px; padding:1.4rem 1.8rem; min-width:340px; }
+html[data-theme="terminal"] .loader .bars{ display:none; }
+html[data-theme="terminal"] .loader::before{ content:"$ tailorback --run"; display:block; color:var(--accent); font-size:.85rem; margin-bottom:.8rem; }
+#loaderText .log-line{ font-size:.9rem; line-height:1.7; }
+#loaderText .log-done{ color:var(--ink-soft); }
+#loaderText .log-done::before{ content:"\2713  "; color:var(--good); }
+#loaderText .log-active::before{ content:"> "; color:var(--accent); }
+#loaderText .log-active::after{ content:"\258C"; margin-left:2px; animation:blink 1s steps(1) infinite; }
+html[data-theme="terminal"] .log-active{ color:var(--ink); }
+html[data-theme="terminal"] .log-active::before, html[data-theme="terminal"] .log-active::after{ color:var(--accent); }
+@keyframes blink{ 50%{ opacity:0; } }
+
+@media (max-width:640px){ .dimensions, .analysis-cols{ grid-template-columns:1fr; } }
