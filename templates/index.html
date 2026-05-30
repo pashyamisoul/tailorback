@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tailorback — ATS Resume &amp; Cover Letter Builder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Spline+Sans+Mono:wght@400;500&family=Newsreader:ital@0;1&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <div class="grain"></div>
+
+  <header class="masthead">
+    <div class="mark">T<span>.</span></div>
+    <nav>
+      <span class="kicker">ATS&#8202;/&#8202;Tailoring Engine</span>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>Tailor<span class="ink">back</span></h1>
+      <p class="lede">
+        Feed it the job and your CV. It reshapes your <em>real</em> experience into an
+        ATS-clean resume and a matching cover letter — and tells you honestly where
+        you fall short, instead of making things up.
+      </p>
+    </section>
+
+    <form id="builder" class="builder">
+      <!-- STEP 1 — JOB -->
+      <fieldset class="panel">
+        <legend><span class="num">01</span> The Job</legend>
+
+        <div class="toggle" data-group="jd">
+          <button type="button" class="seg active" data-mode="paste">Paste description</button>
+          <button type="button" class="seg" data-mode="link">Use a job link</button>
+        </div>
+
+        <div class="mode jd-paste">
+          <textarea name="jd_text" rows="8"
+            placeholder="Paste the full job description here…"></textarea>
+        </div>
+
+        <div class="mode jd-link hidden">
+          <input type="url" name="jd_url"
+            placeholder="https://… LinkedIn, Indeed, or a company careers page" />
+          <p class="hint">
+            Company career portals (Greenhouse, Lever, Ashby) read reliably.
+            LinkedIn &amp; Indeed often block automated reading — if so, you'll be
+            asked to paste instead.
+          </p>
+        </div>
+      </fieldset>
+
+      <!-- STEP 2 — CV -->
+      <fieldset class="panel">
+        <legend><span class="num">02</span> Your CV</legend>
+
+        <div class="toggle" data-group="cv">
+          <button type="button" class="seg active" data-mode="upload">Upload file</button>
+          <button type="button" class="seg" data-mode="paste">Paste text</button>
+        </div>
+
+        <div class="mode cv-upload">
+          <label class="dropzone" id="dropzone">
+            <input type="file" name="cv_file" accept=".pdf,.docx,.doc" hidden />
+            <span class="dz-icon">↑</span>
+            <span class="dz-main">Drop your CV here or click to browse</span>
+            <span class="dz-sub">.pdf or .docx — max 8 MB</span>
+            <span class="dz-file" id="dzFile"></span>
+          </label>
+        </div>
+
+        <div class="mode cv-paste hidden">
+          <textarea name="cv_text" rows="8"
+            placeholder="Paste your full CV / resume text here…"></textarea>
+        </div>
+      </fieldset>
+
+      <button type="submit" class="go" id="go">
+        <span>Generate tailored documents</span>
+        <span class="arrow">→</span>
+      </button>
+      <p class="ethics">
+        Built to reframe, never to fabricate. Your file is parsed in memory and not stored.
+      </p>
+    </form>
+
+    <!-- RESULTS -->
+    <section id="results" class="results hidden">
+      <div class="result-head">
+        <h2>Your documents are ready</h2>
+        <div class="downloads">
+          <div class="dl-group">
+            <span class="dl-label">Resume</span>
+            <a id="dlResumeDocx" class="dl" href="#" download>DOCX</a>
+            <a id="dlResumePdf" class="dl dl-pdf" href="#" download>PDF</a>
+          </div>
+          <div class="dl-group">
+            <span class="dl-label">Cover letter</span>
+            <a id="dlCoverDocx" class="dl" href="#" download>DOCX</a>
+            <a id="dlCoverPdf" class="dl dl-pdf" href="#" download>PDF</a>
+          </div>
+        </div>
+      </div>
+<div class="analysis-panel" id="analysisPanel">
+        <div class="analysis-head">
+          <div>
+            <span class="analysis-kicker">Your uploaded resume, scored against this job</span>
+            <h3 id="anVerdict">—</h3>
+          </div>
+          <div class="score-badge">
+            <span id="anScore">—</span><span class="score-max">/100</span>
+          </div>
+        </div>
+        <div class="score-bar"><div id="anScoreFill" class="score-fill"></div></div>
+        <div class="dimensions" id="anDimensions"></div>
+        <div class="analysis-cols">
+          <div class="an-col">
+            <h4 class="an-strong">Strengths</h4>
+            <ul id="anStrengths"></ul>
+          </div>
+          <div class="an-col">
+            <h4 class="an-improve">What to fix</h4>
+            <ul id="anImprovements"></ul>
+          </div>
+        </div>
+        <div class="an-missing">
+          <h4>Missing keywords</h4>
+          <div id="anMissing" class="missing-chips"></div>
+        </div>
+      </div>
+      <div class="match-grid">
+        <div class="match-col covered">
+          <h3>Requirements you cover</h3>
+          <ul id="covered"></ul>
+        </div>
+        <div class="match-col missing">
+          <h3>Honest gaps</h3>
+          <p class="gap-note">The job asks for these; your CV doesn't evidence them.
+            We left them out rather than inventing them.</p>
+          <ul id="gaps"></ul>
+        </div>
+      </div>
+
+      <div class="preview-card">
+        <h3 id="pvName"></h3>
+        <p id="pvSummary" class="pv-summary"></p>
+        <div id="pvSkills" class="pv-skills"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="overlay" class="overlay hidden">
+    <div class="loader">
+      <div class="bars"><i></i><i></i><i></i><i></i></div>
+      <p id="loaderText">Reading the job…</p>
+    </div>
+  </div>
+
+  <footer>
+    <span>Tailorback</span>
+    <span class="dot">·</span>
+    <span>reframes real experience — no fabrication</span>
+  </footer>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
