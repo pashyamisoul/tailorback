@@ -154,7 +154,7 @@ function renderResults(data) {
   } else {
     panel.style.display = 'none';
   }
-  
+
   const covered = document.getElementById('covered');
   const gaps = document.getElementById('gaps');
   covered.innerHTML = ''; gaps.innerHTML = '';
@@ -174,3 +174,18 @@ function renderResults(data) {
   results.classList.remove('hidden');
   results.scrollIntoView({ behavior: 'smooth' });
 }
+// Download dropdown: open on click, close when clicking elsewhere.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.dl-btn');
+  const openMenus = document.querySelectorAll('.dl-menu.open');
+  if (btn) {
+    const menu = btn.closest('.dl-menu');
+    const wasOpen = menu.classList.contains('open');
+    openMenus.forEach(m => m.classList.remove('open'));
+    if (!wasOpen) menu.classList.add('open');
+    e.stopPropagation();
+    return;
+  }
+  // Clicked a download link or anywhere else: close all.
+  openMenus.forEach(m => m.classList.remove('open'));
+});

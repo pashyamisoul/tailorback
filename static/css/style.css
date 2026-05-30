@@ -274,3 +274,25 @@ footer {
   border: 1px solid var(--warn); color: var(--warn); border-radius: 99px;
 }
 @media (max-width: 640px) { .dimensions, .analysis-cols { grid-template-columns: 1fr; } }
+.dl-menu { position: relative; display: inline-block; margin-right: .8rem; }
+.dl-btn {
+  font-family: "Spline Sans Mono", monospace; font-size: .82rem;
+  color: var(--paper); background: var(--accent); border: none; cursor: pointer;
+  padding: .7rem 1.1rem; border-radius: var(--radius); transition: .18s;
+  display: inline-flex; align-items: center; gap: .5rem;
+}
+.dl-btn:hover { background: var(--accent-deep); }
+.dl-caret { font-size: .7rem; opacity: .8; }
+.dl-options {
+  position: absolute; top: calc(100% + 4px); left: 0; min-width: 100%;
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 6px 20px rgba(0,0,0,.12); overflow: hidden; z-index: 50;
+  opacity: 0; visibility: hidden; transform: translateY(-4px); transition: .15s;
+}
+.dl-menu:hover .dl-options,
+.dl-menu.open .dl-options { opacity: 1; visibility: visible; transform: translateY(0); }
+.dl-options a {
+  display: block; padding: .6rem 1rem; font-family: "Spline Sans Mono", monospace;
+  font-size: .8rem; color: var(--ink); text-decoration: none; white-space: nowrap;
+}
+.dl-options a:hover { background: var(--paper-2); color: var(--accent); }
