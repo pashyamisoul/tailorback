@@ -112,8 +112,25 @@ def generate():
 
     job_id = uuid.uuid4().hex[:10]
     resume = result.get("resume", {})
-    resume_path = os.path.join(GENERATED, f"resume_{job_id}.docx")
-    cover_path = os.path.join(GENERATED, f"cover_{job_id}.docx")
+
+    def _slug(*parts):
+        import re
+        out = []
+        for p in parts:
+            if not p:
+                continue
+            s = re.sub(r"[^A-Za-z0-9]+", "-", str(p)).strip("-")
+            if s:
+                out.append(s)
+        return "-".join(out)
+
+    _job = result.get("job", {}) or {}
+    _full = (resume.get("name", "") or "").strip()
+    _last = _full.split()[-1] if _full else ""
+    _stem = _slug(_last, _job.get("company")) or "tailorback"
+    # disk name = <id>__<clean-stem>-<type>.docx ; route serves the part after __
+    resume_path = os.path.join(GENERATED, f"{job_id}__{_stem}_resume.docx")
+    cover_path = os.path.join(GENERATED, f"{job_id}__{_stem}_coverletter.docx")
     docx_builder.build_resume(resume, resume_path)
     _c = resume.get("contact", {}) or {}
     _contact_line = "   •   ".join(
@@ -148,7 +165,10 @@ def generate():
 
 @app.route("/download/<path:fname>")
 def download(fname):
-    return send_from_directory(GENERATED, fname, as_attachment=True)
+    # disk name is "<job_id>__<clean>.ext"; download as the clean part only
+    clean = fname.split("__", 1)[1] if "__" in fname else fname
+    return send_from_directory(GENERATED, fname, as_attachment=True,
+                               download_name=clean)
 
 
 if __name__ == "__main__":
