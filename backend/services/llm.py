@@ -24,9 +24,10 @@ def _key() -> str:
     return k
 
 
+
 import time
 
-def _json_call(system: str, user: str, max_retries: int = 4) -> dict:
+def _json_call(system: str, user: str, max_retries: int = 5) -> dict:
     body = {
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": [{"text": user}]}],
@@ -35,18 +36,20 @@ def _json_call(system: str, user: str, max_retries: int = 4) -> dict:
             "responseMimeType": "application/json",
         },
     }
-    last_err = None
     for attempt in range(max_retries):
-        resp = httpx.post(ENDPOINT, params={"key": _key()}, json=body, timeout=90)
-        if resp.status_code == 429:
-            # Rate limited. Wait and retry — the limit is per-minute and clears fast.
-            wait = 5 * (attempt + 1)
-            last_err = "rate limit"
-            time.sleep(wait)
+        try:
+            resp = httpx.post(ENDPOINT, params={"key": _key()}, json=body, timeout=120)
+        except httpx.RequestError:
+            time.sleep(5 * (attempt + 1))
+            continue
+
+        if resp.status_code in (429, 500, 502, 503):
+            time.sleep(5 * (attempt + 1))
             continue
         if resp.status_code == 400:
             raise RuntimeError("Gemini rejected the request (check your API key).")
         resp.raise_for_status()
+
         data = resp.json()
         try:
             text = data["candidates"][0]["content"]["parts"][0]["text"]
@@ -56,8 +59,10 @@ def _json_call(system: str, user: str, max_retries: int = 4) -> dict:
         if raw.startswith("```"):
             raw = raw.split("```", 2)[1].lstrip("json").strip()
         return json.loads(raw)
-    raise RuntimeError("Gemini rate limit persisted after several retries. "
-                       "Wait a minute and try again.")
+
+    raise RuntimeError(
+        "Gemini is busy or rate-limited right now (kept returning errors after "
+        "several retries). Wait a minute and try again.")
 
 
 def analyse_jd(jd_text: str) -> dict:
