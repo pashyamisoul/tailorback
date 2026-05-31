@@ -87,10 +87,18 @@
         </div>
       </fieldset>
 
+      {% if user_email %}
       <button type="submit" class="go" id="go">
         <span>Generate tailored documents</span>
         <span class="arrow">→</span>
       </button>
+      {% else %}
+      <p class="signin-note">Free for your first 5 — sign in to generate.</p>
+      <a href="/auth/google" class="go" id="go">
+        <span>Sign in with Google to generate</span>
+        <span class="arrow">→</span>
+      </a>
+      {% endif %}
       <p class="ethics">
         Built to reframe, never to fabricate. Your file is parsed in memory and not stored.
       </p>
