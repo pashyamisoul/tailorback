@@ -396,15 +396,16 @@ html[data-theme="terminal"] #themeToggle{ font-family:"JetBrains Mono",monospace
 .loader{ text-align:center; }
 .loader::before{ content:""; }
 html[data-theme="terminal"] .loader{ text-align:left; background:var(--paper-2); border:1px solid var(--line); border-radius:6px; padding:1.4rem 1.8rem; min-width:340px; }
-html[data-theme="terminal"] .loader .bars{ display:none; }
 html[data-theme="terminal"] .loader::before{ content:"$ tailorback --run"; display:block; color:var(--accent); font-size:.85rem; margin-bottom:.8rem; }
-#loaderText .log-line{ font-size:.9rem; line-height:1.7; }
+#loaderText{ display:inline-block; text-align:left; }
+#loaderText .log-line{ font-size:.92rem; line-height:2; display:flex; align-items:center; gap:.5rem; color:var(--ink); }
+#loaderText .log-wait{ color:var(--ink-soft); opacity:.45; }
 #loaderText .log-done{ color:var(--ink-soft); }
-#loaderText .log-done::before{ content:"\2713  "; color:var(--good); }
-#loaderText .log-active::before{ content:"> "; color:var(--accent); }
-#loaderText .log-active::after{ content:"\258C"; margin-left:2px; animation:blink 1s steps(1) infinite; }
-html[data-theme="terminal"] .log-active{ color:var(--ink); }
-html[data-theme="terminal"] .log-active::before, html[data-theme="terminal"] .log-active::after{ color:var(--accent); }
+.mk{ width:1.1em; display:inline-flex; justify-content:center; flex:0 0 auto; }
+.log-done .mk::before{ content:"\2713"; color:var(--good); font-weight:700; }
+.log-wait .mk::before{ content:"\2022"; color:var(--ink-soft); }
+.log-active .mk{ width:13px; height:13px; border:2px solid var(--line); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
+@keyframes spin{ to{ transform:rotate(360deg); } }
 @keyframes blink{ 50%{ opacity:0; } }
 
 @media (max-width:640px){ .dimensions, .analysis-cols{ grid-template-columns:1fr; } }

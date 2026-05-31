@@ -34,7 +34,7 @@ def _claude_key() -> str:
 
 import time
 
-def _json_call(system: str, user: str, max_retries: int = 5) -> dict:
+def _json_call(system: str, user: str, max_retries: int = 2) -> dict:
     body = {
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": [{"text": user}]}],
@@ -47,11 +47,11 @@ def _json_call(system: str, user: str, max_retries: int = 5) -> dict:
         try:
             resp = httpx.post(ENDPOINT, params={"key": _key()}, json=body, timeout=120)
         except httpx.RequestError:
-            time.sleep(5 * (attempt + 1))
+            time.sleep(2 * (attempt + 1))
             continue
 
         if resp.status_code in (429, 500, 502, 503):
-            time.sleep(5 * (attempt + 1))
+            time.sleep(2 * (attempt + 1))
             continue
         if resp.status_code != 200:
             break  # any other Gemini error -> stop retrying, fall back to Claude
@@ -63,7 +63,22 @@ def _json_call(system: str, user: str, max_retries: int = 5) -> dict:
         raw = text.strip()
         if raw.startswith("```"):
             raw = raw.split("```", 2)[1].lstrip("json").strip()
-        return json.loads(raw)
+        # Claude sometimes appends text after the JSON ("Extra data" error).
+        # Extract just the first complete {...} object.
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            start = raw.find("{")
+            if start != -1:
+                depth = 0
+                for idx in range(start, len(raw)):
+                    if raw[idx] == "{":
+                        depth += 1
+                    elif raw[idx] == "}":
+                        depth -= 1
+                        if depth == 0:
+                            return json.loads(raw[start:idx + 1])
+            raise
     # Gemini exhausted its retries — fall back to Claude (paid).
     return _claude_call(system, user)
 
@@ -100,7 +115,20 @@ def _claude_call(system: str, user: str, max_retries: int = 3) -> dict:
         raw = text.strip()
         if raw.startswith("```"):
             raw = raw.split("```", 2)[1].lstrip("json").strip()
-        return json.loads(raw)
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            start = raw.find("{")
+            if start != -1:
+                depth = 0
+                for idx in range(start, len(raw)):
+                    if raw[idx] == "{":
+                        depth += 1
+                    elif raw[idx] == "}":
+                        depth -= 1
+                        if depth == 0:
+                            return json.loads(raw[start:idx + 1])
+            raise
     raise RuntimeError(
         "Both Gemini and Claude are unavailable right now. Please try again shortly.")
 

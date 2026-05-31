@@ -50,35 +50,37 @@ function toast(msg, warn = false) {
 const overlay = document.getElementById('overlay');
 const loaderText = document.getElementById('loaderText');
 const steps = [
-  'parsing job description',
-  'reading your CV',
-  'cross-referencing requirements',
-  'reframing your experience (no fabrication)',
-  'drafting your cover letter',
-  'scoring against the role',
+  'Parsing the job description',
+  'Comparing your CV against the role and calculating the score',
+  'Writing your resume & cover letter',
 ];
 let stepTimer;
 function startLoader() {
   overlay.classList.remove('hidden');
-  loaderText.innerHTML = '';
+  // render all 3 lines: first active (spinner), rest waiting
+  loaderText.innerHTML = steps.map((s, idx) =>
+    `<div class="log-line ${idx === 0 ? 'log-active' : 'log-wait'}"><span class="mk"></span>${s}</div>`
+  ).join('');
   let i = 0;
-  const advance = () => {
-    loaderText.querySelectorAll('.log-active').forEach(el => {
-      el.classList.remove('log-active');
-      el.classList.add('log-done');
-    });
-    if (i < steps.length) {
-      const line = document.createElement('div');
-      line.className = 'log-line log-active';
-      line.textContent = steps[i];
-      loaderText.appendChild(line);
-      i++;
+  stepTimer = setInterval(() => {
+    const els = loaderText.querySelectorAll('.log-line');
+    if (i < els.length) {
+      els[i].classList.remove('log-active');
+      els[i].classList.add('log-done');
+    }
+    i++;
+    if (i < els.length) {
+      els[i].classList.remove('log-wait');
+      els[i].classList.add('log-active');
     } else {
       clearInterval(stepTimer);
+      // hold the last line spinning until the result lands
+      if (els.length) {
+        els[els.length - 1].classList.remove('log-done');
+        els[els.length - 1].classList.add('log-active');
+      }
     }
-  };
-  advance();
-  stepTimer = setInterval(advance, 1600);
+  }, 2000);
 }
 function stopLoader() { overlay.classList.add('hidden'); clearInterval(stepTimer); }
 
