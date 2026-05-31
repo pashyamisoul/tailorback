@@ -7,3 +7,5 @@ generated/*
 !uploads/.gitkeep
 !generated/.gitkeep
 .DS_Store
+tailorback.db
+*.backup

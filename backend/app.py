@@ -21,6 +21,12 @@ import threading
 import queue as _queue
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from dotenv import load_dotenv
+from datetime import datetime
+from flask_sqlalchemy import SQLAlchemy
+from authlib.integrations.flask_client import OAuth
+from flask import session, redirect, url_for
+from authlib.integrations.flask_client import OAuth
+from flask import session, redirect, url_for
 
 from services import cv_parser, jd_source, llm, docx_builder
 
@@ -40,10 +46,71 @@ app = Flask(__name__,
             static_folder=os.path.join(BASE, "static"))
 app.config["MAX_CONTENT_LENGTH"] = MAX_BYTES
 
+# --- Database (SQLite for local dev; swap DATABASE_URL for Postgres on deploy) ---
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
+    "DATABASE_URL", "sqlite:///" + os.path.join(BASE, "tailorback.db"))
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+db = SQLAlchemy(app)
+
+# --- Session secret (required for OAuth login state) ---
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-only-change-me")
+
+# --- OAuth (Google) ---
+oauth = OAuth(app)
+oauth.register(
+    name="google",
+    client_id=os.environ.get("GOOGLE_CLIENT_ID"),
+    client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    client_kwargs={"scope": "openid email profile"},
+)
+
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True, nullable=False)
+    provider = db.Column(db.String(32), nullable=False)
+    provider_id = db.Column(db.String(255), nullable=False)
+    generations_used = db.Column(db.Integer, default=0, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+with app.app_context():
+    db.create_all()
+
 
 @app.route("/")
 def index():
     return render_template("index.html")
+
+@app.route("/auth/google")
+def auth_google():
+    redirect_uri = url_for("auth_google_callback", _external=True)
+    return oauth.google.authorize_redirect(redirect_uri)
+
+
+@app.route("/auth/google/callback")
+def auth_google_callback():
+    token = oauth.google.authorize_access_token()
+    info = token.get("userinfo") or {}
+    email = info.get("email")
+    sub = info.get("sub")
+    if not email:
+        return "Login failed: no email returned.", 400
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        user = User(email=email, provider="google", provider_id=sub or "")
+        db.session.add(user)
+        db.session.commit()
+    session["user_id"] = user.id
+    session["email"] = user.email
+    return redirect(url_for("index"))
+
+
+@app.route("/auth/logout")
+def auth_logout():
+    session.clear()
+    return redirect(url_for("index"))
 
 
 def _resolve_jd(form):
