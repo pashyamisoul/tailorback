@@ -15,6 +15,10 @@ needs_paste signal so the frontend can prompt for paste.
 """
 import os
 import uuid
+from flask import Flask, request, jsonify, render_template, send_from_directory, Response, stream_with_context
+import json as _json
+import threading
+import queue as _queue
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from dotenv import load_dotenv
 
@@ -84,7 +88,6 @@ def _resolve_cv(form, files):
 def generate():
     jd_text, jd_err = _resolve_jd(request.form)
     cv_text, cv_err = _resolve_cv(request.form, request.files)
-
     if jd_err == "jd":
         return jsonify({"status": "needs_paste", "field": "jd",
                         "message": "We couldn't read that job link. Please paste the job description."}), 200
@@ -97,70 +100,100 @@ def generate():
         return jsonify({"status": "error", "message": "Upload a .pdf or .docx file."}), 400
     if cv_err == "cv_missing":
         return jsonify({"status": "error", "message": "Upload or paste your CV."}), 400
-
     if not os.environ.get("GEMINI_API_KEY"):
         return jsonify({"status": "error",
                         "message": "Server missing GEMINI_API_KEY. Get a free key at "
                                    "https://aistudio.google.com/apikey"}), 500
 
-    try:
-        result = llm.generate_all(cv_text, jd_text)
+    def event_stream():
+        q = _queue.Queue()
+
+        def on_status(stage):
+            q.put({"type": "status", "stage": stage})
+
+        holder = {}
+
+        def worker():
+            try:
+                holder["result"] = llm.generate_all(cv_text, jd_text, on_status=on_status)
+            except Exception as e:
+                holder["error"] = str(e)
+            finally:
+                q.put({"type": "_done"})
+
+        t = threading.Thread(target=worker)
+        t.start()
+
+        # stream live status events until the worker finishes
+        while True:
+            msg = q.get()
+            if msg.get("type") == "_done":
+                break
+            yield f"data: {_json.dumps(msg)}\n\n"
+        t.join()
+
+        if "error" in holder:
+            yield f"data: {_json.dumps({'type': 'error', 'message': 'Generation failed: ' + holder['error']})}\n\n"
+            return
+
+        result = holder["result"]
         analysis = result.get("analysis", {})
-    except Exception as e:
-        return jsonify({"status": "error",
-                        "message": f"Generation failed: {e}"}), 500
+        job_id = uuid.uuid4().hex[:10]
+        resume = result.get("resume", {})
 
-    job_id = uuid.uuid4().hex[:10]
-    resume = result.get("resume", {})
+        def _slug(*parts):
+            import re
+            out = []
+            for p in parts:
+                if not p:
+                    continue
+                s = re.sub(r"[^A-Za-z0-9]+", "-", str(p)).strip("-")
+                if s:
+                    out.append(s)
+            return "-".join(out)
 
-    def _slug(*parts):
-        import re
-        out = []
-        for p in parts:
-            if not p:
-                continue
-            s = re.sub(r"[^A-Za-z0-9]+", "-", str(p)).strip("-")
-            if s:
-                out.append(s)
-        return "-".join(out)
+        _job = result.get("job", {}) or {}
+        _full = (resume.get("name", "") or "").strip()
+        _last = _full.split()[-1] if _full else ""
+        _stem = _slug(_last, _job.get("company")) or "tailorback"
+        resume_path = os.path.join(GENERATED, f"{job_id}__{_stem}_resume.docx")
+        cover_path = os.path.join(GENERATED, f"{job_id}__{_stem}_coverletter.docx")
+        docx_builder.build_resume(resume, resume_path)
+        _c = resume.get("contact", {}) or {}
+        _contact_line = "   •   ".join(
+            x for x in (_c.get("email"), _c.get("phone"), _c.get("location")) if x)
+        docx_builder.build_cover_letter(
+            result.get("cover_letter", {}), resume.get("name", ""), cover_path,
+            contact_line=_contact_line, links=_c.get("links") or [])
+        resume_pdf = docx_builder.to_pdf(resume_path)
+        cover_pdf = docx_builder.to_pdf(cover_path)
 
-    _job = result.get("job", {}) or {}
-    _full = (resume.get("name", "") or "").strip()
-    _last = _full.split()[-1] if _full else ""
-    _stem = _slug(_last, _job.get("company")) or "tailorback"
-    # disk name = <id>__<clean-stem>-<type>.docx ; route serves the part after __
-    resume_path = os.path.join(GENERATED, f"{job_id}__{_stem}_resume.docx")
-    cover_path = os.path.join(GENERATED, f"{job_id}__{_stem}_coverletter.docx")
-    docx_builder.build_resume(resume, resume_path)
-    _c = resume.get("contact", {}) or {}
-    _contact_line = "   •   ".join(
-        x for x in (_c.get("email"), _c.get("phone"), _c.get("location")) if x)
-    docx_builder.build_cover_letter(
-        result.get("cover_letter", {}), resume.get("name", ""), cover_path,
-        contact_line=_contact_line, links=_c.get("links") or [])
+        def _url(path):
+            return f"/download/{os.path.basename(path)}" if path else None
 
-    # Also produce PDFs (falls back to None if LibreOffice isn't installed).
-    resume_pdf = docx_builder.to_pdf(resume_path)
-    cover_pdf = docx_builder.to_pdf(cover_path)
+        payload = {
+            "type": "done",
+            "result": {
+                "status": "ok",
+                "resume_docx_url": _url(resume_path),
+                "cover_docx_url": _url(cover_path),
+                "resume_pdf_url": _url(resume_pdf),
+                "cover_pdf_url": _url(cover_pdf),
+                "gaps": result.get("gaps", []),
+                "match": result.get("match_summary", {}),
+                "analysis": analysis,
+                "preview": {
+                    "name": resume.get("name", ""),
+                    "summary": resume.get("summary", ""),
+                    "skills": resume.get("skills", []),
+                },
+            },
+        }
+        yield f"data: {_json.dumps(payload)}\n\n"
 
-    def _url(path):
-        return f"/download/{os.path.basename(path)}" if path else None
-
-    return jsonify({
-        "status": "ok",
-        "resume_docx_url": _url(resume_path),
-        "cover_docx_url": _url(cover_path),
-        "resume_pdf_url": _url(resume_pdf),
-        "cover_pdf_url": _url(cover_pdf),
-        "gaps": result.get("gaps", []),
-        "match": result.get("match_summary", {}),
-        "analysis": analysis,
-        "preview": {
-            "name": resume.get("name", ""),
-            "summary": resume.get("summary", ""),
-            "skills": resume.get("skills", []),
-        },
-    })
+    return Response(stream_with_context(event_stream()),
+                    mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @app.route("/download/<path:fname>")

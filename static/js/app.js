@@ -57,32 +57,40 @@ const steps = [
 let stepTimer;
 function startLoader() {
   overlay.classList.remove('hidden');
-  // render all 3 lines: first active (spinner), rest waiting
+  // line 0 = parsing, line 1 = comparing/model work, line 2 = writing
   loaderText.innerHTML = steps.map((s, idx) =>
     `<div class="log-line ${idx === 0 ? 'log-active' : 'log-wait'}"><span class="mk"></span>${s}</div>`
   ).join('');
-  let i = 0;
-  stepTimer = setInterval(() => {
-    const els = loaderText.querySelectorAll('.log-line');
-    if (i < els.length) {
-      els[i].classList.remove('log-active');
-      els[i].classList.add('log-done');
-    }
-    i++;
-    if (i < els.length) {
-      els[i].classList.remove('log-wait');
-      els[i].classList.add('log-active');
-    } else {
-      clearInterval(stepTimer);
-      // hold the last line spinning until the result lands
-      if (els.length) {
-        els[els.length - 1].classList.remove('log-done');
-        els[els.length - 1].classList.add('log-active');
-      }
-    }
-  }, 2000);
+  // Stage 0 holds briefly, then the real stream events drive the rest.
+  // A gentle timer only advances line 0 -> 1 so "parsing" doesn't feel stuck
+  // before the first backend event arrives.
+  let advanced = false;
+  stepTimer = setTimeout(() => { if (!advanced) setLoaderLine(1); }, 1500);
 }
-function stopLoader() { overlay.classList.add('hidden'); clearInterval(stepTimer); }
+function setLoaderLine(activeIdx, text) {
+  const els = loaderText.querySelectorAll('.log-line');
+  els.forEach((el, idx) => {
+    el.classList.remove('log-active', 'log-wait', 'log-done');
+    if (idx < activeIdx) el.classList.add('log-done');
+    else if (idx === activeIdx) el.classList.add('log-active');
+    else el.classList.add('log-wait');
+  });
+  if (text != null && els[activeIdx]) {
+    // replace the active line's text, keep its spinner marker
+    els[activeIdx].innerHTML = `<span class="mk"></span>${text}`;
+  }
+}
+function updateLoaderStage(stage) {
+  clearTimeout(stepTimer);
+  if (stage === 'trying_gemini') {
+    setLoaderLine(2, 'Trying Gemini…');
+  } else if (stage === 'switching_to_claude') {
+    setLoaderLine(2, 'Gemini unavailable — switching to Claude Opus…');
+  } else if (stage === 'generating_claude') {
+    setLoaderLine(2, 'Generating with Claude Opus…');
+  }
+}
+function stopLoader() { overlay.classList.add('hidden'); clearTimeout(stepTimer); }
 
 // ---- submit ----
 const form = document.getElementById('builder');
@@ -91,30 +99,59 @@ const go = document.getElementById('go');
 form.addEventListener('submit', async e => {
   e.preventDefault();
   const fd = new FormData(form);
-
-  // Light client-side guard so we don't post an empty job/CV.
   const hasJD = (fd.get('jd_text') || '').trim() || (fd.get('jd_url') || '').trim();
   const hasCV = (fd.get('cv_text') || '').trim() || (fileInput.files.length > 0);
   if (!hasJD) return toast('Add the job description or a job link first.', true);
   if (!hasCV) return toast('Upload or paste your CV first.', true);
-
   go.disabled = true; startLoader();
   try {
     const res = await fetch('/api/generate', { method: 'POST', body: fd });
-    const data = await res.json();
+    const ctype = res.headers.get('content-type') || '';
 
-    if (data.status === 'needs_paste') {
-      // Seamless fallback: flip to the paste box, focus it, explain.
-      if (data.field === 'jd') { setMode('jd', 'paste'); document.querySelector('[name=jd_text]').focus(); }
-      if (data.field === 'cv') { setMode('cv', 'paste'); document.querySelector('[name=cv_text]').focus(); }
-      toast(data.message, true);
+    // Validation errors come back as normal JSON (not a stream).
+    if (ctype.includes('application/json')) {
+      const data = await res.json();
+      if (data.status === 'needs_paste') {
+        if (data.field === 'jd') { setMode('jd', 'paste'); document.querySelector('[name=jd_text]').focus(); }
+        if (data.field === 'cv') { setMode('cv', 'paste'); document.querySelector('[name=cv_text]').focus(); }
+        toast(data.message, true);
+        return;
+      }
+      toast(data.message || 'Something went wrong.', true);
       return;
     }
-    if (data.status !== 'ok') { toast(data.message || 'Something went wrong.', true); return; }
 
-    renderResults(data);
-  } catch (err) {
-    toast('Network error — is the server running?', true);
+    // Otherwise it's a Server-Sent Event stream — read it live.
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let done = false;
+    while (!done) {
+      const { value, done: streamDone } = await reader.read();
+      if (streamDone) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop();  // keep the last incomplete chunk
+      for (const part of parts) {
+        const line = part.trim();
+        if (!line.startsWith('data:')) continue;
+        let msg;
+        try { msg = JSON.parse(line.slice(5).trim()); } catch { continue; }
+        if (msg.type === 'status') {
+          updateLoaderStage(msg.stage);
+        } else if (msg.type === 'error') {
+          toast(msg.message || 'Generation failed.', true);
+          done = true;
+        } else if (msg.type === 'done') {
+          renderResults(msg.result);
+          done = true;
+        }
+      }
+    }
+} catch (err) {
+    console.error('Generate error:', err);
+    console.error('Stack:', err && err.stack);
+    alert('REAL ERROR: ' + (err && err.message ? err.message : err) + '\n\n' + (err && err.stack ? err.stack : ''));
   } finally {
     go.disabled = false; stopLoader();
   }
@@ -147,7 +184,10 @@ function renderResults(data) {
 
     const dims = document.getElementById('anDimensions');
     dims.innerHTML = '';
+    const seenDims = new Set();
     (an.dimensions || []).forEach(d => {
+      if (seenDims.has(d.name)) return;   // skip duplicate dimension rows
+      seenDims.add(d.name);
       const row = document.createElement('div');
       row.className = 'dim-row';
       row.innerHTML =

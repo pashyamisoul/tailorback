@@ -8,6 +8,7 @@ the basic tier). Put it in .env as GEMINI_API_KEY=AIza...
 import json
 import os
 import httpx
+from json_repair import repair_json
 
 MODEL = "gemini-2.5-flash-lite"
 CLAUDE_MODEL = "claude-opus-4-8"
@@ -34,7 +35,12 @@ def _claude_key() -> str:
 
 import time
 
-def _json_call(system: str, user: str, max_retries: int = 2) -> dict:
+def _json_call(system: str, user: str, max_retries: int = 2, on_status=None) -> dict:
+    def _say(stage):
+        if on_status:
+            on_status(stage)
+    _say("trying_gemini")
+
     body = {
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": [{"text": user}]}],
@@ -68,22 +74,15 @@ def _json_call(system: str, user: str, max_retries: int = 2) -> dict:
         try:
             return json.loads(raw)
         except json.JSONDecodeError:
-            start = raw.find("{")
-            if start != -1:
-                depth = 0
-                for idx in range(start, len(raw)):
-                    if raw[idx] == "{":
-                        depth += 1
-                    elif raw[idx] == "}":
-                        depth -= 1
-                        if depth == 0:
-                            return json.loads(raw[start:idx + 1])
-            raise
+            return repair_json(raw, return_objects=True)
     # Gemini exhausted its retries — fall back to Claude (paid).
-    return _claude_call(system, user)
+    _say("switching_to_claude")
+    return _claude_call(system, user, on_status=on_status)
 
 
-def _claude_call(system: str, user: str, max_retries: int = 3) -> dict:
+def _claude_call(system: str, user: str, max_retries: int = 3, on_status=None) -> dict:
+    if on_status:
+        on_status("generating_claude")
     """Fallback engine: Claude Opus 4.8. Same JSON-in/JSON-out contract."""
     body = {
         "model": CLAUDE_MODEL,
@@ -118,17 +117,7 @@ def _claude_call(system: str, user: str, max_retries: int = 3) -> dict:
         try:
             return json.loads(raw)
         except json.JSONDecodeError:
-            start = raw.find("{")
-            if start != -1:
-                depth = 0
-                for idx in range(start, len(raw)):
-                    if raw[idx] == "{":
-                        depth += 1
-                    elif raw[idx] == "}":
-                        depth -= 1
-                        if depth == 0:
-                            return json.loads(raw[start:idx + 1])
-            raise
+            return repair_json(raw, return_objects=True)
     raise RuntimeError(
         "Both Gemini and Claude are unavailable right now. Please try again shortly.")
 
@@ -219,7 +208,7 @@ def analyse_resume(cv_text, requirements):
     )
     return _json_call(system, user)
 
-def generate_all(cv_text, jd_text):
+def generate_all(cv_text, jd_text, on_status=None):
     """ONE Gemini call that does everything: tailored resume + cover letter +
     gaps + match + critique of the uploaded resume. Replaces 4 separate calls."""
     system = (
@@ -276,4 +265,4 @@ def generate_all(cv_text, jd_text):
         "CANDIDATE'S CURRENT RESUME:\n\"\"\"\n" + cv_text + "\n\"\"\"\n\n"
         "Produce the full JSON now."
     )
-    return _json_call(system, user)
+    return _json_call(system, user, on_status=on_status)
