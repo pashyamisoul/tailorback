@@ -1,12 +1,24 @@
 // ---- popup login (keeps the form filled) ----
 window.addEventListener("message", (e) => {
-  if (e.data === "tailorback-login-success") {
+  if (e.data && e.data.type === "tailorback-login-success") {
     const note = document.querySelector(".signin-note");
     if (note) note.remove();
     const old = document.getElementById("go");
     if (old) {
       old.outerHTML =
         '<button type="submit" class="go" id="go"><span>Generate tailored documents</span><span class="arrow">→</span></button>';
+    }
+    const nav = document.querySelector("header.masthead nav");
+    if (nav && !nav.querySelector(".authlink")) {
+      const email = document.createElement("span");
+      email.className = "kicker";
+      email.textContent = e.data.email || "";
+      const out = document.createElement("a");
+      out.className = "authlink";
+      out.href = "/auth/logout";
+      out.textContent = "Sign out";
+      nav.appendChild(email);
+      nav.appendChild(out);
     }
   }
 });
@@ -299,4 +311,21 @@ document.addEventListener('click', (e) => {
       setTimeout(() => root.classList.remove('crt-boot'), 900);
     }
   });
+})();
+
+// ---- account dropdown ----
+(function () {
+  const btn = document.getElementById("accountBtn");
+  const menu = document.getElementById("accountMenu");
+  if (btn && menu) {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      menu.hidden = !menu.hidden;
+    });
+    document.addEventListener("click", (e) => {
+      if (!menu.hidden && !menu.contains(e.target) && e.target !== btn) {
+        menu.hidden = true;
+      }
+    });
+  }
 })();

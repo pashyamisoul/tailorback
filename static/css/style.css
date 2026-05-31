@@ -412,3 +412,40 @@ html[data-theme="terminal"] .loader::before{ content:"$ tailorback --run"; displ
 @keyframes blink{ 50%{ opacity:0; } }
 
 @media (max-width:640px){ .dimensions, .analysis-cols{ grid-template-columns:1fr; } }
+
+/* ---- account dropdown ---- */
+.account { position: relative; display: inline-flex; }
+.account-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: none; cursor: pointer; padding: 4px;
+}
+.avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--accent); color: var(--paper);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: "Fraunces", serif; font-weight: 600; font-size: 1rem;
+}
+.avatar-lg { width: 40px; height: 40px; font-size: 1.1rem; }
+.account-caret { color: var(--ink-soft); font-size: .8rem; }
+.account-menu {
+  position: absolute; top: calc(100% + 10px); right: 0; width: 260px;
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: var(--radius); overflow: hidden; z-index: 50;
+  box-shadow: 0 8px 28px rgba(0,0,0,.12);
+}
+.account-menu[hidden] { display: none; }
+.account-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; border-bottom: 1px solid var(--line);
+}
+.account-email { font-size: .85rem; color: var(--ink); word-break: break-all; }
+.account-credits { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.credits-row { display: flex; justify-content: space-between; font-size: .8rem; color: var(--ink-soft); margin-bottom: 6px; }
+.credits-count { font-weight: 600; color: var(--ink); }
+.credits-bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.credits-fill { height: 100%; background: var(--accent); }
+.account-signout {
+  display: block; padding: 12px 16px; font-size: .9rem;
+  color: var(--ink); text-decoration: none;
+}
+.account-signout:hover { background: var(--paper-2); }

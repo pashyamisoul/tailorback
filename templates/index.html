@@ -18,8 +18,28 @@
       <span class="kicker">ATS&#8202;/&#8202;Tailoring Engine</span>
       <button id="themeToggle">terminal mode</button>
       {% if user_email %}
-        <span class="kicker">{{ user_email }}</span>
-        <a class="authlink" href="/auth/logout">Sign out</a>
+      <div class="account" id="account">
+        <button type="button" class="account-btn" id="accountBtn" aria-label="Account menu">
+          <span class="avatar">{{ user_email[0]|upper }}</span>
+          <span class="account-caret">▾</span>
+        </button>
+        <div class="account-menu" id="accountMenu" hidden>
+          <div class="account-head">
+            <span class="avatar avatar-lg">{{ user_email[0]|upper }}</span>
+            <span class="account-email">{{ user_email }}</span>
+          </div>
+          <div class="account-credits">
+            <div class="credits-row">
+              <span>Free generations</span>
+              <span class="credits-count">{{ credits_remaining }} of {{ credits_limit }} left</span>
+            </div>
+            <div class="credits-bar">
+              <div class="credits-fill" style="width: {{ (credits_remaining / credits_limit * 100)|round|int }}%"></div>
+            </div>
+          </div>
+          <a class="account-signout" href="/auth/logout">Sign out</a>
+        </div>
+      </div>
       {% endif %}
     </nav>
   </header>

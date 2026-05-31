@@ -40,6 +40,7 @@ os.makedirs(GENERATED, exist_ok=True)
 
 ALLOWED = {".pdf", ".docx", ".doc"}
 MAX_BYTES = 8 * 1024 * 1024
+FREE_LIMIT = 5
 
 app = Flask(__name__,
             template_folder=os.path.join(BASE, "templates"),
@@ -81,7 +82,18 @@ with app.app_context():
 
 @app.route("/")
 def index():
-    return render_template("index.html", user_email=session.get("email"))
+    used = 0
+    uid = session.get("user_id")
+    if uid:
+        u = db.session.get(User, uid)
+        if u:
+            used = u.generations_used
+    remaining = max(0, FREE_LIMIT - used)
+    return render_template("index.html",
+                           user_email=session.get("email"),
+                           credits_used=used,
+                           credits_remaining=remaining,
+                           credits_limit=FREE_LIMIT)
 
 @app.route("/auth/google")
 def auth_google():
@@ -107,12 +119,13 @@ def auth_google_callback():
     session["user_id"] = user.id
     session["email"] = user.email
     if session.pop("login_popup", False):
+        safe_email = (email or "").replace('"', '').replace("<", "").replace(">", "")
         return """<!doctype html><meta charset="utf-8"><title>Signed in</title>
 <script>
-  if (window.opener) { window.opener.postMessage("tailorback-login-success", "*"); }
+  if (window.opener) {{ window.opener.postMessage({{type:"tailorback-login-success", email:"{}"}}, "*"); }}
   window.close();
 </script>
-<p>Signed in. You can close this window.</p>"""
+<p>Signed in. You can close this window.</p>""".format(safe_email)
     return redirect(url_for("index"))
 
 
@@ -158,9 +171,6 @@ def _resolve_cv(form, files):
             return text, None
         return "", "cv"   # signal: ask user to paste the CV
     return "", "cv_missing"
-
-
-FREE_LIMIT = 5
 
 
 @app.route("/api/generate", methods=["POST"])
