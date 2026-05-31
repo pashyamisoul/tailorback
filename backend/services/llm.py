@@ -10,6 +10,7 @@ import os
 import httpx
 
 MODEL = "gemini-2.5-flash-lite"
+CLAUDE_MODEL = "claude-opus-4-8"
 ENDPOINT = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
     f"{MODEL}:generateContent"
@@ -21,6 +22,12 @@ def _key() -> str:
     if not k:
         raise RuntimeError("GEMINI_API_KEY is not set. Get a free key at "
                            "https://aistudio.google.com/apikey")
+    return k
+
+def _claude_key() -> str:
+    k = os.environ.get("ANTHROPIC_API_KEY")
+    if not k:
+        raise RuntimeError("ANTHROPIC_API_KEY is not set.")
     return k
 
 
@@ -46,23 +53,56 @@ def _json_call(system: str, user: str, max_retries: int = 5) -> dict:
         if resp.status_code in (429, 500, 502, 503):
             time.sleep(5 * (attempt + 1))
             continue
-        if resp.status_code == 400:
-            raise RuntimeError("Gemini rejected the request (check your API key).")
-        resp.raise_for_status()
-
-        data = resp.json()
+        if resp.status_code != 200:
+            break  # any other Gemini error -> stop retrying, fall back to Claude
         try:
+            data = resp.json()
             text = data["candidates"][0]["content"]["parts"][0]["text"]
-        except (KeyError, IndexError):
-            raise RuntimeError(f"Unexpected Gemini response: {json.dumps(data)[:300]}")
+        except (KeyError, IndexError, ValueError):
+            break  # malformed Gemini response -> fall back to Claude∏
         raw = text.strip()
         if raw.startswith("```"):
             raw = raw.split("```", 2)[1].lstrip("json").strip()
         return json.loads(raw)
+    # Gemini exhausted its retries — fall back to Claude (paid).
+    return _claude_call(system, user)
 
+
+def _claude_call(system: str, user: str, max_retries: int = 3) -> dict:
+    """Fallback engine: Claude Opus 4.8. Same JSON-in/JSON-out contract."""
+    body = {
+        "model": CLAUDE_MODEL,
+        "max_tokens": 8000,
+        "system": system + "\n\nRespond with ONLY valid JSON, no markdown fences.",
+        "messages": [{"role": "user", "content": user}],
+    }
+    headers = {
+        "x-api-key": _claude_key(),
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    }
+    for attempt in range(max_retries):
+        try:
+            resp = httpx.post("https://api.anthropic.com/v1/messages",
+                              headers=headers, json=body, timeout=120)
+        except httpx.RequestError:
+            time.sleep(3 * (attempt + 1))
+            continue
+        if resp.status_code in (429, 500, 502, 503, 529):
+            time.sleep(3 * (attempt + 1))
+            continue
+        resp.raise_for_status()
+        data = resp.json()
+        try:
+            text = data["content"][0]["text"]
+        except (KeyError, IndexError):
+            raise RuntimeError(f"Unexpected Claude response: {json.dumps(data)[:300]}")
+        raw = text.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```", 2)[1].lstrip("json").strip()
+        return json.loads(raw)
     raise RuntimeError(
-        "Gemini is busy or rate-limited right now (kept returning errors after "
-        "several retries). Wait a minute and try again.")
+        "Both Gemini and Claude are unavailable right now. Please try again shortly.")
 
 
 def analyse_jd(jd_text: str) -> dict:
