@@ -85,6 +85,8 @@ def index():
 
 @app.route("/auth/google")
 def auth_google():
+    if request.args.get("popup"):
+        session["login_popup"] = True
     redirect_uri = url_for("auth_google_callback", _external=True)
     return oauth.google.authorize_redirect(redirect_uri)
 
@@ -104,6 +106,13 @@ def auth_google_callback():
         db.session.commit()
     session["user_id"] = user.id
     session["email"] = user.email
+    if session.pop("login_popup", False):
+        return """<!doctype html><meta charset="utf-8"><title>Signed in</title>
+<script>
+  if (window.opener) { window.opener.postMessage("tailorback-login-success", "*"); }
+  window.close();
+</script>
+<p>Signed in. You can close this window.</p>"""
     return redirect(url_for("index"))
 
 

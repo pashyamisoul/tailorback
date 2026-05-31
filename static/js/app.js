@@ -1,3 +1,23 @@
+// ---- popup login (keeps the form filled) ----
+window.addEventListener("message", (e) => {
+  if (e.data === "tailorback-login-success") {
+    const note = document.querySelector(".signin-note");
+    if (note) note.remove();
+    const old = document.getElementById("go");
+    if (old) {
+      old.outerHTML =
+        '<button type="submit" class="go" id="go"><span>Generate tailored documents</span><span class="arrow">→</span></button>';
+    }
+  }
+});
+
+function startPopupLogin() {
+  const w = 480, h = 640;
+  const left = window.screenX + (window.outerWidth - w) / 2;
+  const top = window.screenY + (window.outerHeight - h) / 2;
+  window.open("/auth/google?popup=1", "tailorback_login",
+    `width=${w},height=${h},left=${left},top=${top}`);
+}
 // ---- mode toggles ----
 document.querySelectorAll('.toggle').forEach(toggle => {
   const group = toggle.dataset.group;            // "jd" | "cv"
