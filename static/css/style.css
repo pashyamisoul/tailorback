@@ -140,11 +140,14 @@ textarea:focus, input[type="url"]:focus {
   font-family: "Fraunces", serif; font-weight: 600; font-size: 1.25rem;
   background: var(--ink); color: var(--paper); border: none; cursor: pointer;
   padding: 1rem 1.8rem; border-radius: var(--radius); transition: .2s;
+  text-decoration: none;
 }
 .go:hover { background: var(--accent); transform: translateY(-2px); }
 .go .arrow { transition: transform .2s; }
 .go:hover .arrow { transform: translateX(5px); }
 .go:disabled { opacity: .5; cursor: wait; }
+.go .gicon { vertical-align: middle; margin-right: 4px; }
+html[data-theme="terminal"] .go .gicon { display: none; }
 .ethics { font-size: .82rem; color: var(--ink-soft); font-style: italic; }
 
 /* ---------- results ---------- */
