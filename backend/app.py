@@ -81,7 +81,7 @@ with app.app_context():
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", user_email=session.get("email"))
 
 @app.route("/auth/google")
 def auth_google():
@@ -151,8 +151,22 @@ def _resolve_cv(form, files):
     return "", "cv_missing"
 
 
+FREE_LIMIT = 5
+
+
 @app.route("/api/generate", methods=["POST"])
 def generate():
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"status": "error",
+                        "message": "Please sign in with Google to generate."}), 401
+    current_user = db.session.get(User, user_id)
+    if not current_user:
+        return jsonify({"status": "error",
+                        "message": "Please sign in with Google to generate."}), 401
+    if current_user.generations_used >= FREE_LIMIT:
+        return jsonify({"status": "error",
+                        "message": "You've used all 5 free generations. Payment options coming soon."}), 402
     jd_text, jd_err = _resolve_jd(request.form)
     cv_text, cv_err = _resolve_cv(request.form, request.files)
     if jd_err == "jd":
@@ -204,6 +218,12 @@ def generate():
             return
 
         result = holder["result"]
+        # Count this successful generation against the user's free quota.
+        try:
+            current_user.generations_used += 1
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
         analysis = result.get("analysis", {})
         job_id = uuid.uuid4().hex[:10]
         resume = result.get("resume", {})

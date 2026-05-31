@@ -17,6 +17,12 @@
     <nav>
       <span class="kicker">ATS&#8202;/&#8202;Tailoring Engine</span>
       <button id="themeToggle">terminal mode</button>
+      {% if user_email %}
+        <span class="kicker">{{ user_email }}</span>
+        <a class="authlink" href="/auth/logout">Sign out</a>
+      {% else %}
+        <a class="authlink" href="/auth/google">Sign in with Google</a>
+      {% endif %}
     </nav>
   </header>
 
