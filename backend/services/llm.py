@@ -45,7 +45,7 @@ def _json_call(system: str, user: str, max_retries: int = 2, on_status=None) -> 
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": [{"text": user}]}],
         "generationConfig": {
-            "temperature": 0.3,
+            "temperature": 0,
             "responseMimeType": "application/json",
         },
     }

@@ -46,15 +46,34 @@
 
   <main>
     <section class="hero">
-      <h1>Tailor<span class="ink">back</span></h1>
-      <p class="lede">
-        Feed it the job and your CV. It reshapes your <em>real</em> experience into an
-        ATS-clean resume and a matching cover letter — and tells you honestly where
-        you fall short, instead of making things up.
-      </p>
+      <div>
+        <h1>Tailor<span class="ink">back</span></h1>
+        <p class="lede">
+          Feed it the job and your CV. It reshapes your <em>real</em> experience into an
+          ATS-clean resume and a matching cover letter — and tells you honestly where
+          you fall short, instead of making things up.
+        </p>
+      </div>
+      <ol class="journey" aria-label="Generation steps">
+        <li><span>01</span> Add job</li>
+        <li><span>02</span> Add CV</li>
+        <li><span>03</span> Review gaps</li>
+        <li><span>04</span> Download</li>
+      </ol>
     </section>
 
     <form id="builder" class="builder">
+      <div class="readiness" aria-label="Input readiness">
+        <div class="ready-item" id="jobReady">
+          <span class="ready-dot" aria-hidden="true"></span>
+          <span>Job needed</span>
+        </div>
+        <div class="ready-item" id="cvReady">
+          <span class="ready-dot" aria-hidden="true"></span>
+          <span>CV needed</span>
+        </div>
+      </div>
+
       <!-- STEP 1 — JOB -->
       <fieldset class="panel">
         <legend><span class="num">01</span> The Job</legend>
@@ -95,8 +114,11 @@
             <span class="dz-icon">↑</span>
             <span class="dz-main">Drop your CV here or click to browse</span>
             <span class="dz-sub">.pdf or .docx — max 8 MB</span>
-            <span class="dz-file" id="dzFile"></span>
           </label>
+          <div class="file-state hidden" id="fileState">
+            <span id="dzFile"></span>
+            <button type="button" id="clearFile" aria-label="Remove selected CV">Remove</button>
+          </div>
         </div>
 
         <div class="mode cv-paste hidden">
@@ -104,6 +126,13 @@
             placeholder="Paste your full CV / resume text here…"></textarea>
         </div>
       </fieldset>
+
+      <div class="deliverables" aria-label="Generated outputs">
+        <span>ATS resume</span>
+        <span>Cover letter</span>
+        <span>Match score</span>
+        <span>Gap list</span>
+      </div>
 
       {% if user_email %}
       <button type="submit" class="go" id="go">
@@ -119,12 +148,13 @@
           <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.6 39.6 16.2 44 24 44z"/>
           <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C39.9 36 44 30.6 44 24c0-1.3-.1-2.3-.4-3.5z"/>
         </svg>
-        <span>Sign up — free for your first 5</span>
+        <span>Continue with Google</span>
         <span class="arrow">→</span>
       </a>
       {% endif %}
       <p class="ethics">
-        Built to reframe, never to fabricate. Your file is parsed in memory and not stored.
+        Built to reframe, never to fabricate. Uploaded source files are deleted after parsing;
+        generated documents stay available for download.
       </p>
     </form>
 

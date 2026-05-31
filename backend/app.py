@@ -28,7 +28,7 @@ from flask import session, redirect, url_for
 from authlib.integrations.flask_client import OAuth
 from flask import session, redirect, url_for
 
-from services import cv_parser, jd_source, llm, docx_builder
+from services import cv_parser, jd_source, llm, docx_builder, scoring
 
 load_dotenv()
 
@@ -80,6 +80,15 @@ with app.app_context():
     db.create_all()
 
 
+def _credits_payload(user):
+    used = user.generations_used if user else 0
+    return {
+        "credits_used": used,
+        "credits_remaining": max(0, FREE_LIMIT - used),
+        "credits_limit": FREE_LIMIT,
+    }
+
+
 @app.route("/")
 def index():
     used = 0
@@ -120,12 +129,18 @@ def auth_google_callback():
     session["email"] = user.email
     if session.pop("login_popup", False):
         safe_email = (email or "").replace('"', '').replace("<", "").replace(">", "")
+        remaining = max(0, FREE_LIMIT - user.generations_used)
         return """<!doctype html><meta charset="utf-8"><title>Signed in</title>
 <script>
-  if (window.opener) {{ window.opener.postMessage({{type:"tailorback-login-success", email:"{}"}}, "*"); }}
+  if (window.opener) {{ window.opener.postMessage({{
+    type:"tailorback-login-success",
+    email:"{}",
+    creditsRemaining:{},
+    creditsLimit:{}
+  }}, "*"); }}
   window.close();
 </script>
-<p>Signed in. You can close this window.</p>""".format(safe_email)
+<p>Signed in. You can close this window.</p>""".format(safe_email, remaining, FREE_LIMIT)
     return redirect(url_for("index"))
 
 
@@ -185,7 +200,8 @@ def generate():
                         "message": "Please sign in with Google to generate."}), 401
     if current_user.generations_used >= FREE_LIMIT:
         return jsonify({"status": "error",
-                        "message": "You've used all 5 free generations. Payment options coming soon."}), 402
+                        "message": "You've used all 5 free generations. Payment options coming soon.",
+                        **_credits_payload(current_user)}), 402
     jd_text, jd_err = _resolve_jd(request.form)
     cv_text, cv_err = _resolve_cv(request.form, request.files)
     if jd_err == "jd":
@@ -243,7 +259,8 @@ def generate():
             db.session.commit()
         except Exception:
             db.session.rollback()
-        analysis = result.get("analysis", {})
+        credits = _credits_payload(current_user)
+        analysis = scoring.score_resume(cv_text, jd_text, result.get("analysis", {}))
         job_id = uuid.uuid4().hex[:10]
         resume = result.get("resume", {})
 
@@ -264,6 +281,7 @@ def generate():
         _stem = _slug(_last, _job.get("company")) or "tailorback"
         resume_path = os.path.join(GENERATED, f"{job_id}__{_stem}_resume.docx")
         cover_path = os.path.join(GENERATED, f"{job_id}__{_stem}_coverletter.docx")
+        on_status("building_documents")
         docx_builder.build_resume(resume, resume_path)
         _c = resume.get("contact", {}) or {}
         _contact_line = "   •   ".join(
@@ -271,8 +289,10 @@ def generate():
         docx_builder.build_cover_letter(
             result.get("cover_letter", {}), resume.get("name", ""), cover_path,
             contact_line=_contact_line, links=_c.get("links") or [])
-        resume_pdf = docx_builder.to_pdf(resume_path)
-        cover_pdf = docx_builder.to_pdf(cover_path)
+        on_status("converting_documents")
+        pdfs = docx_builder.to_pdfs([resume_path, cover_path])
+        resume_pdf = pdfs.get(resume_path)
+        cover_pdf = pdfs.get(cover_path)
 
         def _url(path):
             return f"/download/{os.path.basename(path)}" if path else None
@@ -288,6 +308,7 @@ def generate():
                 "gaps": result.get("gaps", []),
                 "match": result.get("match_summary", {}),
                 "analysis": analysis,
+                **credits,
                 "preview": {
                     "name": resume.get("name", ""),
                     "summary": resume.get("summary", ""),

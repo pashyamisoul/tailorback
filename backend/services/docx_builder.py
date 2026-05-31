@@ -129,18 +129,32 @@ import shutil, subprocess
 def to_pdf(docx_path):
     """Convert a .docx to .pdf via LibreOffice. Returns the pdf path, or None
     if LibreOffice isn't available / conversion fails (caller falls back to docx)."""
+    return to_pdfs([docx_path]).get(docx_path)
+
+
+def to_pdfs(docx_paths):
+    """Convert multiple .docx files in one LibreOffice run.
+
+    Starting LibreOffice is the slow part, so batching resume + cover letter
+    avoids paying that startup cost twice.
+    """
     soffice = shutil.which("soffice") or shutil.which("libreoffice")
     if not soffice:
         mac = "/Applications/LibreOffice.app/Contents/MacOS/soffice"
         soffice = mac if os.path.exists(mac) else None
     if not soffice:
-        return None
-    outdir = os.path.dirname(docx_path)
+        return {p: None for p in docx_paths}
+    if not docx_paths:
+        return {}
+    outdir = os.path.dirname(docx_paths[0])
     try:
         subprocess.run(
-            [soffice, "--headless", "--convert-to", "pdf", "--outdir", outdir, docx_path],
+            [soffice, "--headless", "--convert-to", "pdf", "--outdir", outdir, *docx_paths],
             check=True, capture_output=True, timeout=60)
     except Exception:
-        return None
-    pdf_path = os.path.splitext(docx_path)[0] + ".pdf"
-    return pdf_path if os.path.exists(pdf_path) else None
+        return {p: None for p in docx_paths}
+    out = {}
+    for docx_path in docx_paths:
+        pdf_path = os.path.splitext(docx_path)[0] + ".pdf"
+        out[docx_path] = pdf_path if os.path.exists(pdf_path) else None
+    return out
