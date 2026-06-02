@@ -2,13 +2,26 @@
 window.addEventListener("message", (e) => {
   if (e.origin !== window.location.origin) return;
   if (e.data && e.data.type === "tailorback-login-success") {
-    const note = document.querySelector(".signin-note");
-    if (note) note.remove();
-    const old = document.getElementById("go");
-    if (old) {
-      old.outerHTML =
-        '<button type="submit" class="go" id="go"><span>Generate tailored documents</span><span class="arrow">→</span></button>';
+    const gate = document.getElementById("authGate");
+    const quietMeta = document.querySelector(".quiet-meta");
+    if (gate) gate.remove();
+    if (!document.getElementById("go")) {
+      const submit = document.createElement("button");
+      submit.type = "submit";
+      submit.className = "go";
+      submit.id = "go";
+      submit.innerHTML = '<span>Generate tailored documents</span><span class="arrow">→</span>';
+      form.insertBefore(submit, quietMeta);
+      go = submit;
     }
+    document.querySelectorAll(".sign-in-pack[data-pack-id]").forEach(link => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "buy-pack";
+      btn.dataset.packId = link.dataset.packId;
+      btn.textContent = "Buy";
+      link.replaceWith(btn);
+    });
     const nav = document.querySelector("header.masthead nav");
     if (nav && !nav.querySelector(".account")) {
       const email = e.data.email || "";
@@ -221,7 +234,7 @@ function stopLoader() { overlay.classList.add('hidden'); clearTimeout(stepTimer)
 
 // ---- submit ----
 const form = document.getElementById('builder');
-const go = document.getElementById('go');
+let go = document.getElementById('go');
 const deleteDocsBtn = document.getElementById('deleteDocs');
 let currentJobId = null;
 
@@ -241,6 +254,7 @@ form.addEventListener('submit', async e => {
   const hasCV = (fd.get('cv_text') || '').trim() || (fileInput.files.length > 0);
   if (!hasJD) return toast('Add the job description or a job link first.', true);
   if (!hasCV) return toast('Upload or paste your CV first.', true);
+  if (!go) return toast('Sign in with Google before generation.', true);
   go.disabled = true; startLoader();
   try {
     const res = await fetch('/api/generate', { method: 'POST', body: fd });
@@ -426,31 +440,45 @@ deleteDocsBtn?.addEventListener('click', async () => {
   }
 });
 
-document.querySelectorAll('.buy-pack[data-pack-id]').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const packId = btn.dataset.packId;
-    btn.disabled = true;
-    const original = btn.textContent;
-    btn.textContent = 'Opening checkout...';
-    try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pack_id: packId }),
-      });
-      const data = await res.json();
-      if (!res.ok || data.status !== 'ok' || !data.checkout_url) {
-        throw new Error(data.message || 'Checkout failed');
-      }
-      window.location.href = data.checkout_url;
-    } catch (err) {
-      console.error('Checkout failed:', err);
-      btn.disabled = false;
-      btn.textContent = original;
-      toast(err.message || 'Checkout is not available yet.', true);
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.buy-pack[data-pack-id]:not(.sign-in-pack)');
+  if (!btn) return;
+  const packId = btn.dataset.packId;
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Opening...';
+  try {
+    const res = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pack_id: packId }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.status !== 'ok' || !data.checkout_url) {
+      throw new Error(data.message || 'Checkout failed');
     }
-  });
+    window.location.href = data.checkout_url;
+  } catch (err) {
+    console.error('Checkout failed:', err);
+    btn.disabled = false;
+    btn.textContent = original;
+    toast(err.message || 'Checkout is not available yet.', true);
+  }
 });
+
+// TailorBack Pro dropdown.
+const proTrigger = document.getElementById('proTrigger');
+const proPopover = document.getElementById('proPopover');
+if (proTrigger && proPopover) {
+  proTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    proPopover.hidden = !proPopover.hidden;
+  });
+  proPopover.addEventListener('click', (e) => e.stopPropagation());
+  document.addEventListener('click', () => {
+    proPopover.hidden = true;
+  });
+}
 // Download dropdown: open on click, close when clicking elsewhere.
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.dl-btn');
