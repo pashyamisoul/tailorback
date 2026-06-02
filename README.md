@@ -17,10 +17,10 @@ Browser (templates/index.html + static/js/app.js)
 Flask (backend/app.py)
         ├── services/jd_source.py     fetch + extract JD from a URL (graceful fallback)
         ├── services/cv_parser.py     extract text from pdf/docx (graceful fallback)
-        ├── services/llm.py           Anthropic calls: structure CV, analyse JD, tailor
+        ├── services/llm.py           Gemini generation with optional Claude fallback
         └── services/docx_builder.py  ATS-safe .docx for resume + cover letter
         ▼
-generated/*.docx  → returned as download links
+generated/*.docx  → owner-only download links that expire automatically
 ```
 
 ## Setup
@@ -30,9 +30,34 @@ cd ats-builder
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 playwright install chromium          # for JS-heavy job pages (optional but recommended)
-export ANTHROPIC_API_KEY=sk-ant-...  # required for tailoring
+export GEMINI_API_KEY=AIza...        # required for tailoring
+export ANTHROPIC_API_KEY=sk-ant-...  # optional fallback if Gemini is unavailable
+export FLASK_SECRET_KEY=change-me    # required for production sessions
+export FREE_GENERATION_LIMIT=2
+export STRIPE_SECRET_KEY=sk_test_...
+export STRIPE_WEBHOOK_SECRET=whsec_...
+export STRIPE_PRICE_STARTER=price_... # 10 generations
+export STRIPE_PRICE_HUNT=price_...    # 40 generations
+export STRIPE_PRICE_SPRINT=price_...  # 150 generations
 python backend/app.py                # http://localhost:5000
 ```
+
+Generated resume and cover-letter downloads are tied to the signed-in user,
+expire after `GENERATED_RETENTION_DAYS` days (default: 7), and can be deleted
+from the results screen after generation.
+
+## Monetization
+
+The app sells finite generation credits through Stripe Checkout:
+
+- Starter Pack: 10 generations
+- Job Hunt Pack: 40 generations
+- Application Sprint: 150 generations
+
+Create one-time Stripe Prices for each pack, put their Price IDs in the
+environment variables above, and point the Stripe webhook endpoint at
+`/stripe/webhook`. Credits are granted only after Stripe sends a signed
+`checkout.session.completed` event.
 
 ## Notes on job-link scraping
 

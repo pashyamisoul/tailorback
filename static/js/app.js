@@ -1,5 +1,6 @@
 // ---- popup login (keeps the form filled) ----
 window.addEventListener("message", (e) => {
+  if (e.origin !== window.location.origin) return;
   if (e.data && e.data.type === "tailorback-login-success") {
     const note = document.querySelector(".signin-note");
     if (note) note.remove();
@@ -28,9 +29,9 @@ window.addEventListener("message", (e) => {
             <span class="avatar avatar-lg">${initial}</span>
             <span class="account-email"></span>
           </div>
-          <div class="account-credits">
-            <div class="credits-row">
-              <span>Free generations</span>
+            <div class="account-credits">
+              <div class="credits-row">
+              <span>Generations</span>
               <span class="credits-count">${remaining} of ${limit} left</span>
             </div>
             <div class="credits-bar"><div class="credits-fill" style="width: ${pct}%"></div></div>
@@ -217,6 +218,17 @@ function stopLoader() { overlay.classList.add('hidden'); clearTimeout(stepTimer)
 // ---- submit ----
 const form = document.getElementById('builder');
 const go = document.getElementById('go');
+const deleteDocsBtn = document.getElementById('deleteDocs');
+let currentJobId = null;
+
+const checkoutState = new URLSearchParams(window.location.search).get('checkout');
+if (checkoutState === 'success') {
+  toast('Payment received. Your credits will appear once Stripe confirms the checkout.');
+  window.history.replaceState({}, document.title, window.location.pathname);
+} else if (checkoutState === 'cancelled') {
+  toast('Checkout cancelled. No credits were purchased.', true);
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
 
 form.addEventListener('submit', async e => {
   e.preventDefault();
@@ -273,8 +285,7 @@ form.addEventListener('submit', async e => {
     }
 } catch (err) {
     console.error('Generate error:', err);
-    console.error('Stack:', err && err.stack);
-    alert('REAL ERROR: ' + (err && err.message ? err.message : err) + '\n\n' + (err && err.stack ? err.stack : ''));
+    toast('The request failed before generation completed. Please try again.', true);
   } finally {
     go.disabled = false; stopLoader();
   }
@@ -283,6 +294,7 @@ form.addEventListener('submit', async e => {
 // ---- results ----
 function renderResults(data) {
   updateAccountCredits(data.credits_remaining, data.credits_limit);
+  currentJobId = data.job_id || null;
 // Wire up DOCX (always present) and PDF (may be null if LibreOffice missing).
   const setDl = (id, url) => {
     const el = document.getElementById(id);
@@ -293,6 +305,16 @@ function renderResults(data) {
   setDl('dlResumePdf', data.resume_pdf_url);
   setDl('dlCoverDocx', data.cover_docx_url);
   setDl('dlCoverPdf', data.cover_pdf_url);
+  if (deleteDocsBtn) {
+    deleteDocsBtn.classList.toggle('hidden', !currentJobId);
+    deleteDocsBtn.disabled = false;
+    deleteDocsBtn.textContent = 'Delete generated files';
+  }
+  const retention = document.getElementById('retentionNote');
+  if (retention) {
+    const days = Number.isFinite(data.expires_in_days) ? data.expires_in_days : 7;
+    retention.textContent = `Downloads are private to your signed-in account and expire in ${days} days.`;
+  }
 
   // --- Analysis panel ---
   const an = data.analysis || {};
@@ -364,6 +386,62 @@ function renderResults(data) {
   results.classList.remove('hidden');
   results.scrollIntoView({ behavior: 'smooth' });
 }
+
+deleteDocsBtn?.addEventListener('click', async () => {
+  if (!currentJobId) return;
+  deleteDocsBtn.disabled = true;
+  try {
+    const res = await fetch(`/api/generated/${encodeURIComponent(currentJobId)}`, {
+      method: 'DELETE',
+    });
+    const data = await res.json();
+    if (!res.ok || data.status !== 'ok') {
+      throw new Error(data.message || 'Delete failed');
+    }
+    ['dlResumeDocx', 'dlResumePdf', 'dlCoverDocx', 'dlCoverPdf'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.removeAttribute('href');
+        el.style.display = 'none';
+      }
+    });
+    deleteDocsBtn.textContent = 'Generated files deleted';
+    const retention = document.getElementById('retentionNote');
+    if (retention) retention.textContent = 'Generated downloads have been deleted from this server.';
+    toast('Generated files deleted.');
+    currentJobId = null;
+  } catch (err) {
+    console.error('Delete generated files failed:', err);
+    deleteDocsBtn.disabled = false;
+    toast('Could not delete generated files. Please try again.', true);
+  }
+});
+
+document.querySelectorAll('.buy-pack[data-pack-id]').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const packId = btn.dataset.packId;
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = 'Opening checkout...';
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pack_id: packId }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.status !== 'ok' || !data.checkout_url) {
+        throw new Error(data.message || 'Checkout failed');
+      }
+      window.location.href = data.checkout_url;
+    } catch (err) {
+      console.error('Checkout failed:', err);
+      btn.disabled = false;
+      btn.textContent = original;
+      toast(err.message || 'Checkout is not available yet.', true);
+    }
+  });
+});
 // Download dropdown: open on click, close when clicking elsewhere.
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.dl-btn');

@@ -15,18 +15,31 @@ needs_paste signal so the frontend can prompt for paste.
 """
 import os
 import uuid
-from flask import Flask, request, jsonify, render_template, send_from_directory, Response, stream_with_context
 import json as _json
 import threading
 import queue as _queue
-from flask import Flask, request, jsonify, render_template, send_from_directory
+import hashlib
+import hmac
+import time
+from datetime import datetime, timedelta
+
+import httpx
 from dotenv import load_dotenv
-from datetime import datetime
+from flask import (
+    Flask,
+    abort,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    Response,
+    send_from_directory,
+    session,
+    stream_with_context,
+    url_for,
+)
 from flask_sqlalchemy import SQLAlchemy
 from authlib.integrations.flask_client import OAuth
-from flask import session, redirect, url_for
-from authlib.integrations.flask_client import OAuth
-from flask import session, redirect, url_for
 
 from services import cv_parser, jd_source, llm, docx_builder, scoring
 
@@ -38,9 +51,35 @@ GENERATED = os.path.join(BASE, "generated")
 os.makedirs(UPLOADS, exist_ok=True)
 os.makedirs(GENERATED, exist_ok=True)
 
-ALLOWED = {".pdf", ".docx", ".doc"}
+ALLOWED = {".pdf", ".docx"}
 MAX_BYTES = 8 * 1024 * 1024
-FREE_LIMIT = 5
+FREE_LIMIT = int(os.environ.get("FREE_GENERATION_LIMIT", "2"))
+GENERATED_RETENTION_DAYS = int(os.environ.get("GENERATED_RETENTION_DAYS", "7"))
+STRIPE_API = "https://api.stripe.com/v1"
+STRIPE_PACKS = [
+    {
+        "id": "starter",
+        "name": "Starter Pack",
+        "credits": 10,
+        "price": "€7",
+        "price_env": "STRIPE_PRICE_STARTER",
+    },
+    {
+        "id": "hunt",
+        "name": "Job Hunt Pack",
+        "credits": 40,
+        "price": "€19",
+        "price_env": "STRIPE_PRICE_HUNT",
+        "featured": True,
+    },
+    {
+        "id": "sprint",
+        "name": "Application Sprint",
+        "credits": 150,
+        "price": "€49",
+        "price_env": "STRIPE_PRICE_SPRINT",
+    },
+]
 
 app = Flask(__name__,
             template_folder=os.path.join(BASE, "templates"),
@@ -54,7 +93,11 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
 # --- Session secret (required for OAuth login state) ---
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-only-change-me")
+app.secret_key = os.environ.get("FLASK_SECRET_KEY")
+if not app.secret_key:
+    if os.environ.get("FLASK_ENV") == "production":
+        raise RuntimeError("FLASK_SECRET_KEY must be set in production.")
+    app.secret_key = "dev-only-change-me"
 
 # --- OAuth (Google) ---
 oauth = OAuth(app)
@@ -76,33 +119,129 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
+class GeneratedDocument(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    job_id = db.Column(db.String(32), index=True, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), index=True, nullable=False)
+    filename = db.Column(db.String(255), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = db.Column(db.DateTime, index=True, nullable=False)
+
+
+class CreditGrant(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), index=True, nullable=False)
+    credits = db.Column(db.Integer, nullable=False)
+    source = db.Column(db.String(64), nullable=False)
+    stripe_session_id = db.Column(db.String(255), unique=True, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
 with app.app_context():
     db.create_all()
 
 
+def _paid_credits(user):
+    if not user:
+        return 0
+    total = db.session.query(db.func.coalesce(db.func.sum(CreditGrant.credits), 0)).filter_by(
+        user_id=user.id).scalar()
+    return int(total or 0)
+
+
 def _credits_payload(user):
     used = user.generations_used if user else 0
+    paid = _paid_credits(user)
+    limit = FREE_LIMIT + paid
     return {
         "credits_used": used,
-        "credits_remaining": max(0, FREE_LIMIT - used),
-        "credits_limit": FREE_LIMIT,
+        "credits_remaining": max(0, limit - used),
+        "credits_limit": limit,
+        "free_credits_limit": FREE_LIMIT,
+        "paid_credits": paid,
     }
+
+
+def _current_user():
+    uid = session.get("user_id")
+    return db.session.get(User, uid) if uid else None
+
+
+def _register_generated_file(user, job_id, path):
+    if not path:
+        return
+    doc = GeneratedDocument(
+        job_id=job_id,
+        user_id=user.id,
+        filename=os.path.basename(path),
+        expires_at=datetime.utcnow() + timedelta(days=GENERATED_RETENTION_DAYS),
+    )
+    db.session.add(doc)
+
+
+def _cleanup_generated():
+    now = datetime.utcnow()
+    expired = GeneratedDocument.query.filter(GeneratedDocument.expires_at <= now).all()
+    for doc in expired:
+        try:
+            os.remove(os.path.join(GENERATED, doc.filename))
+        except FileNotFoundError:
+            pass
+        db.session.delete(doc)
+    db.session.commit()
+
+
+def _public_credit_packs():
+    return [
+        {
+            "id": pack["id"],
+            "name": pack["name"],
+            "credits": pack["credits"],
+            "price": pack["price"],
+            "featured": bool(pack.get("featured")),
+            "configured": bool(os.environ.get(pack["price_env"])),
+        }
+        for pack in STRIPE_PACKS
+    ]
+
+
+def _credit_pack(pack_id):
+    return next((pack for pack in STRIPE_PACKS if pack["id"] == pack_id), None)
+
+
+def _stripe_signature_ok(payload, signature_header):
+    secret = os.environ.get("STRIPE_WEBHOOK_SECRET")
+    if not secret or not signature_header:
+        return False
+    values = {}
+    for part in signature_header.split(","):
+        key, _, value = part.partition("=")
+        if key and value:
+            values.setdefault(key, []).append(value)
+    try:
+        timestamp = int(values.get("t", ["0"])[0])
+    except ValueError:
+        return False
+    if abs(int(time.time()) - timestamp) > 300:
+        return False
+    signed = str(timestamp).encode("utf-8") + b"." + payload
+    expected = hmac.new(secret.encode("utf-8"), signed, hashlib.sha256).hexdigest()
+    return any(hmac.compare_digest(expected, sig) for sig in values.get("v1", []))
 
 
 @app.route("/")
 def index():
-    used = 0
-    uid = session.get("user_id")
-    if uid:
-        u = db.session.get(User, uid)
-        if u:
-            used = u.generations_used
-    remaining = max(0, FREE_LIMIT - used)
+    _cleanup_generated()
+    u = _current_user()
+    credits = _credits_payload(u)
     return render_template("index.html",
                            user_email=session.get("email"),
-                           credits_used=used,
-                           credits_remaining=remaining,
-                           credits_limit=FREE_LIMIT)
+                           credits_used=credits["credits_used"],
+                           credits_remaining=credits["credits_remaining"],
+                           credits_limit=credits["credits_limit"],
+                           free_credits_limit=FREE_LIMIT,
+                           credit_packs=_public_credit_packs(),
+                           billing_enabled=bool(os.environ.get("STRIPE_SECRET_KEY")))
 
 @app.route("/auth/google")
 def auth_google():
@@ -128,19 +267,23 @@ def auth_google_callback():
     session["user_id"] = user.id
     session["email"] = user.email
     if session.pop("login_popup", False):
-        safe_email = (email or "").replace('"', '').replace("<", "").replace(">", "")
-        remaining = max(0, FREE_LIMIT - user.generations_used)
+        credits = _credits_payload(user)
+        origin = request.host_url.rstrip("/")
         return """<!doctype html><meta charset="utf-8"><title>Signed in</title>
 <script>
   if (window.opener) {{ window.opener.postMessage({{
     type:"tailorback-login-success",
-    email:"{}",
+    email:{},
     creditsRemaining:{},
     creditsLimit:{}
-  }}, "*"); }}
+  }}, {}); }}
   window.close();
 </script>
-<p>Signed in. You can close this window.</p>""".format(safe_email, remaining, FREE_LIMIT)
+<p>Signed in. You can close this window.</p>""".format(
+            _json.dumps(email or ""),
+            credits["credits_remaining"],
+            credits["credits_limit"],
+            _json.dumps(origin))
     return redirect(url_for("index"))
 
 
@@ -190,18 +333,16 @@ def _resolve_cv(form, files):
 
 @app.route("/api/generate", methods=["POST"])
 def generate():
-    user_id = session.get("user_id")
-    if not user_id:
-        return jsonify({"status": "error",
-                        "message": "Please sign in with Google to generate."}), 401
-    current_user = db.session.get(User, user_id)
+    current_user = _current_user()
     if not current_user:
         return jsonify({"status": "error",
                         "message": "Please sign in with Google to generate."}), 401
-    if current_user.generations_used >= FREE_LIMIT:
+    _cleanup_generated()
+    credits_before = _credits_payload(current_user)
+    if credits_before["credits_remaining"] <= 0:
         return jsonify({"status": "error",
-                        "message": "You've used all 5 free generations. Payment options coming soon.",
-                        **_credits_payload(current_user)}), 402
+                        "message": "You're out of generations. Buy a credit pack to keep tailoring.",
+                        **credits_before}), 402
     jd_text, jd_err = _resolve_jd(request.form)
     cv_text, cv_err = _resolve_cv(request.form, request.files)
     if jd_err == "jd":
@@ -233,7 +374,8 @@ def generate():
             try:
                 holder["result"] = llm.generate_all(cv_text, jd_text, on_status=on_status)
             except Exception as e:
-                holder["error"] = str(e)
+                app.logger.exception("Generation failed")
+                holder["error"] = "Generation failed. Please try again shortly."
             finally:
                 q.put({"type": "_done"})
 
@@ -249,7 +391,7 @@ def generate():
         t.join()
 
         if "error" in holder:
-            yield f"data: {_json.dumps({'type': 'error', 'message': 'Generation failed: ' + holder['error']})}\n\n"
+            yield f"data: {_json.dumps({'type': 'error', 'message': holder['error']})}\n\n"
             return
 
         result = holder["result"]
@@ -293,6 +435,9 @@ def generate():
         pdfs = docx_builder.to_pdfs([resume_path, cover_path])
         resume_pdf = pdfs.get(resume_path)
         cover_pdf = pdfs.get(cover_path)
+        for path in (resume_path, cover_path, resume_pdf, cover_pdf):
+            _register_generated_file(current_user, job_id, path)
+        db.session.commit()
 
         def _url(path):
             return f"/download/{os.path.basename(path)}" if path else None
@@ -305,6 +450,8 @@ def generate():
                 "cover_docx_url": _url(cover_path),
                 "resume_pdf_url": _url(resume_pdf),
                 "cover_pdf_url": _url(cover_pdf),
+                "job_id": job_id,
+                "expires_in_days": GENERATED_RETENTION_DAYS,
                 "gaps": result.get("gaps", []),
                 "match": result.get("match_summary", {}),
                 "analysis": analysis,
@@ -323,12 +470,158 @@ def generate():
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+@app.route("/api/credit-packs")
+def credit_packs():
+    current_user = _current_user()
+    payload = _credits_payload(current_user) if current_user else None
+    return jsonify({
+        "status": "ok",
+        "billing_enabled": bool(os.environ.get("STRIPE_SECRET_KEY")),
+        "packs": _public_credit_packs(),
+        "credits": payload,
+    })
+
+
+@app.route("/api/checkout", methods=["POST"])
+def create_checkout():
+    current_user = _current_user()
+    if not current_user:
+        return jsonify({"status": "error",
+                        "message": "Please sign in before buying credits."}), 401
+    stripe_key = os.environ.get("STRIPE_SECRET_KEY")
+    if not stripe_key:
+        return jsonify({"status": "error",
+                        "message": "Stripe checkout is not configured yet."}), 503
+    data = request.get_json(silent=True) or {}
+    pack = _credit_pack(data.get("pack_id"))
+    if not pack:
+        return jsonify({"status": "error", "message": "Unknown credit pack."}), 400
+    price_id = os.environ.get(pack["price_env"])
+    if not price_id:
+        return jsonify({"status": "error",
+                        "message": "This credit pack is not configured yet."}), 503
+    origin = request.host_url.rstrip("/")
+    success_url = os.environ.get(
+        "STRIPE_SUCCESS_URL", f"{origin}/?checkout=success")
+    cancel_url = os.environ.get(
+        "STRIPE_CANCEL_URL", f"{origin}/?checkout=cancelled")
+    form = [
+        ("mode", "payment"),
+        ("success_url", success_url),
+        ("cancel_url", cancel_url),
+        ("customer_email", current_user.email),
+        ("client_reference_id", str(current_user.id)),
+        ("line_items[0][price]", price_id),
+        ("line_items[0][quantity]", "1"),
+        ("metadata[user_id]", str(current_user.id)),
+        ("metadata[pack_id]", pack["id"]),
+        ("metadata[credits]", str(pack["credits"])),
+    ]
+    try:
+        resp = httpx.post(
+            f"{STRIPE_API}/checkout/sessions",
+            data=form,
+            auth=(stripe_key, ""),
+            timeout=20,
+        )
+        resp.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        app.logger.exception("Stripe checkout failed: %s", exc.response.text[:500])
+        return jsonify({"status": "error",
+                        "message": "Stripe checkout failed. Check the configured price IDs."}), 502
+    except httpx.RequestError:
+        app.logger.exception("Stripe checkout request failed")
+        return jsonify({"status": "error",
+                        "message": "Could not reach Stripe. Try again shortly."}), 502
+    checkout = resp.json()
+    return jsonify({"status": "ok", "checkout_url": checkout.get("url")})
+
+
+@app.route("/stripe/webhook", methods=["POST"])
+def stripe_webhook():
+    payload = request.get_data()
+    if not _stripe_signature_ok(payload, request.headers.get("Stripe-Signature")):
+        return jsonify({"status": "error", "message": "Invalid signature."}), 400
+    try:
+        event = _json.loads(payload.decode("utf-8"))
+    except ValueError:
+        return jsonify({"status": "error", "message": "Invalid payload."}), 400
+    if event.get("type") != "checkout.session.completed":
+        return jsonify({"status": "ignored"})
+    session_obj = event.get("data", {}).get("object", {}) or {}
+    if session_obj.get("payment_status") not in ("paid", "no_payment_required"):
+        return jsonify({"status": "ignored"})
+    session_id = session_obj.get("id")
+    if not session_id:
+        return jsonify({"status": "error", "message": "Missing session id."}), 400
+    if CreditGrant.query.filter_by(stripe_session_id=session_id).first():
+        return jsonify({"status": "ok", "already_processed": True})
+    metadata = session_obj.get("metadata", {}) or {}
+    try:
+        user_id = int(metadata.get("user_id"))
+        credits = int(metadata.get("credits"))
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "Missing credit metadata."}), 400
+    user = db.session.get(User, user_id)
+    if not user or credits <= 0:
+        return jsonify({"status": "error", "message": "Invalid credit grant."}), 400
+    db.session.add(CreditGrant(
+        user_id=user.id,
+        credits=credits,
+        source=f"stripe:{metadata.get('pack_id', 'unknown')}",
+        stripe_session_id=session_id,
+    ))
+    db.session.commit()
+    return jsonify({"status": "ok", "credits_added": credits})
+
+
 @app.route("/download/<path:fname>")
 def download(fname):
+    current_user = _current_user()
+    if not current_user:
+        abort(401)
+    doc = GeneratedDocument.query.filter_by(
+        filename=fname, user_id=current_user.id).first()
+    if not doc:
+        abort(404)
+    if doc.expires_at <= datetime.utcnow():
+        _cleanup_generated()
+        abort(404)
     # disk name is "<job_id>__<clean>.ext"; download as the clean part only
     clean = fname.split("__", 1)[1] if "__" in fname else fname
     return send_from_directory(GENERATED, fname, as_attachment=True,
                                download_name=clean)
+
+
+@app.route("/api/generated/<job_id>", methods=["DELETE"])
+def delete_generated(job_id):
+    current_user = _current_user()
+    if not current_user:
+        return jsonify({"status": "error", "message": "Please sign in."}), 401
+    docs = GeneratedDocument.query.filter_by(
+        job_id=job_id, user_id=current_user.id).all()
+    if not docs:
+        return jsonify({"status": "ok", "deleted": 0})
+    deleted = 0
+    for doc in docs:
+        try:
+            os.remove(os.path.join(GENERATED, doc.filename))
+            deleted += 1
+        except FileNotFoundError:
+            pass
+        db.session.delete(doc)
+    db.session.commit()
+    return jsonify({"status": "ok", "deleted": deleted})
+
+
+@app.route("/favicon.ico")
+def favicon():
+    svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<rect width="64" height="64" rx="10" fill="#1a1714"/>
+<text x="14" y="43" font-family="Georgia,serif" font-size="36" font-weight="700" fill="#f4efe6">T</text>
+<circle cx="48" cy="43" r="4" fill="#c8462e"/>
+</svg>"""
+    return Response(svg, mimetype="image/svg+xml")
 
 
 if __name__ == "__main__":
