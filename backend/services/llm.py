@@ -1,21 +1,28 @@
 from __future__ import annotations
 """
-Gemini-powered tailoring engine (free tier).
+LLM-powered tailoring engine.
 
-Get a free key at https://aistudio.google.com/apikey (no credit card needed for
-the basic tier). Put it in .env as GEMINI_API_KEY=AIza...
+Primary provider: OpenAI Responses API using a fast GPT model. Gemini remains
+the first fallback, and Claude Sonnet is the final fallback to control cost.
 """
 import json
 import os
+import time
+
 import httpx
 from json_repair import repair_json
 
-MODEL = "gemini-2.5-flash-lite"
-CLAUDE_MODEL = "claude-opus-4-8"
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash-lite")
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
+CLAUDE_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
+OPENAI_TIMEOUT = float(os.environ.get("OPENAI_TIMEOUT_SECONDS", "30"))
+GEMINI_TIMEOUT = float(os.environ.get("GEMINI_TIMEOUT_SECONDS", "30"))
+CLAUDE_TIMEOUT = float(os.environ.get("CLAUDE_TIMEOUT_SECONDS", "45"))
 ENDPOINT = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    f"{MODEL}:generateContent"
+    f"{GEMINI_MODEL}:generateContent"
 )
+OPENAI_RESPONSES_ENDPOINT = "https://api.openai.com/v1/responses"
 
 
 def _key() -> str:
@@ -25,6 +32,12 @@ def _key() -> str:
                            "https://aistudio.google.com/apikey")
     return k
 
+def _openai_key() -> str:
+    k = os.environ.get("OPENAI_API_KEY")
+    if not k:
+        raise RuntimeError("OPENAI_API_KEY is not set.")
+    return k
+
 def _claude_key() -> str:
     k = os.environ.get("ANTHROPIC_API_KEY")
     if not k:
@@ -32,10 +45,86 @@ def _claude_key() -> str:
     return k
 
 
-
-import time
-
 def _json_call(system: str, user: str, max_retries: int = 2, on_status=None) -> dict:
+    def _say(stage):
+        if on_status:
+            on_status(stage)
+
+    if os.environ.get("OPENAI_API_KEY"):
+        try:
+            return _openai_call(system, user, on_status=on_status)
+        except Exception:
+            _say("switching_to_gemini")
+
+    if os.environ.get("GEMINI_API_KEY"):
+        try:
+            return _gemini_call(system, user, max_retries=max_retries, on_status=on_status)
+        except Exception:
+            if not os.environ.get("ANTHROPIC_API_KEY"):
+                raise
+            _say("switching_to_claude")
+
+    return _claude_call(system, user, on_status=on_status)
+
+
+def _parse_json_text(raw: str) -> dict:
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```", 2)[1].lstrip("json").strip()
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return repair_json(raw, return_objects=True)
+
+
+def _extract_openai_text(data: dict) -> str:
+    if data.get("output_text"):
+        return data["output_text"]
+    chunks = []
+    for item in data.get("output", []) or []:
+        for content in item.get("content", []) or []:
+            if content.get("type") in ("output_text", "text") and content.get("text"):
+                chunks.append(content["text"])
+    if chunks:
+        return "\n".join(chunks)
+    raise RuntimeError(f"Unexpected OpenAI response: {json.dumps(data)[:300]}")
+
+
+def _openai_call(system: str, user: str, max_retries: int = 2, on_status=None) -> dict:
+    if on_status:
+        on_status("generating_openai")
+    body = {
+        "model": OPENAI_MODEL,
+        "instructions": system + "\n\nRespond with ONLY valid JSON.",
+        "input": user,
+        "temperature": 0,
+        "max_output_tokens": 8000,
+        "text": {"format": {"type": "json_object"}},
+    }
+    headers = {
+        "authorization": f"Bearer {_openai_key()}",
+        "content-type": "application/json",
+    }
+    for attempt in range(max_retries):
+        try:
+            resp = httpx.post(
+                OPENAI_RESPONSES_ENDPOINT,
+                headers=headers,
+                json=body,
+                timeout=OPENAI_TIMEOUT,
+            )
+        except httpx.RequestError:
+            time.sleep(2 * (attempt + 1))
+            continue
+        if resp.status_code in (408, 409, 429, 500, 502, 503, 504):
+            time.sleep(2 * (attempt + 1))
+            continue
+        resp.raise_for_status()
+        return _parse_json_text(_extract_openai_text(resp.json()))
+    raise RuntimeError("OpenAI is unavailable right now.")
+
+
+def _gemini_call(system: str, user: str, max_retries: int = 2, on_status=None) -> dict:
     def _say(stage):
         if on_status:
             on_status(stage)
@@ -51,7 +140,8 @@ def _json_call(system: str, user: str, max_retries: int = 2, on_status=None) -> 
     }
     for attempt in range(max_retries):
         try:
-            resp = httpx.post(ENDPOINT, params={"key": _key()}, json=body, timeout=120)
+            resp = httpx.post(
+                ENDPOINT, params={"key": _key()}, json=body, timeout=GEMINI_TIMEOUT)
         except httpx.RequestError:
             time.sleep(2 * (attempt + 1))
             continue
@@ -66,18 +156,8 @@ def _json_call(system: str, user: str, max_retries: int = 2, on_status=None) -> 
             text = data["candidates"][0]["content"]["parts"][0]["text"]
         except (KeyError, IndexError, ValueError):
             break  # malformed Gemini response -> fall back to Claude∏
-        raw = text.strip()
-        if raw.startswith("```"):
-            raw = raw.split("```", 2)[1].lstrip("json").strip()
-        # Claude sometimes appends text after the JSON ("Extra data" error).
-        # Extract just the first complete {...} object.
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError:
-            return repair_json(raw, return_objects=True)
-    # Gemini exhausted its retries — fall back to Claude (paid).
-    _say("switching_to_claude")
-    return _claude_call(system, user, on_status=on_status)
+        return _parse_json_text(text)
+    raise RuntimeError("Gemini is unavailable right now.")
 
 
 def _claude_call(system: str, user: str, max_retries: int = 3, on_status=None) -> dict:
@@ -98,7 +178,7 @@ def _claude_call(system: str, user: str, max_retries: int = 3, on_status=None) -
     for attempt in range(max_retries):
         try:
             resp = httpx.post("https://api.anthropic.com/v1/messages",
-                              headers=headers, json=body, timeout=120)
+                              headers=headers, json=body, timeout=CLAUDE_TIMEOUT)
         except httpx.RequestError:
             time.sleep(3 * (attempt + 1))
             continue
@@ -111,13 +191,7 @@ def _claude_call(system: str, user: str, max_retries: int = 3, on_status=None) -
             text = data["content"][0]["text"]
         except (KeyError, IndexError):
             raise RuntimeError(f"Unexpected Claude response: {json.dumps(data)[:300]}")
-        raw = text.strip()
-        if raw.startswith("```"):
-            raw = raw.split("```", 2)[1].lstrip("json").strip()
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError:
-            return repair_json(raw, return_objects=True)
+        return _parse_json_text(text)
     raise RuntimeError(
         "Both Gemini and Claude are unavailable right now. Please try again shortly.")
 
@@ -209,7 +283,7 @@ def analyse_resume(cv_text, requirements):
     return _json_call(system, user)
 
 def generate_all(cv_text, jd_text, on_status=None):
-    """ONE Gemini call that does everything: tailored resume + cover letter +
+    """ONE LLM call that does everything: tailored resume + cover letter +
     gaps + match + critique of the uploaded resume. Replaces 4 separate calls."""
     system = (
         "You are an expert technical recruiter, ATS specialist, and resume writer. "

@@ -164,7 +164,12 @@ def _credits_payload(user):
 
 def _current_user():
     uid = session.get("user_id")
-    return db.session.get(User, uid) if uid else None
+    if not uid:
+        return None
+    user = db.session.get(User, uid)
+    if not user:
+        session.clear()
+    return user
 
 
 def _register_generated_file(user, job_id, path):
@@ -235,7 +240,7 @@ def index():
     u = _current_user()
     credits = _credits_payload(u)
     return render_template("index.html",
-                           user_email=session.get("email"),
+                           user_email=u.email if u else None,
                            credits_used=credits["credits_used"],
                            credits_remaining=credits["credits_remaining"],
                            credits_limit=credits["credits_limit"],
@@ -248,7 +253,10 @@ def auth_google():
     if request.args.get("popup"):
         session["login_popup"] = True
     redirect_uri = url_for("auth_google_callback", _external=True)
-    return oauth.google.authorize_redirect(redirect_uri)
+    return oauth.google.authorize_redirect(
+        redirect_uri,
+        prompt="select_account",
+    )
 
 
 @app.route("/auth/google/callback")
@@ -357,10 +365,11 @@ def generate():
         return jsonify({"status": "error", "message": "Upload a .pdf or .docx file."}), 400
     if cv_err == "cv_missing":
         return jsonify({"status": "error", "message": "Upload or paste your CV."}), 400
-    if not os.environ.get("GEMINI_API_KEY"):
+    if not any(os.environ.get(k) for k in (
+            "OPENAI_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY")):
         return jsonify({"status": "error",
-                        "message": "Server missing GEMINI_API_KEY. Get a free key at "
-                                   "https://aistudio.google.com/apikey"}), 500
+                        "message": "Server missing an LLM API key. Add OPENAI_API_KEY, "
+                                   "GEMINI_API_KEY, or ANTHROPIC_API_KEY."}), 500
 
     def event_stream():
         q = _queue.Queue()

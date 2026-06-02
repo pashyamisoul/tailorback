@@ -201,12 +201,16 @@ function setLoaderLine(activeIdx, text) {
 }
 function updateLoaderStage(stage) {
   clearTimeout(stepTimer);
-  if (stage === 'trying_gemini') {
+  if (stage === 'generating_openai') {
+    setLoaderLine(2, 'Generating with OpenAI…');
+  } else if (stage === 'switching_to_gemini') {
+    setLoaderLine(2, 'OpenAI unavailable — switching to Gemini…');
+  } else if (stage === 'trying_gemini') {
     setLoaderLine(2, 'Trying Gemini…');
   } else if (stage === 'switching_to_claude') {
-    setLoaderLine(2, 'Gemini unavailable — switching to Claude Opus…');
+    setLoaderLine(2, 'Gemini unavailable — switching to Claude Sonnet…');
   } else if (stage === 'generating_claude') {
-    setLoaderLine(2, 'Generating with Claude Opus…');
+    setLoaderLine(2, 'Generating with Claude Sonnet…');
   } else if (stage === 'building_documents') {
     setLoaderLine(2, 'Building your documents…');
   } else if (stage === 'converting_documents') {
@@ -246,6 +250,11 @@ form.addEventListener('submit', async e => {
     if (ctype.includes('application/json')) {
       const data = await res.json();
       updateAccountCredits(data.credits_remaining, data.credits_limit);
+      if (res.status === 401) {
+        toast(data.message || 'Your session expired. Please sign in again.', true);
+        setTimeout(() => window.location.reload(), 1200);
+        return;
+      }
       if (data.status === 'needs_paste') {
         if (data.field === 'jd') { setMode('jd', 'paste'); document.querySelector('[name=jd_text]').focus(); }
         if (data.field === 'cv') { setMode('cv', 'paste'); document.querySelector('[name=cv_text]').focus(); }
