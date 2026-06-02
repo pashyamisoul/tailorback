@@ -40,6 +40,7 @@ from flask import (
 )
 from flask_sqlalchemy import SQLAlchemy
 from authlib.integrations.flask_client import OAuth
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from services import cv_parser, jd_source, llm, docx_builder, scoring
 
@@ -59,24 +60,27 @@ STRIPE_API = "https://api.stripe.com/v1"
 STRIPE_PACKS = [
     {
         "id": "starter",
-        "name": "Starter Pack",
+        "name": "1 month",
         "credits": 10,
         "price": "€7",
+        "cadence": "per month",
         "price_env": "STRIPE_PRICE_STARTER",
     },
     {
         "id": "hunt",
-        "name": "Job Hunt Pack",
+        "name": "12 months",
         "credits": 40,
         "price": "€19",
+        "cadence": "per year",
         "price_env": "STRIPE_PRICE_HUNT",
         "featured": True,
     },
     {
         "id": "sprint",
-        "name": "Application Sprint",
+        "name": "Lifetime",
         "credits": 150,
         "price": "€49",
+        "cadence": "pay once",
         "price_env": "STRIPE_PRICE_SPRINT",
     },
 ]
@@ -115,6 +119,10 @@ class User(db.Model):
     email = db.Column(db.String(255), unique=True, nullable=False)
     provider = db.Column(db.String(32), nullable=False)
     provider_id = db.Column(db.String(255), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=True)
+    country = db.Column(db.String(120), nullable=True)
+    zip_code = db.Column(db.String(32), nullable=True)
+    current_pack = db.Column(db.String(64), nullable=True)
     generations_used = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
@@ -133,12 +141,55 @@ class CreditGrant(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), index=True, nullable=False)
     credits = db.Column(db.Integer, nullable=False)
     source = db.Column(db.String(64), nullable=False)
+    pack_id = db.Column(db.String(64), nullable=True)
+    note = db.Column(db.Text, nullable=True)
     stripe_session_id = db.Column(db.String(255), unique=True, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
+class GenerationRun(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    job_id = db.Column(db.String(32), unique=True, index=True, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), index=True, nullable=False)
+    jd_source_type = db.Column(db.String(16), nullable=False)
+    jd_url = db.Column(db.Text, nullable=True)
+    jd_text = db.Column(db.Text, nullable=False)
+    cv_source_type = db.Column(db.String(16), nullable=False)
+    cv_text = db.Column(db.Text, nullable=False)
+    resume_json = db.Column(db.Text, nullable=True)
+    cover_letter_json = db.Column(db.Text, nullable=True)
+    analysis_json = db.Column(db.Text, nullable=True)
+    model_status = db.Column(db.String(64), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+def _ensure_schema():
+    if not app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite:///"):
+        return
+    columns = {
+        "user": {
+            "password_hash": "VARCHAR(255)",
+            "country": "VARCHAR(120)",
+            "zip_code": "VARCHAR(32)",
+            "current_pack": "VARCHAR(64)",
+        },
+        "credit_grant": {
+            "pack_id": "VARCHAR(64)",
+            "note": "TEXT",
+        },
+    }
+    with db.engine.connect() as conn:
+        for table, wanted in columns.items():
+            existing = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")}
+            for name, ddl in wanted.items():
+                if name not in existing:
+                    conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
+        conn.commit()
+
+
 with app.app_context():
     db.create_all()
+    _ensure_schema()
 
 
 def _paid_credits(user):
@@ -184,6 +235,53 @@ def _register_generated_file(user, job_id, path):
     db.session.add(doc)
 
 
+def _download_urls_for_job(user_id, job_id):
+    docs = GeneratedDocument.query.filter_by(user_id=user_id, job_id=job_id).all()
+    out = {}
+    for doc in docs:
+        key = "cover" if "cover" in doc.filename.lower() else "resume"
+        fmt = "pdf" if doc.filename.lower().endswith(".pdf") else "docx"
+        out[f"{key}_{fmt}_url"] = f"/download/{doc.filename}"
+    return out
+
+
+def _generation_payload(run, include_inputs=False):
+    payload = {
+        "job_id": run.job_id,
+        "created_at": run.created_at.isoformat() + "Z",
+        "jd_source_type": run.jd_source_type,
+        "jd_url": run.jd_url,
+        "cv_source_type": run.cv_source_type,
+        "downloads": _download_urls_for_job(run.user_id, run.job_id),
+    }
+    try:
+        resume = _json.loads(run.resume_json or "{}")
+    except ValueError:
+        resume = {}
+    try:
+        cover = _json.loads(run.cover_letter_json or "{}")
+    except ValueError:
+        cover = {}
+    payload["resume_name"] = resume.get("name", "")
+    payload["resume_summary"] = resume.get("summary", "")
+    payload["cover_subject"] = cover.get("subject", "")
+    if include_inputs:
+        letter_parts = [
+            cover.get("salutation"),
+            *(cover.get("paragraphs") or []),
+            cover.get("closing"),
+        ]
+        payload.update({
+            "jd_text": run.jd_text,
+            "cv_text": run.cv_text,
+            "resume": resume,
+            "cover_letter": cover,
+            "cover_letter_text": "\n\n".join(p for p in letter_parts if p),
+            "analysis": _json.loads(run.analysis_json or "{}"),
+        })
+    return payload
+
+
 def _cleanup_generated():
     now = datetime.utcnow()
     expired = GeneratedDocument.query.filter(GeneratedDocument.expires_at <= now).all()
@@ -203,6 +301,7 @@ def _public_credit_packs():
             "name": pack["name"],
             "credits": pack["credits"],
             "price": pack["price"],
+            "cadence": pack["cadence"],
             "featured": bool(pack.get("featured")),
             "configured": bool(os.environ.get(pack["price_env"])),
         }
@@ -212,6 +311,53 @@ def _public_credit_packs():
 
 def _credit_pack(pack_id):
     return next((pack for pack in STRIPE_PACKS if pack["id"] == pack_id), None)
+
+
+def _login_user(user):
+    session["user_id"] = user.id
+    session["email"] = user.email
+
+
+def _safe_user_payload(user):
+    credits = _credits_payload(user)
+    pack = _credit_pack(user.current_pack) if user and user.current_pack else None
+    return {
+        "email": user.email,
+        "country": user.country,
+        "zip_code": user.zip_code,
+        "current_pack": pack["name"] if pack else "Free",
+        **credits,
+    }
+
+
+def _admin_adjust_user_credits(user, action, amount, note):
+    credits = _credits_payload(user)
+    if action == "add":
+        delta = amount
+        source = "admin:add"
+    elif action == "deduct":
+        delta = -amount
+        source = "admin:deduct"
+    elif action == "set_total":
+        delta = amount - credits["credits_limit"]
+        source = "admin:set-total"
+    elif action == "set_remaining":
+        target_limit = user.generations_used + amount
+        delta = target_limit - credits["credits_limit"]
+        source = "admin:set-remaining"
+    else:
+        raise ValueError("Unknown adjustment action.")
+    if delta == 0:
+        return credits
+    db.session.add(CreditGrant(
+        user_id=user.id,
+        credits=delta,
+        source=source,
+        pack_id="admin",
+        note=note,
+    ))
+    db.session.commit()
+    return _credits_payload(user)
 
 
 def _stripe_signature_ok(payload, signature_header):
@@ -272,8 +418,11 @@ def auth_google_callback():
         user = User(email=email, provider="google", provider_id=sub or "")
         db.session.add(user)
         db.session.commit()
-    session["user_id"] = user.id
-    session["email"] = user.email
+    elif user.provider != "google":
+        user.provider = "both"
+        user.provider_id = sub or user.provider_id
+        db.session.commit()
+    _login_user(user)
     if session.pop("login_popup", False):
         credits = _credits_payload(user)
         origin = request.host_url.rstrip("/")
@@ -293,6 +442,64 @@ def auth_google_callback():
             credits["credits_limit"],
             _json.dumps(origin))
     return redirect(url_for("index"))
+
+
+@app.route("/api/auth/signup", methods=["POST"])
+def auth_signup_email():
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+    repeat = data.get("repeat_password") or ""
+    country = (data.get("country") or "").strip()
+    zip_code = (data.get("zip_code") or "").strip()
+    pack_id = (data.get("pack_id") or "").strip()
+    if not email or "@" not in email:
+        return jsonify({"status": "error", "message": "Enter a valid email address."}), 400
+    if len(password) < 8:
+        return jsonify({"status": "error", "message": "Password must be at least 8 characters."}), 400
+    if password != repeat:
+        return jsonify({"status": "error", "message": "Passwords do not match."}), 400
+    if not country or not zip_code:
+        return jsonify({"status": "error", "message": "Country and ZIP/postcode are required."}), 400
+    if pack_id and not _credit_pack(pack_id):
+        return jsonify({"status": "error", "message": "Choose a valid TailorBack Pro pack."}), 400
+    existing = User.query.filter_by(email=email).first()
+    if existing:
+        return jsonify({"status": "error", "message": "This email already has an account. Sign in instead."}), 409
+    user = User(
+        email=email,
+        provider="email",
+        provider_id=email,
+        password_hash=generate_password_hash(password, method="pbkdf2:sha256"),
+        country=country,
+        zip_code=zip_code,
+        current_pack=pack_id or None,
+    )
+    db.session.add(user)
+    if pack_id:
+        pack = _credit_pack(pack_id)
+        db.session.flush()
+        db.session.add(CreditGrant(
+            user_id=user.id,
+            credits=pack["credits"],
+            source=f"local-signup:{pack_id}",
+            pack_id=pack_id,
+        ))
+    db.session.commit()
+    _login_user(user)
+    return jsonify({"status": "ok", "user": _safe_user_payload(user), "payment_required": bool(pack_id)})
+
+
+@app.route("/api/auth/signin", methods=["POST"])
+def auth_signin_email():
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+    user = User.query.filter_by(email=email).first()
+    if not user or not user.password_hash or not check_password_hash(user.password_hash, password):
+        return jsonify({"status": "error", "message": "Invalid email or password."}), 401
+    _login_user(user)
+    return jsonify({"status": "ok", "user": _safe_user_payload(user)})
 
 
 @app.route("/auth/logout")
@@ -446,6 +653,19 @@ def generate():
         cover_pdf = pdfs.get(cover_path)
         for path in (resume_path, cover_path, resume_pdf, cover_pdf):
             _register_generated_file(current_user, job_id, path)
+        run = GenerationRun(
+            job_id=job_id,
+            user_id=current_user.id,
+            jd_source_type="link" if (request.form.get("jd_url") or "").strip() else "paste",
+            jd_url=(request.form.get("jd_url") or "").strip() or None,
+            jd_text=jd_text,
+            cv_source_type="upload" if request.files.get("cv_file") else "paste",
+            cv_text=cv_text,
+            resume_json=_json.dumps(result.get("resume", {})),
+            cover_letter_json=_json.dumps(result.get("cover_letter", {})),
+            analysis_json=_json.dumps(analysis),
+        )
+        db.session.add(run)
         db.session.commit()
 
         def _url(path):
@@ -621,6 +841,97 @@ def delete_generated(job_id):
         db.session.delete(doc)
     db.session.commit()
     return jsonify({"status": "ok", "deleted": deleted})
+
+
+@app.route("/api/account")
+def account_summary():
+    current_user = _current_user()
+    if not current_user:
+        return jsonify({"status": "error", "message": "Please sign in."}), 401
+    return jsonify({"status": "ok", "user": _safe_user_payload(current_user)})
+
+
+@app.route("/api/generations")
+def account_generations():
+    current_user = _current_user()
+    if not current_user:
+        return jsonify({"status": "error", "message": "Please sign in."}), 401
+    runs = GenerationRun.query.filter_by(user_id=current_user.id).order_by(
+        GenerationRun.created_at.desc()).all()
+    return jsonify({
+        "status": "ok",
+        "generations": [_generation_payload(run) for run in runs],
+    })
+
+
+def _admin_ok():
+    return bool(session.get("admin_ok"))
+
+
+@app.route("/admin", methods=["GET", "POST"])
+def admin_portal():
+    admin_user = os.environ.get("TAILORBACK_ADMIN_USER", "admin")
+    admin_password = os.environ.get("TAILORBACK_ADMIN_PASSWORD", "tailorback-admin")
+    error = None
+    if request.method == "POST":
+        username = (request.form.get("username") or "").strip()
+        password = request.form.get("password") or ""
+        if hmac.compare_digest(username, admin_user) and hmac.compare_digest(password, admin_password):
+            session["admin_ok"] = True
+            return redirect(url_for("admin_portal"))
+        error = "Invalid admin credentials."
+    if not _admin_ok():
+        return render_template("admin_login.html", error=error)
+    users = User.query.order_by(User.created_at.desc()).all()
+    runs = GenerationRun.query.order_by(GenerationRun.created_at.desc()).limit(100).all()
+    user_rows = []
+    for user in users:
+        credits = _credits_payload(user)
+        user_rows.append({
+            "id": user.id,
+            "email": user.email,
+            "provider": user.provider,
+            "country": user.country,
+            "zip_code": user.zip_code,
+            "current_pack": user.current_pack or "free",
+            "created_at": user.created_at,
+            **credits,
+        })
+    run_rows = []
+    for run in runs:
+        user = db.session.get(User, run.user_id)
+        row = _generation_payload(run, include_inputs=True)
+        row["user_email"] = user.email if user else "deleted-user"
+        run_rows.append(row)
+    return render_template("admin.html", users=user_rows, runs=run_rows)
+
+
+@app.route("/admin/logout")
+def admin_logout():
+    session.pop("admin_ok", None)
+    return redirect(url_for("admin_portal"))
+
+
+@app.route("/admin/users/<int:user_id>/credits", methods=["POST"])
+def admin_adjust_credits(user_id):
+    if not _admin_ok():
+        abort(403)
+    user = db.session.get(User, user_id)
+    if not user:
+        abort(404)
+    action = (request.form.get("action") or "").strip()
+    note = (request.form.get("note") or "").strip()
+    try:
+        amount = int(request.form.get("amount") or "0")
+    except ValueError:
+        amount = -1
+    if amount < 0:
+        return redirect(url_for("admin_portal", error="invalid_amount"))
+    try:
+        _admin_adjust_user_credits(user, action, amount, note)
+    except ValueError:
+        return redirect(url_for("admin_portal", error="invalid_action"))
+    return redirect(url_for("admin_portal", adjusted=user.id))
 
 
 @app.route("/favicon.ico")

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TailorBack Admin</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body class="admin-body">
+  <header class="admin-top">
+    <div>
+      <span class="admin-kicker">TailorBack Admin</span>
+      <h1>Backend portal</h1>
+    </div>
+    <a href="/admin/logout">Sign out</a>
+  </header>
+  <main class="admin-shell">
+    <section class="admin-panel">
+      <h2>Users</h2>
+      {% if request.args.get("adjusted") %}
+      <p class="admin-success">User credit limit updated.</p>
+      {% endif %}
+      {% if request.args.get("error") %}
+      <p class="form-error">Credit update failed. Check the action and amount.</p>
+      {% endif %}
+      <div class="admin-user-actions">
+        {% for user in users %}
+        <article class="admin-user-card">
+          <div>
+            <strong>{{ user.email }}</strong>
+            <span>{{ user.credits_used }} used · {{ user.credits_remaining }} left · {{ user.credits_limit }} total</span>
+          </div>
+          <form class="admin-credit-form" method="post" action="/admin/users/{{ user.id }}/credits">
+            <select name="action" aria-label="Credit action">
+              <option value="add">Add credits</option>
+              <option value="deduct">Deduct credits</option>
+              <option value="set_total">Set total limit</option>
+              <option value="set_remaining">Set remaining</option>
+            </select>
+            <input name="amount" type="number" min="0" step="1" value="0" aria-label="Credit amount" />
+            <input name="note" placeholder="Reason" aria-label="Reason" />
+            <button type="submit">Apply</button>
+          </form>
+        </article>
+        {% endfor %}
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Provider</th>
+              <th>Pack</th>
+              <th>Used</th>
+              <th>Left</th>
+              <th>Country</th>
+              <th>ZIP</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for user in users %}
+            <tr>
+              <td>{{ user.email }}</td>
+              <td>{{ user.provider }}</td>
+              <td>{{ user.current_pack }}</td>
+              <td>{{ user.credits_used }}</td>
+              <td>{{ user.credits_remaining }} / {{ user.credits_limit }}</td>
+              <td>{{ user.country or "-" }}</td>
+              <td>{{ user.zip_code or "-" }}</td>
+              <td>{{ user.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="admin-panel">
+      <h2>Generation runs</h2>
+      <div class="run-list">
+        {% for run in runs %}
+        <details class="run-card">
+          <summary>
+            <strong>{{ run.user_email }}</strong>
+            <span>{{ run.created_at }}</span>
+            <span>{{ run.job_id }}</span>
+            <span>JD: {{ run.jd_source_type }}</span>
+            <span>CV: {{ run.cv_source_type }}</span>
+          </summary>
+
+          <div class="run-meta">
+            <span><strong>Job source:</strong> {{ run.jd_source_type }}</span>
+            {% if run.jd_url %}
+            <span><strong>Job link:</strong> <a href="{{ run.jd_url }}" target="_blank" rel="noreferrer">{{ run.jd_url }}</a></span>
+            {% endif %}
+            <span><strong>CV source:</strong> {{ run.cv_source_type }}</span>
+            <span><strong>Downloads:</strong>
+              {% if run.downloads.resume_docx_url %}<a href="{{ run.downloads.resume_docx_url }}">ATS CV DOCX</a>{% endif %}
+              {% if run.downloads.resume_pdf_url %}<a href="{{ run.downloads.resume_pdf_url }}">ATS CV PDF</a>{% endif %}
+              {% if run.downloads.cover_docx_url %}<a href="{{ run.downloads.cover_docx_url }}">Cover DOCX</a>{% endif %}
+              {% if run.downloads.cover_pdf_url %}<a href="{{ run.downloads.cover_pdf_url }}">Cover PDF</a>{% endif %}
+            </span>
+          </div>
+
+          <div class="run-section">
+            <h3>User inputs</h3>
+            <div class="run-grid">
+              <div>
+                <h4>JD pasted / parsed from link</h4>
+                <pre>{{ run.jd_text }}</pre>
+              </div>
+              <div>
+                <h4>CV uploaded / pasted parsed text</h4>
+                <pre>{{ run.cv_text }}</pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="run-section">
+            <h3>LLM-generated documents</h3>
+            <div class="run-grid">
+              <div>
+                <h4>ATS CV</h4>
+                <div class="generated-preview">
+                  <h5>{{ run.resume.name }}</h5>
+                  {% if run.resume.contact %}
+                  <p>{{ run.resume.contact.email }} {{ run.resume.contact.phone }} {{ run.resume.contact.location }}</p>
+                  {% endif %}
+                  <p>{{ run.resume.summary }}</p>
+                  {% if run.resume.skills %}
+                  <strong>Skills</strong>
+                  <ul>{% for skill in run.resume.skills %}<li>{{ skill }}</li>{% endfor %}</ul>
+                  {% endif %}
+                  {% if run.resume.experience %}
+                  <strong>Experience</strong>
+                  {% for job in run.resume.experience %}
+                  <p><b>{{ job.title }}</b> · {{ job.company }} · {{ job.dates }}</p>
+                  <ul>{% for bullet in job.bullets %}<li>{{ bullet }}</li>{% endfor %}</ul>
+                  {% endfor %}
+                  {% endif %}
+                </div>
+              </div>
+              <div>
+                <h4>ATS cover letter</h4>
+                <pre>{{ run.cover_letter_text }}</pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="run-section">
+            <h3>Raw LLM JSON</h3>
+            <div class="run-grid">
+              <div>
+                <h4>Resume JSON</h4>
+                <pre>{{ run.resume | tojson(indent=2) }}</pre>
+              </div>
+              <div>
+                <h4>Cover letter JSON</h4>
+                <pre>{{ run.cover_letter | tojson(indent=2) }}</pre>
+              </div>
+            </div>
+          </div>
+        </details>
+        {% else %}
+        <p>No generations yet.</p>
+        {% endfor %}
+      </div>
+    </section>
+  </main>
+</body>
+</html>

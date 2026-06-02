@@ -3,8 +3,11 @@ window.addEventListener("message", (e) => {
   if (e.origin !== window.location.origin) return;
   if (e.data && e.data.type === "tailorback-login-success") {
     const gate = document.getElementById("authGate");
+    const authActions = document.querySelector(".auth-actions");
     const quietMeta = document.querySelector(".quiet-meta");
     if (gate) gate.remove();
+    if (authActions) authActions.remove();
+    closeModal(authModal);
     if (!document.getElementById("go")) {
       const submit = document.createElement("button");
       submit.type = "submit";
@@ -42,18 +45,20 @@ window.addEventListener("message", (e) => {
             <span class="avatar avatar-lg">${initial}</span>
             <span class="account-email"></span>
           </div>
-            <div class="account-credits">
+          <div class="account-credits">
               <div class="credits-row">
               <span>Generations</span>
               <span class="credits-count">${remaining} of ${limit} left</span>
             </div>
             <div class="credits-bar"><div class="credits-fill" style="width: ${pct}%"></div></div>
           </div>
+          <button type="button" class="account-action" id="openHistory">Generation history</button>
           <a class="account-signout" href="/auth/logout">Sign out</a>
         </div>`;
       account.querySelector(".account-email").textContent = email;
       nav.appendChild(account);
       bindAccountDropdown();
+      bindHistoryButton();
     }
   }
 });
@@ -75,6 +80,141 @@ function startPopupLogin() {
   const top = window.screenY + (window.outerHeight - h) / 2;
   window.open("/auth/google?popup=1", "tailorback_login",
     `width=${w},height=${h},left=${left},top=${top}`);
+}
+
+// ---- auth + account modals ----
+const authModal = document.getElementById('authModal');
+const historyModal = document.getElementById('historyModal');
+const signinView = document.getElementById('signinView');
+const signupView = document.getElementById('signupView');
+const signupForm = document.getElementById('signupForm');
+const packStep = document.getElementById('packStep');
+const selectedPackId = document.getElementById('selectedPackId');
+
+function openModal(modal) {
+  modal?.classList.remove('hidden');
+}
+
+function closeModal(modal) {
+  modal?.classList.add('hidden');
+}
+
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.authTab === tab);
+  });
+  signinView?.classList.toggle('hidden', tab !== 'signin');
+  signupView?.classList.toggle('hidden', tab !== 'signup');
+}
+
+function openAuth(tab = 'signin') {
+  switchAuthTab(tab);
+  if (tab === 'signup') {
+    packStep?.classList.remove('hidden');
+    signupForm?.classList.add('hidden');
+  }
+  openModal(authModal);
+}
+
+function showSignedInUi(user) {
+  updateAccountCredits(user.credits_remaining, user.credits_limit);
+  window.location.reload();
+}
+
+document.getElementById('openSignin')?.addEventListener('click', () => openAuth('signin'));
+document.getElementById('openSignup')?.addEventListener('click', () => openAuth('signup'));
+document.getElementById('gateSignin')?.addEventListener('click', () => openAuth('signin'));
+document.getElementById('gateSignup')?.addEventListener('click', () => openAuth('signup'));
+document.querySelectorAll('[data-close-modal]').forEach(btn => {
+  btn.addEventListener('click', () => closeModal(btn.closest('.modal')));
+});
+document.querySelectorAll('.modal').forEach(modal => {
+  modal.addEventListener('click', e => {
+    if (e.target === modal) closeModal(modal);
+  });
+});
+document.querySelectorAll('.auth-tab').forEach(btn => {
+  btn.addEventListener('click', () => switchAuthTab(btn.dataset.authTab));
+});
+document.querySelectorAll('.signup-plan').forEach(plan => {
+  plan.addEventListener('click', () => {
+    document.querySelectorAll('.signup-plan').forEach(p => p.classList.remove('selected'));
+    plan.classList.add('selected');
+    selectedPackId.value = plan.dataset.packId;
+    packStep.classList.add('hidden');
+    signupForm.classList.remove('hidden');
+    signupForm.querySelector('input[name=email]')?.focus();
+  });
+});
+document.getElementById('signinForm')?.addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.currentTarget);
+  try {
+    const res = await fetch('/api/auth/signin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.fromEntries(fd)),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Sign in failed.');
+    toast('Signed in.');
+    showSignedInUi(data.user);
+  } catch (err) {
+    toast(err.message || 'Sign in failed.', true);
+  }
+});
+signupForm?.addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.currentTarget);
+  try {
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.fromEntries(fd)),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Sign up failed.');
+    toast(data.payment_required ? 'Account created. Local paywall unlocked for testing.' : 'Account created.');
+    showSignedInUi(data.user);
+  } catch (err) {
+    toast(err.message || 'Sign up failed.', true);
+  }
+});
+
+async function openHistory() {
+  openModal(historyModal);
+  const summary = document.getElementById('historySummary');
+  const list = document.getElementById('historyList');
+  summary.innerHTML = '<span>Loading account...</span>';
+  list.innerHTML = '';
+  try {
+    const [accountRes, runsRes] = await Promise.all([
+      fetch('/api/account'),
+      fetch('/api/generations'),
+    ]);
+    const account = await accountRes.json();
+    const runs = await runsRes.json();
+    if (!accountRes.ok) throw new Error(account.message || 'Could not load account.');
+    summary.innerHTML = `
+      <div><strong>${account.user.current_pack}</strong><span>Current pack</span></div>
+      <div><strong>${account.user.credits_used}</strong><span>Used</span></div>
+      <div><strong>${account.user.credits_remaining}</strong><span>Left</span></div>
+      <div><strong>${account.user.credits_limit}</strong><span>Total limit</span></div>`;
+    const generations = runs.generations || [];
+    list.innerHTML = generations.length ? generations.map(run => `
+      <article class="history-item">
+        <div>
+          <strong>${run.resume_name || 'Tailored documents'}</strong>
+          <span>${new Date(run.created_at).toLocaleString()}</span>
+        </div>
+        <div class="history-links">
+          ${run.downloads.resume_docx_url ? `<a href="${run.downloads.resume_docx_url}">Resume</a>` : ''}
+          ${run.downloads.cover_docx_url ? `<a href="${run.downloads.cover_docx_url}">Cover letter</a>` : ''}
+        </div>
+      </article>`).join('') : '<p>No generations yet.</p>';
+  } catch (err) {
+    summary.innerHTML = `<p>${err.message || 'Could not load account history.'}</p>`;
+  }
 }
 // ---- mode toggles ----
 document.querySelectorAll('.toggle').forEach(toggle => {
@@ -235,7 +375,6 @@ function stopLoader() { overlay.classList.add('hidden'); clearTimeout(stepTimer)
 // ---- submit ----
 const form = document.getElementById('builder');
 let go = document.getElementById('go');
-const deleteDocsBtn = document.getElementById('deleteDocs');
 let currentJobId = null;
 
 const checkoutState = new URLSearchParams(window.location.search).get('checkout');
@@ -328,11 +467,6 @@ function renderResults(data) {
   setDl('dlResumePdf', data.resume_pdf_url);
   setDl('dlCoverDocx', data.cover_docx_url);
   setDl('dlCoverPdf', data.cover_pdf_url);
-  if (deleteDocsBtn) {
-    deleteDocsBtn.classList.toggle('hidden', !currentJobId);
-    deleteDocsBtn.disabled = false;
-    deleteDocsBtn.textContent = 'Delete generated files';
-  }
   const retention = document.getElementById('retentionNote');
   if (retention) {
     const days = Number.isFinite(data.expires_in_days) ? data.expires_in_days : 7;
@@ -407,38 +541,22 @@ function renderResults(data) {
 
   const results = document.getElementById('results');
   results.classList.remove('hidden');
+  resetBuilderInputs();
   results.scrollIntoView({ behavior: 'smooth' });
 }
 
-deleteDocsBtn?.addEventListener('click', async () => {
-  if (!currentJobId) return;
-  deleteDocsBtn.disabled = true;
-  try {
-    const res = await fetch(`/api/generated/${encodeURIComponent(currentJobId)}`, {
-      method: 'DELETE',
-    });
-    const data = await res.json();
-    if (!res.ok || data.status !== 'ok') {
-      throw new Error(data.message || 'Delete failed');
-    }
-    ['dlResumeDocx', 'dlResumePdf', 'dlCoverDocx', 'dlCoverPdf'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.removeAttribute('href');
-        el.style.display = 'none';
-      }
-    });
-    deleteDocsBtn.textContent = 'Generated files deleted';
-    const retention = document.getElementById('retentionNote');
-    if (retention) retention.textContent = 'Generated downloads have been deleted from this server.';
-    toast('Generated files deleted.');
-    currentJobId = null;
-  } catch (err) {
-    console.error('Delete generated files failed:', err);
-    deleteDocsBtn.disabled = false;
-    toast('Could not delete generated files. Please try again.', true);
+function resetBuilderInputs() {
+  form.reset();
+  fileInput.value = '';
+  showFile();
+  setMode('jd', 'paste');
+  setMode('cv', 'upload');
+  if (go) {
+    go.disabled = false;
+    go.innerHTML = '<span>Generate tailored documents</span><span class="arrow">→</span>';
   }
-});
+  updateReadiness();
+}
 
 document.addEventListener('click', async (e) => {
   const btn = e.target.closest('.buy-pack[data-pack-id]:not(.sign-in-pack)');
@@ -536,6 +654,18 @@ function bindAccountDropdown() {
 }
 
 bindAccountDropdown();
+function bindHistoryButton() {
+  const btn = document.getElementById("openHistory");
+  if (!btn || btn.dataset.bound === "true") return;
+  btn.dataset.bound = "true";
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const menu = document.getElementById("accountMenu");
+    if (menu) menu.hidden = true;
+    openHistory();
+  });
+}
+bindHistoryButton();
 document.addEventListener("click", (e) => {
   const menu = document.getElementById("accountMenu");
   const btn = document.getElementById("accountBtn");
