@@ -17,7 +17,7 @@ Browser (templates/index.html + static/js/app.js)
 Flask (backend/app.py)
         ├── services/jd_source.py     fetch + extract JD from a URL (graceful fallback)
         ├── services/cv_parser.py     extract text from pdf/docx (graceful fallback)
-        ├── services/llm.py           Gemini generation with optional Claude fallback
+        ├── services/llm.py           OpenAI generation with Gemini + Claude fallback
         └── services/docx_builder.py  ATS-safe .docx for resume + cover letter
         ▼
 generated/*.docx  → owner-only download links that expire automatically
@@ -30,8 +30,12 @@ cd ats-builder
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 playwright install chromium          # for JS-heavy job pages (optional but recommended)
-export GEMINI_API_KEY=AIza...        # required for tailoring
-export ANTHROPIC_API_KEY=sk-ant-...  # optional fallback if Gemini is unavailable
+export OPENAI_API_KEY=sk-proj-...    # preferred fast tailoring provider
+export OPENAI_MODEL=gpt-4.1-mini
+export GEMINI_API_KEY=AIza...        # fallback if OpenAI is unavailable
+export GEMINI_MODEL=gemini-2.5-flash-lite
+export ANTHROPIC_API_KEY=sk-ant-...  # final fallback if OpenAI/Gemini fail
+export ANTHROPIC_MODEL=claude-sonnet-4-20250514
 export FLASK_SECRET_KEY=change-me    # required for production sessions
 export FREE_GENERATION_LIMIT=2
 export STRIPE_SECRET_KEY=sk_test_...
@@ -45,6 +49,17 @@ python backend/app.py                # http://localhost:5000
 Generated resume and cover-letter downloads are tied to the signed-in user,
 expire after `GENERATED_RETENTION_DAYS` days (default: 7), and can be deleted
 from the results screen after generation.
+
+## Model fallback order
+
+Generation uses one provider at a time:
+
+1. OpenAI `OPENAI_MODEL` (default: `gpt-4.1-mini`) when `OPENAI_API_KEY` is set.
+2. Gemini `GEMINI_MODEL` (default: `gemini-2.5-flash-lite`) when OpenAI is missing or unavailable.
+3. Claude `ANTHROPIC_MODEL` (default: `claude-sonnet-4-20250514`) as the final fallback.
+
+This avoids racing multiple paid requests for the same generation while keeping
+Claude off the hot path unless cheaper providers fail.
 
 ## Monetization
 
