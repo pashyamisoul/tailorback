@@ -14,12 +14,20 @@ from docx import Document
 # (e.g. an image-only scanned PDF where pdfplumber finds no text layer).
 MIN_USABLE_CHARS = 120
 
+# pdfplumber groups words into lines using y_tolerance (default 3pt). Stylised
+# headers — e.g. a name whose first capital of each word is set a few points
+# larger/higher than the rest — get split into bogus lines ("A A R" / "MITH
+# AJOLKAR" instead of "AMITH A RAJOLKAR"). A slightly larger tolerance merges
+# those raised caps back onto their real line while staying well below normal
+# body line spacing (typically >=10pt), so paragraphs are unaffected.
+PDF_Y_TOLERANCE = 6
+
 
 def _from_pdf(path: str) -> str:
     chunks = []
     with pdfplumber.open(path) as pdf:
         for page in pdf.pages:
-            txt = page.extract_text() or ""
+            txt = page.extract_text(y_tolerance=PDF_Y_TOLERANCE) or ""
             if txt.strip():
                 chunks.append(txt)
     return "\n".join(chunks).strip()
