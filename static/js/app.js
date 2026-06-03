@@ -210,11 +210,14 @@ document.getElementById('signinForm')?.addEventListener('submit', async e => {
 signupForm?.addEventListener('submit', async e => {
   e.preventDefault();
   const fd = new FormData(e.currentTarget);
+  const payload = Object.fromEntries(fd);
+  payload.newsletter = e.currentTarget.newsletter.checked;
+  payload.agree_terms = e.currentTarget.agree_terms.checked;
   try {
     const res = await fetch('/api/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(Object.fromEntries(fd)),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Sign up failed.');

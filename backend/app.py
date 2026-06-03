@@ -137,6 +137,8 @@ class User(db.Model):
     country = db.Column(db.String(120), nullable=True)
     zip_code = db.Column(db.String(32), nullable=True)
     current_pack = db.Column(db.String(64), nullable=True)
+    newsletter_opt_in = db.Column(db.Boolean, default=False, nullable=False)
+    terms_accepted_at = db.Column(db.DateTime, nullable=True)
     generations_used = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
@@ -193,6 +195,8 @@ def _ensure_schema():
             "country": "VARCHAR(120)",
             "zip_code": "VARCHAR(32)",
             "current_pack": "VARCHAR(64)",
+            "newsletter_opt_in": "BOOLEAN DEFAULT 0",
+            "terms_accepted_at": "DATETIME",
         },
         "credit_grant": {
             "pack_id": "VARCHAR(64)",
@@ -605,6 +609,7 @@ def auth_google_callback():
             provider="google",
             provider_id=sub or "",
             email_verified=True,
+            terms_accepted_at=datetime.utcnow(),
         )
         db.session.add(user)
         db.session.commit()
@@ -655,6 +660,9 @@ def auth_signup_email():
         return jsonify({"status": "error", "message": "Password must be at least 8 characters."}), 400
     if password != repeat:
         return jsonify({"status": "error", "message": "Passwords do not match."}), 400
+    if not data.get("agree_terms"):
+        return jsonify({"status": "error",
+                        "message": "Please agree to the Terms of Use and Privacy Policy to continue."}), 400
     existing = User.query.filter_by(email=email).first()
     if existing:
         return jsonify({"status": "error", "message": "This email already has an account. Sign in instead."}), 409
@@ -667,6 +675,8 @@ def auth_signup_email():
         password_hash=generate_password_hash(password, method="pbkdf2:sha256"),
         email_verified=False,
         email_verification_token=token,
+        newsletter_opt_in=bool(data.get("newsletter")),
+        terms_accepted_at=datetime.utcnow(),
     )
     db.session.add(user)
     db.session.commit()

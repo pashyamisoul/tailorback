@@ -780,6 +780,28 @@ html[data-theme="terminal"] .go .gicon { display: none; }
   margin-top: 1.2rem;
 }
 .auth-legal a { color: inherit; }
+
+/* Sign-up consent checkboxes */
+.auth-form label.auth-check-line {
+  display: flex;
+  align-items: flex-start;
+  gap: .6rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.auth-check-line input[type="checkbox"] {
+  min-height: 0;
+  width: 18px;
+  height: 18px;
+  margin: .12rem 0 0;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  padding: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.auth-check-line span { font-size: .8rem; line-height: 1.45; }
+.auth-check-line a { color: #c9c2ff; text-decoration: underline; text-underline-offset: 2px; }
 .auth-inline-error {
   border: 1px solid rgba(239,177,83,.55);
   background: rgba(239,177,83,.12);
