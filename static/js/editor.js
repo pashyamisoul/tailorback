@@ -1,0 +1,597 @@
+/* ============================================================================
+ * TailorBack Studio — live document editor
+ *   - Renders the generated resume + cover letter as an editable "paper" preview
+ *   - Inline editing (contenteditable) bound back to a JS model
+ *   - Template / accent / font / density gallery
+ *   - Per-section AI regenerate (summary, skills, bullets, cover letter)
+ *   - "Apply & download" re-exports the edited content via /api/export
+ * ==========================================================================*/
+(function () {
+  "use strict";
+
+  const esc = window.escapeHtml || (s => String(s ?? ""));
+  const notify = window.toast || ((m) => console.log(m));
+
+  const TEMPLATES = [
+    { id: "editorial", name: "Editorial", hint: "Centered · classic" },
+    { id: "modern", name: "Modern", hint: "Left · accent heads" },
+    { id: "classic", name: "Classic", hint: "Serif · refined" },
+    { id: "compact", name: "Compact", hint: "Dense · one page" },
+  ];
+  const ACCENTS = ["c8462e", "1f6feb", "0f766e", "7c3aed", "be123c", "b45309", "0369a1", "111827"];
+  const FONTS = ["Calibri", "Georgia", "Arial", "Garamond", "Helvetica", "Times New Roman"];
+  const FONT_STACK = {
+    "Calibri": '"Segoe UI", Calibri, system-ui, sans-serif',
+    "Georgia": 'Georgia, "Times New Roman", serif',
+    "Arial": "Arial, Helvetica, sans-serif",
+    "Garamond": 'Garamond, "Apple Garamond", Georgia, serif',
+    "Helvetica": "Helvetica, Arial, sans-serif",
+    "Times New Roman": '"Times New Roman", Times, serif',
+  };
+  const TONES = [
+    { id: "", label: "Default" },
+    { id: "confident", label: "Confident" },
+    { id: "formal", label: "Formal" },
+    { id: "concise", label: "Concise" },
+    { id: "friendly", label: "Friendly" },
+  ];
+
+  const ST = {
+    jobId: null,
+    resume: {},
+    cover: {},
+    style: { template: "editorial", accent: "c8462e", font: "Calibri", density: "comfortable" },
+    job: {},
+    activeDoc: "resume",
+    dirty: false,           // edits/style changed since last export
+    exported: false,        // a fresh export with current state exists
+    urls: {},               // resume_docx_url, resume_pdf_url, cover_docx_url, cover_pdf_url
+  };
+
+  // ---- tiny helpers --------------------------------------------------------
+  function activeRoot() { return ST.activeDoc === "resume" ? ST.resume : ST.cover; }
+
+  function getByPath(root, path) {
+    return path.split(".").reduce((o, k) => (o == null ? o : o[k]), root);
+  }
+  function setByPath(root, path, val) {
+    const ks = path.split(".");
+    let o = root;
+    for (let i = 0; i < ks.length - 1; i++) {
+      if (o[ks[i]] == null) o[ks[i]] = isNaN(ks[i + 1]) ? {} : [];
+      o = o[ks[i]];
+    }
+    o[ks[ks.length - 1]] = val;
+  }
+
+  function markDirty() {
+    ST.dirty = true;
+    ST.exported = false;
+    setSaveState("Unsaved changes");
+  }
+  function setSaveState(text, ok) {
+    const el = document.getElementById("saveState");
+    if (!el) return;
+    el.textContent = text || "";
+    el.classList.toggle("is-ok", !!ok);
+  }
+
+  // ---- public entry point --------------------------------------------------
+  window.renderStudio = function (data) {
+    ST.jobId = data.job_id || null;
+    ST.resume = data.resume || {};
+    ST.cover = data.cover_letter || {};
+    ST.job = data.job || {};
+    ST.style = Object.assign(
+      { template: "editorial", accent: "c8462e", font: "Calibri", density: "comfortable" },
+      data.style || {});
+    ST.activeDoc = "resume";
+    ST.dirty = false;
+    ST.exported = true; // generation already produced a matching file set
+    ST.urls = {
+      resume_docx_url: data.resume_docx_url,
+      resume_pdf_url: data.resume_pdf_url,
+      cover_docx_url: data.cover_docx_url,
+      cover_pdf_url: data.cover_pdf_url,
+    };
+    buildShell();
+    renderStage();
+    setSaveState("");
+  };
+
+  // ---- shell (tabs, toolbar, sidebar) -------------------------------------
+  function buildShell() {
+    const root = document.getElementById("studio");
+    if (!root) return;
+    root.innerHTML = `
+      <div class="studio-bar">
+        <div class="doc-tabs" role="tablist">
+          <button class="doc-tab active" data-doc="resume" role="tab">Resume</button>
+          <button class="doc-tab" data-doc="cover" role="tab">Cover letter</button>
+        </div>
+        <div class="studio-bar-right">
+          <span class="save-state" id="saveState" role="status"></span>
+          <div class="sdl-menu" id="sdlMenu">
+            <button type="button" class="sdl-btn" id="sdlBtn">Download <span class="sdl-caret">▾</span></button>
+            <div class="sdl-options" id="sdlOptions">
+              <button type="button" data-fmt="pdf">PDF (.pdf)</button>
+              <button type="button" data-fmt="docx">Word (.docx)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="studio-body">
+        <aside class="studio-side" id="studioSide"></aside>
+        <div class="doc-stage"><div class="doc-scroll" id="docScroll"></div></div>
+      </div>`;
+
+    root.querySelectorAll(".doc-tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        if (tab.dataset.doc === ST.activeDoc) return;
+        ST.activeDoc = tab.dataset.doc;
+        root.querySelectorAll(".doc-tab").forEach(t =>
+          t.classList.toggle("active", t.dataset.doc === ST.activeDoc));
+        renderStage();
+      });
+    });
+
+    buildSidebar();
+    bindDownloadMenu();
+  }
+
+  function buildSidebar() {
+    const side = document.getElementById("studioSide");
+    if (!side) return;
+    side.innerHTML = `
+      <div class="side-group">
+        <h4>Template</h4>
+        <div class="tpl-grid" id="tplGrid">
+          ${TEMPLATES.map(t => `
+            <button type="button" class="tpl-chip ${t.id === ST.style.template ? "active" : ""}" data-tpl="${t.id}">
+              <span class="tpl-mini tpl-mini-${t.id}"><i></i><i></i><i></i></span>
+              <span class="tpl-name">${t.name}</span>
+              <span class="tpl-hint">${t.hint}</span>
+            </button>`).join("")}
+        </div>
+      </div>
+      <div class="side-group">
+        <h4>Accent</h4>
+        <div class="swatches" id="swatches">
+          ${ACCENTS.map(c => `<button type="button" class="swatch ${c === ST.style.accent ? "active" : ""}" data-accent="${c}" style="background:#${c}" aria-label="#${c}"></button>`).join("")}
+          <label class="swatch-custom" title="Custom colour">
+            <input type="color" id="accentCustom" value="#${ST.style.accent}" />
+          </label>
+        </div>
+      </div>
+      <div class="side-group">
+        <h4>Font</h4>
+        <select id="fontSelect" class="side-select">
+          ${FONTS.map(f => `<option value="${f}" ${f === ST.style.font ? "selected" : ""}>${f}</option>`).join("")}
+        </select>
+      </div>
+      <div class="side-group">
+        <h4>Density</h4>
+        <div class="density-toggle" id="densityToggle">
+          <button type="button" data-density="comfortable" class="${ST.style.density === "comfortable" ? "active" : ""}">Comfortable</button>
+          <button type="button" data-density="compact" class="${ST.style.density === "compact" ? "active" : ""}">Compact</button>
+        </div>
+      </div>
+      <p class="side-note">Edits and style apply to your download. Click any text in the page to edit it.</p>`;
+
+    side.querySelector("#tplGrid").addEventListener("click", e => {
+      const b = e.target.closest("[data-tpl]"); if (!b) return;
+      ST.style.template = b.dataset.tpl;
+      side.querySelectorAll(".tpl-chip").forEach(c => c.classList.toggle("active", c === b));
+      applyStageStyle(); markDirty();
+    });
+    side.querySelector("#swatches").addEventListener("click", e => {
+      const b = e.target.closest("[data-accent]"); if (!b) return;
+      setAccent(b.dataset.accent);
+    });
+    side.querySelector("#accentCustom").addEventListener("input", e => {
+      setAccent(e.target.value.replace("#", ""));
+    });
+    side.querySelector("#fontSelect").addEventListener("change", e => {
+      ST.style.font = e.target.value; applyStageStyle(); markDirty();
+    });
+    side.querySelector("#densityToggle").addEventListener("click", e => {
+      const b = e.target.closest("[data-density]"); if (!b) return;
+      ST.style.density = b.dataset.density;
+      side.querySelectorAll("#densityToggle button").forEach(x => x.classList.toggle("active", x === b));
+      applyStageStyle(); markDirty();
+    });
+  }
+
+  function setAccent(hex) {
+    hex = (hex || "").replace("#", "").toLowerCase();
+    if (!/^[0-9a-f]{6}$/.test(hex)) return;
+    ST.style.accent = hex;
+    document.querySelectorAll("#swatches .swatch[data-accent]").forEach(s =>
+      s.classList.toggle("active", s.dataset.accent === hex));
+    applyStageStyle(); markDirty();
+  }
+
+  // ---- stage (the editable page) ------------------------------------------
+  function renderStage() {
+    const scroll = document.getElementById("docScroll");
+    if (!scroll) return;
+    scroll.innerHTML = ST.activeDoc === "resume" ? resumeHtml(ST.resume) : coverHtml(ST.cover);
+    applyStageStyle();
+    bindStage(scroll);
+  }
+
+  function applyStageStyle() {
+    const page = document.querySelector("#docScroll .doc-page");
+    if (!page) return;
+    const coverCls = ST.activeDoc === "cover" ? " cover" : "";
+    page.className = `doc-page tmpl-${ST.style.template} density-${ST.style.density}${coverCls}`;
+    page.style.setProperty("--doc-accent", `#${ST.style.accent}`);
+    page.style.setProperty("--doc-font", FONT_STACK[ST.style.font] || FONT_STACK.Calibri);
+  }
+
+  function ed(path, value, cls, tag) {
+    tag = tag || "span";
+    const ph = value ? "" : ' data-empty="true"';
+    return `<${tag} class="ed ${cls || ""}" contenteditable="true" data-bind="${path}"${ph}>${esc(value || "")}</${tag}>`;
+  }
+
+  function sectionHead(title, refineBtn) {
+    return `<div class="doc-head"><span class="doc-head-t">${esc(title)}</span>${refineBtn || ""}</div>`;
+  }
+  function refineBtn(label, kind, ref) {
+    return `<button type="button" class="refine-btn" data-refine="${kind}" data-ref="${ref || ""}">✦ ${esc(label)}</button>`;
+  }
+
+  function resumeHtml(r) {
+    r = r || {};
+    const c = r.contact || {};
+    const links = (c.links || []);
+    const skills = (r.skills || []);
+    const exp = (r.experience || []);
+    const edu = (r.education || []);
+    const certs = (r.certifications || []);
+
+    const contactParts = [
+      ed("contact.email", c.email, "c-item"),
+      ed("contact.phone", c.phone, "c-item"),
+      ed("contact.location", c.location, "c-item"),
+      ...links.map((l, i) => `<span class="c-link">${ed("contact.links." + i, l, "c-item")}<button class="mini-x" data-act="del-link" data-i="${i}" title="Remove">×</button></span>`),
+    ].join('<span class="c-dot">•</span>');
+
+    return `
+    <div class="doc-page tmpl-${ST.style.template} density-${ST.style.density}">
+      ${ed("name", r.name, "doc-name", "h1")}
+      <div class="doc-contact">${contactParts}
+        <button class="mini-add" data-act="add-link" title="Add link">+ link</button>
+      </div>
+
+      <section class="doc-sec">
+        ${sectionHead("Professional Summary", refineBtn("Rewrite", "summary"))}
+        ${ed("summary", r.summary, "doc-summary", "p")}
+      </section>
+
+      <section class="doc-sec">
+        ${sectionHead("Core Competencies", refineBtn("Refine", "skills"))}
+        <div class="doc-skills" data-list="skills">
+          ${skills.map((s, i) => skillChip(s, i)).join("")}
+          <button class="mini-add chip-add" data-act="add-skill" title="Add skill">+</button>
+        </div>
+      </section>
+
+      <section class="doc-sec">
+        ${sectionHead("Professional Experience")}
+        <div data-list="experience">
+          ${exp.map((j, i) => jobHtml(j, i, exp.length)).join("")}
+        </div>
+        <button class="mini-add row-add" data-act="add-job">+ Add role</button>
+      </section>
+
+      ${edu.length || true ? `
+      <section class="doc-sec">
+        ${sectionHead("Education")}
+        <div data-list="education">
+          ${edu.map((e, i) => eduHtml(e, i)).join("")}
+        </div>
+        <button class="mini-add row-add" data-act="add-edu">+ Add education</button>
+      </section>` : ""}
+
+      ${certs.length ? `
+      <section class="doc-sec">
+        ${sectionHead("Certifications")}
+        <ul class="doc-certs" data-list="certifications">
+          ${certs.map((ct, i) => `<li>${ed("certifications." + i, ct, "")}<button class="mini-x" data-act="del-cert" data-i="${i}">×</button></li>`).join("")}
+        </ul>
+      </section>` : ""}
+    </div>`;
+  }
+
+  function skillChip(s, i) {
+    return `<span class="skill-chip">${ed("skills." + i, s, "")}<button class="mini-x" data-act="del-skill" data-i="${i}" title="Remove">×</button></span>`;
+  }
+
+  function jobHtml(j, i, total) {
+    j = j || {};
+    const bullets = (j.bullets || []);
+    return `
+    <div class="doc-job" data-job="${i}">
+      <div class="job-head">
+        <div class="job-title-row">
+          ${ed("experience." + i + ".title", j.title, "job-title")}
+          <span class="job-co">| ${ed("experience." + i + ".company", j.company, "job-company")}</span>
+        </div>
+        <div class="job-meta">
+          ${ed("experience." + i + ".dates", j.dates, "job-dates")}
+          ${refineBtn("Punchier", "bullets", String(i))}
+          <button class="mini-x job-del" data-act="del-job" data-i="${i}" title="Remove role">×</button>
+        </div>
+      </div>
+      <ul class="job-bullets">
+        ${bullets.map((b, bi) => `
+          <li>
+            ${ed("experience." + i + ".bullets." + bi, b, "")}
+            <button class="mini-x" data-act="del-bullet" data-job="${i}" data-i="${bi}" title="Remove">×</button>
+          </li>`).join("")}
+      </ul>
+      <button class="mini-add row-add" data-act="add-bullet" data-job="${i}">+ bullet</button>
+    </div>`;
+  }
+
+  function eduHtml(e, i) {
+    e = e || {};
+    return `
+    <div class="doc-edu" data-edu="${i}">
+      ${ed("education." + i + ".degree", e.degree, "edu-degree")}
+      <span class="edu-inst">— ${ed("education." + i + ".institution", e.institution, "")}</span>
+      <span class="edu-dates">${ed("education." + i + ".dates", e.dates, "")}</span>
+      <button class="mini-x" data-act="del-edu" data-i="${i}" title="Remove">×</button>
+    </div>`;
+  }
+
+  function coverHtml(cl) {
+    cl = cl || {};
+    const paras = (cl.body_paragraphs || []);
+    const name = ST.resume.name || "";
+    return `
+    <div class="doc-page tmpl-${ST.style.template} density-${ST.style.density} cover">
+      <div class="cover-top">
+        <span class="doc-name">${esc(name)}</span>
+        <span class="cover-actions">${refineBtn("Regenerate letter", "cover_letter")}</span>
+      </div>
+      <p class="cover-date">${new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}</p>
+      ${ed("greeting", cl.greeting || "Dear Hiring Manager,", "cover-greeting", "p")}
+      <div data-list="body_paragraphs">
+        ${paras.map((p, i) => `
+          <div class="cover-para-row">
+            ${ed("body_paragraphs." + i, p, "cover-para", "p")}
+            <button class="mini-x" data-act="del-para" data-i="${i}" title="Remove paragraph">×</button>
+          </div>`).join("")}
+      </div>
+      <button class="mini-add row-add" data-act="add-para">+ paragraph</button>
+      ${ed("closing", cl.closing || "Sincerely,", "cover-closing", "p")}
+      <p class="cover-sign">${esc(name)}</p>
+    </div>`;
+  }
+
+  // ---- stage interactions --------------------------------------------------
+  function bindStage(scroll) {
+    // text edits -> model (no re-render, so the caret stays put)
+    scroll.addEventListener("input", e => {
+      const t = e.target.closest(".ed[data-bind]");
+      if (!t) return;
+      setByPath(activeRoot(), t.dataset.bind, t.textContent.replace(/ /g, " ").trim());
+      t.removeAttribute("data-empty");
+      markDirty();
+    });
+    // keep Enter from creating <div>/<br> noise in single-line fields
+    scroll.addEventListener("keydown", e => {
+      const t = e.target.closest(".ed[data-bind]");
+      if (!t) return;
+      const multiline = t.classList.contains("doc-summary") || t.classList.contains("cover-para");
+      if (e.key === "Enter" && !multiline) { e.preventDefault(); t.blur(); }
+    });
+    // structural buttons + refine triggers
+    scroll.addEventListener("click", onStageClick);
+  }
+
+  function onStageClick(e) {
+    const refine = e.target.closest("[data-refine]");
+    if (refine) { openRefine(refine); return; }
+    const act = e.target.closest("[data-act]");
+    if (!act) return;
+    const r = ST.resume, cl = ST.cover;
+    const i = act.dataset.i != null ? parseInt(act.dataset.i, 10) : null;
+    const jobIdx = act.dataset.job != null ? parseInt(act.dataset.job, 10) : null;
+    switch (act.dataset.act) {
+      case "add-skill": (r.skills = r.skills || []).push("New skill"); break;
+      case "del-skill": r.skills.splice(i, 1); break;
+      case "add-link": (r.contact = r.contact || {}, r.contact.links = r.contact.links || []).push("link"); break;
+      case "del-link": r.contact.links.splice(i, 1); break;
+      case "add-job": (r.experience = r.experience || []).push({ title: "Job title", company: "Company", dates: "", bullets: ["Describe an achievement"] }); break;
+      case "del-job": r.experience.splice(i, 1); break;
+      case "add-bullet": (r.experience[jobIdx].bullets = r.experience[jobIdx].bullets || []).push("New achievement"); break;
+      case "del-bullet": r.experience[jobIdx].bullets.splice(i, 1); break;
+      case "add-edu": (r.education = r.education || []).push({ degree: "Degree", institution: "Institution", dates: "" }); break;
+      case "del-edu": r.education.splice(i, 1); break;
+      case "del-cert": r.certifications.splice(i, 1); break;
+      case "add-para": (cl.body_paragraphs = cl.body_paragraphs || []).push("New paragraph."); break;
+      case "del-para": cl.body_paragraphs.splice(i, 1); break;
+      default: return;
+    }
+    markDirty();
+    renderStage();
+  }
+
+  // ---- refine popover ------------------------------------------------------
+  let refinePop;
+  function closeRefine() { if (refinePop) { refinePop.remove(); refinePop = null; } }
+  document.addEventListener("click", e => {
+    if (refinePop && !refinePop.contains(e.target) && !e.target.closest("[data-refine]")) closeRefine();
+  });
+
+  function openRefine(trigger) {
+    closeRefine();
+    const kind = trigger.dataset.refine;
+    const ref = trigger.dataset.ref;
+    const isCover = kind === "cover_letter";
+    refinePop = document.createElement("div");
+    refinePop.className = "refine-pop";
+    refinePop.innerHTML = `
+      <label class="rp-label">What should change?</label>
+      <input type="text" class="rp-input" id="rpInstr" placeholder="${isCover ? "e.g. open with a stronger hook" : "e.g. make it punchier"}" />
+      <div class="rp-row">
+        <span>Tone</span>
+        <div class="rp-chips" id="rpTone">
+          ${TONES.map((t, idx) => `<button type="button" data-tone="${t.id}" class="${idx === 0 ? "active" : ""}">${t.label}</button>`).join("")}
+        </div>
+      </div>
+      ${isCover ? `
+      <div class="rp-row">
+        <span>Length</span>
+        <div class="rp-chips" id="rpLen">
+          <button type="button" data-len="" class="active">Keep</button>
+          <button type="button" data-len="shorter">Shorter</button>
+          <button type="button" data-len="longer">Longer</button>
+        </div>
+      </div>` : ""}
+      <div class="rp-actions">
+        <button type="button" class="rp-cancel">Cancel</button>
+        <button type="button" class="rp-apply">✦ Regenerate</button>
+      </div>
+      <div class="rp-busy hidden">Rewriting…</div>`;
+    document.body.appendChild(refinePop);
+    positionPop(refinePop, trigger);
+
+    let tone = "", length = "";
+    refinePop.querySelector("#rpTone").addEventListener("click", ev => {
+      const b = ev.target.closest("[data-tone]"); if (!b) return;
+      tone = b.dataset.tone;
+      refinePop.querySelectorAll("#rpTone button").forEach(x => x.classList.toggle("active", x === b));
+    });
+    const lenWrap = refinePop.querySelector("#rpLen");
+    if (lenWrap) lenWrap.addEventListener("click", ev => {
+      const b = ev.target.closest("[data-len]"); if (!b) return;
+      length = b.dataset.len;
+      lenWrap.querySelectorAll("button").forEach(x => x.classList.toggle("active", x === b));
+    });
+    refinePop.querySelector(".rp-cancel").addEventListener("click", closeRefine);
+    refinePop.querySelector(".rp-apply").addEventListener("click", async () => {
+      const instruction = refinePop.querySelector("#rpInstr").value.trim();
+      const busy = refinePop.querySelector(".rp-busy");
+      const actions = refinePop.querySelector(".rp-actions");
+      busy.classList.remove("hidden"); actions.classList.add("hidden");
+      try {
+        await runRefine(kind, ref, instruction, tone, length);
+        closeRefine();
+      } catch (err) {
+        busy.textContent = err.message || "Could not refine. Try again.";
+      }
+    });
+    refinePop.querySelector("#rpInstr").focus();
+  }
+
+  function positionPop(pop, trigger) {
+    const r = trigger.getBoundingClientRect();
+    const top = r.bottom + window.scrollY + 6;
+    let left = r.left + window.scrollX;
+    left = Math.min(left, window.scrollX + document.documentElement.clientWidth - pop.offsetWidth - 12);
+    pop.style.top = `${top}px`;
+    pop.style.left = `${Math.max(window.scrollX + 12, left)}px`;
+  }
+
+  async function runRefine(kind, ref, instruction, tone, length) {
+    let content, apply;
+    if (kind === "summary") {
+      content = ST.resume.summary || "";
+      apply = (v) => { ST.resume.summary = typeof v === "string" ? v : (v && v.summary) || ST.resume.summary; };
+    } else if (kind === "skills") {
+      content = ST.resume.skills || [];
+      apply = (v) => { if (Array.isArray(v)) ST.resume.skills = v; };
+    } else if (kind === "bullets") {
+      const idx = parseInt(ref, 10);
+      content = (ST.resume.experience[idx] || {}).bullets || [];
+      apply = (v) => { if (Array.isArray(v)) ST.resume.experience[idx].bullets = v; };
+    } else if (kind === "cover_letter") {
+      content = ST.cover || {};
+      apply = (v) => { if (v && typeof v === "object") ST.cover = v; };
+    } else return;
+
+    const context = {
+      role: ST.job.role || ST.job.title || null,
+      company: ST.job.company || null,
+    };
+    const res = await fetch("/api/refine", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind, content, instruction, tone, length, context }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.status !== "ok") throw new Error(data.message || "Refine failed.");
+    apply(data.content);
+    markDirty();
+    renderStage();
+    notify("Section regenerated.");
+  }
+
+  // ---- download / export ---------------------------------------------------
+  function bindDownloadMenu() {
+    const menu = document.getElementById("sdlMenu");
+    const btn = document.getElementById("sdlBtn");
+    const opts = document.getElementById("sdlOptions");
+    if (!menu || !btn) return;
+    btn.addEventListener("click", e => { e.stopPropagation(); menu.classList.toggle("open"); });
+    document.addEventListener("click", () => menu.classList.remove("open"));
+    opts.addEventListener("click", e => {
+      const b = e.target.closest("[data-fmt]"); if (!b) return;
+      menu.classList.remove("open");
+      download(ST.activeDoc, b.dataset.fmt);
+    });
+  }
+
+  async function download(doc, fmt) {
+    if (ST.dirty || !ST.exported) {
+      const ok = await exportNow();
+      if (!ok) return;
+    }
+    const url = ST.urls[`${doc}_${fmt}_url`];
+    if (!url) {
+      notify(fmt === "pdf"
+        ? "PDF export isn't available on this server. Download the Word file instead."
+        : "That file isn't available.", true);
+      return;
+    }
+    const a = document.createElement("a");
+    a.href = url; a.download = "";
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  async function exportNow() {
+    setSaveState("Saving…");
+    try {
+      const res = await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          job_id: ST.jobId,
+          resume: ST.resume,
+          cover_letter: ST.cover,
+          style: ST.style,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.status !== "ok") throw new Error(data.message || "Export failed.");
+      ST.urls = {
+        resume_docx_url: data.resume_docx_url,
+        resume_pdf_url: data.resume_pdf_url,
+        cover_docx_url: data.cover_docx_url,
+        cover_pdf_url: data.cover_pdf_url,
+      };
+      ST.dirty = false; ST.exported = true;
+      setSaveState("Saved", true);
+      return true;
+    } catch (err) {
+      setSaveState("");
+      notify(err.message || "Could not save changes.", true);
+      return false;
+    }
+  }
+})();

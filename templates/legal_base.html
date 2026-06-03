@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="editorial">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Apply the saved theme before paint so legal pages match the app's mode. -->
+  <script>try { var t = localStorage.getItem('tb-theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) {}</script>
+  <title>{% block title %}Legal{% endblock %} — TailorBack</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <div class="grain"></div>
+
+  <header class="masthead">
+    <a class="mark" href="/" style="text-decoration:none">T<span>.</span></a>
+    <div class="site-nav" aria-label="Primary"></div>
+    <nav>
+      <a class="site-nav-link" href="/">← Back to TailorBack</a>
+    </nav>
+  </header>
+
+  <main class="legal">
+    <div class="legal-wrap">
+      <p class="legal-kicker">TailorBack</p>
+      <h1 class="legal-title">{% block heading %}{% endblock %}</h1>
+      <p class="legal-updated">Last updated: {{ updated }}</p>
+
+      <div class="legal-note">
+        This document describes how TailorBack works today. It is a plain-English
+        summary intended for transparency, not formal legal advice. Items in
+        [brackets] should be completed by the operator before public launch.
+      </div>
+
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <span>TailorBack</span>
+    <a href="/terms">Terms</a>
+    <a href="/privacy">Privacy</a>
+  </footer>
+</body>
+</html>

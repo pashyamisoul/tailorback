@@ -14,28 +14,23 @@
 
   <header class="masthead">
     <div class="mark">T<span>.</span></div>
-    <div class="site-nav" aria-label="Primary">
-      <button type="button" class="site-nav-link" id="navPricing">Pricing</button>
-      {% if user_email %}
-      <button type="button" class="site-nav-link" id="navHistory">History</button>
-      {% endif %}
-    </div>
+    <div class="site-nav" aria-label="Primary"></div>
     <nav>
       <button id="themeToggle">terminal mode</button>
       <div class="pro-menu" id="proMenu">
         <button type="button" class="pro-trigger" id="proTrigger">
-          <span class="pro-star">★</span>
-          <span>TailorBack Pro</span>
+          <span class="tb-logo">Tailor<span class="tb-accent">back</span><span class="tb-pro">Pro</span></span>
         </button>
         <div class="pro-popover" id="proPopover" hidden>
           <div class="pro-head">
-            <span>TailorBack Pro</span>
+            <span class="pro-logo tb-logo">Tailor<span class="tb-accent">back</span><span class="tb-pro">Pro</span></span>
             <strong>Generation credit packs</strong>
             <p>One credit creates one tailored resume, cover letter, match score, and gap list.</p>
           </div>
           <div class="pro-options">
             {% for pack in credit_packs %}
             <article class="pro-pack{% if pack.featured %} featured{% endif %}">
+              {% if pack.featured %}<span class="pack-badge">Recommended</span>{% endif %}
               <div>
                 <strong>{{ pack.name }}</strong>
                 <span>{{ pack.credits }} generation credits</span>
@@ -55,9 +50,6 @@
             </article>
             {% endfor %}
           </div>
-          {% if not billing_enabled %}
-          <p class="billing-note">Secure checkout is being prepared. Credit packs are shown for preview.</p>
-          {% endif %}
         </div>
       </div>
       {% if user_email %}
@@ -106,7 +98,6 @@
           ATS-clean resume and a matching cover letter — and tells you honestly where
           you fall short, instead of making things up.
         </p>
-        <p class="free-note">Your first {{ free_credits_limit }} generations are free. Extra generations use TailorBack Pro credits.</p>
       </div>
     </section>
 
@@ -162,26 +153,45 @@
         </div>
       </fieldset>
 
+      <p class="free-note">
+        <span class="fn-star">✦</span>
+        <span>Your first <strong>{{ free_credits_limit }}</strong> generations are free — after that, tailoring runs on TailorBack&nbsp;Pro credits.</span>
+      </p>
+
       {% if user_email %}
       <button type="submit" class="go" id="go">
-        <span>Generate tailored documents</span>
+        <span>Run TailorBack</span>
         <span class="arrow">→</span>
       </button>
       {% else %}
-      <div class="generate-locked" id="authGate">
-        <button type="button" class="go locked-go" disabled>
-          <span>Generate tailored documents</span>
-          <span class="lock-mark">Locked</span>
-        </button>
-        <p>Use the header to sign in or create a free account when you are ready to generate.</p>
-      </div>
+      <button type="button" class="go" id="signinGate">
+        <span>Run TailorBack</span>
+        <span class="arrow">→</span>
+      </button>
       {% endif %}
-      <div class="quiet-meta" aria-label="Generated outputs and privacy">
-        <span>Resume</span>
-        <span>Cover letter</span>
-        <span>Match score</span>
-        <span>Gap list</span>
-        <span>Private downloads expire automatically.</span>
+      <div class="qm-cards-wrap" aria-label="What each generation includes">
+        <div class="qm-cards">
+          <div class="qm-card">
+            <span class="ic"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg></span>
+            <div><strong>Resume</strong><span>ATS-ready .docx &amp; PDF</span></div>
+          </div>
+          <div class="qm-card">
+            <span class="ic"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>
+            <div><strong>Cover letter</strong><span>Matched to the role</span></div>
+          </div>
+          <div class="qm-card">
+            <span class="ic"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="12" width="3" height="8"/><rect x="10" y="7" width="3" height="13"/><rect x="16" y="10" width="3" height="10"/></svg></span>
+            <div><strong>Match score</strong><span>How well you fit</span></div>
+          </div>
+          <div class="qm-card">
+            <span class="ic"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg></span>
+            <div><strong>Gap list</strong><span>What you're missing</span></div>
+          </div>
+        </div>
+        <p class="qm-priv">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+          Private to your account · downloads expire automatically.
+        </p>
       </div>
     </form>
 
@@ -189,24 +199,12 @@
     <section id="results" class="results hidden">
       <div class="result-head">
         <h2>Your documents are ready</h2>
-        <div class="downloads">
-          <div class="dl-menu" id="dlResumeMenu">
-            <button type="button" class="dl-btn">Download Resume <span class="dl-caret">▾</span></button>
-            <div class="dl-options">
-              <a id="dlResumeDocx" href="#" download>Word (.docx)</a>
-              <a id="dlResumePdf" href="#" download>PDF (.pdf)</a>
-            </div>
-          </div>
-          <div class="dl-menu" id="dlCoverMenu">
-            <button type="button" class="dl-btn">Download Cover Letter <span class="dl-caret">▾</span></button>
-            <div class="dl-options">
-              <a id="dlCoverDocx" href="#" download>Word (.docx)</a>
-              <a id="dlCoverPdf" href="#" download>PDF (.pdf)</a>
-            </div>
-          </div>
-        </div>
       </div>
       <p class="retention-note" id="retentionNote"></p>
+
+      <!-- LIVE EDITOR / STUDIO (populated by editor.js) -->
+      <section class="studio" id="studio" aria-label="Document editor"></section>
+
 <div class="analysis-panel" id="analysisPanel">
         <div class="analysis-head">
           <div>
@@ -247,11 +245,6 @@
         </div>
       </div>
 
-      <div class="preview-card">
-        <h3 id="pvName"></h3>
-        <p id="pvSummary" class="pv-summary"></p>
-        <div id="pvSkills" class="pv-skills"></div>
-      </div>
     </section>
   </main>
 
@@ -312,6 +305,14 @@
             <span>Repeat password</span>
             <input type="password" name="repeat_password" autocomplete="new-password" minlength="8" required />
           </label>
+          <label class="auth-check-line">
+            <input type="checkbox" name="newsletter" />
+            <span>Subscribe to the TailorBack newsletter for product news and job-search tips.</span>
+          </label>
+          <label class="auth-check-line">
+            <input type="checkbox" name="agree_terms" required />
+            <span>I agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Use</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</span>
+          </label>
           <button type="submit" class="go">Create account</button>
         </form>
         <div class="or-line"><span>or</span></div>
@@ -325,7 +326,7 @@
           <span>Continue with Google</span>
         </a>
         <p class="auth-switch">Already have an account? <button type="button" data-auth-tab="signin">Sign in</button></p>
-        <p class="auth-legal"><a href="#">Terms of Use</a><span>|</span><a href="#">Privacy Policy</a></p>
+        <p class="auth-legal"><a href="/terms" target="_blank" rel="noopener">Terms of Use</a><span>|</span><a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a></p>
       </section>
     </div>
   </div>
@@ -351,10 +352,11 @@
 
   <footer class="site-footer">
     <span>TailorBack</span>
-    <a href="#">Terms</a>
-    <a href="#">Privacy</a>
+    <a href="/terms">Terms</a>
+    <a href="/privacy">Privacy</a>
   </footer>
 
   <script src="/static/js/app.js"></script>
+  <script src="/static/js/editor.js"></script>
 </body>
 </html>

@@ -2,9 +2,9 @@
 window.addEventListener("message", (e) => {
   if (e.origin !== window.location.origin) return;
   if (e.data && e.data.type === "tailorback-login-success") {
-    const gate = document.getElementById("authGate");
+    const gate = document.getElementById("signinGate");
     const authActions = document.querySelector(".auth-actions");
-    const quietMeta = document.querySelector(".quiet-meta");
+    const anchor = document.querySelector(".qm-cards-wrap");
     if (gate) gate.remove();
     if (authActions) authActions.remove();
     closeModal(authModal);
@@ -13,8 +13,8 @@ window.addEventListener("message", (e) => {
       submit.type = "submit";
       submit.className = "go";
       submit.id = "go";
-      submit.innerHTML = '<span>Generate tailored documents</span><span class="arrow">→</span>';
-      form.insertBefore(submit, quietMeta);
+      submit.innerHTML = '<span>Run TailorBack</span><span class="arrow">→</span>';
+      form.insertBefore(submit, anchor);
       go = submit;
     }
     document.querySelectorAll(".sign-in-pack[data-pack-id]").forEach(link => {
@@ -161,11 +161,8 @@ function showActivationNotice(data) {
 
 document.getElementById('openSignin')?.addEventListener('click', () => openAuth('signin'));
 document.getElementById('openSignup')?.addEventListener('click', () => openAuth('signup'));
-document.getElementById('navHistory')?.addEventListener('click', () => openHistory());
-document.getElementById('navPricing')?.addEventListener('click', () => {
-  const proPopover = document.getElementById('proPopover');
-  if (proPopover) proPopover.hidden = false;
-});
+// Logged-out CTA: clicking "Run TailorBack" prompts sign-in.
+document.getElementById('signinGate')?.addEventListener('click', () => openAuth('signin'));
 document.querySelectorAll('[data-close-modal]').forEach(btn => {
   btn.addEventListener('click', () => closeModal(btn.closest('.modal')));
 });
@@ -181,7 +178,7 @@ document.querySelectorAll('.sign-in-pack[data-pack-id]').forEach(btn => {
   btn.addEventListener('click', () => {
     const popover = document.getElementById('proPopover');
     if (popover) popover.hidden = true;
-    openAuth('signup');
+    openAuth('signin');
   });
 });
 document.getElementById('signinForm')?.addEventListener('submit', async e => {
@@ -215,11 +212,14 @@ document.getElementById('signinForm')?.addEventListener('submit', async e => {
 signupForm?.addEventListener('submit', async e => {
   e.preventDefault();
   const fd = new FormData(e.currentTarget);
+  const payload = Object.fromEntries(fd);
+  payload.newsletter = e.currentTarget.newsletter.checked;
+  payload.agree_terms = e.currentTarget.agree_terms.checked;
   try {
     const res = await fetch('/api/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(Object.fromEntries(fd)),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Sign up failed.');
@@ -606,16 +606,8 @@ form.addEventListener('submit', async e => {
 function renderResults(data) {
   updateAccountCredits(data.credits_remaining, data.credits_limit);
   currentJobId = data.job_id || null;
-// Wire up DOCX (always present) and PDF (may be null if LibreOffice missing).
-  const setDl = (id, url) => {
-    const el = document.getElementById(id);
-    if (url) { el.href = url; el.style.display = ''; }
-    else { el.style.display = 'none'; }
-  };
-  setDl('dlResumeDocx', data.resume_docx_url);
-  setDl('dlResumePdf', data.resume_pdf_url);
-  setDl('dlCoverDocx', data.cover_docx_url);
-  setDl('dlCoverPdf', data.cover_pdf_url);
+  // Hand the editable document + downloads off to the studio (editor.js).
+  if (window.renderStudio) window.renderStudio(data);
   const retention = document.getElementById('retentionNote');
   if (retention) {
     const days = Number.isFinite(data.expires_in_days) ? data.expires_in_days : 7;
@@ -681,13 +673,6 @@ function renderResults(data) {
   (missing || []).forEach(t => { const li = document.createElement('li'); li.textContent = t; gaps.appendChild(li); });
   if (!gaps.children.length) { const li = document.createElement('li'); li.textContent = 'No major gaps detected.'; gaps.appendChild(li); }
 
-  const pv = data.preview || {};
-  document.getElementById('pvName').textContent = pv.name || '';
-  document.getElementById('pvSummary').textContent = pv.summary || '';
-  const skills = document.getElementById('pvSkills');
-  skills.innerHTML = '';
-  (pv.skills || []).forEach(s => { const sp = document.createElement('span'); sp.textContent = s; skills.appendChild(sp); });
-
   const results = document.getElementById('results');
   results.classList.remove('hidden');
   resetBuilderInputs();
@@ -702,7 +687,7 @@ function resetBuilderInputs() {
   setMode('cv', 'upload');
   if (go) {
     go.disabled = false;
-    go.innerHTML = '<span>Generate tailored documents</span><span class="arrow">→</span>';
+    go.innerHTML = '<span>Run TailorBack</span><span class="arrow">→</span>';
   }
   updateReadiness();
 }

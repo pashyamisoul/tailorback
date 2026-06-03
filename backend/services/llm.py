@@ -340,3 +340,69 @@ def generate_all(cv_text, jd_text, on_status=None):
         "Produce the full JSON now."
     )
     return _json_call(system, user, on_status=on_status)
+
+
+# ---------------------------------------------------------------------------
+# Per-section refinement (powers the in-app editor's "regenerate" controls)
+# ---------------------------------------------------------------------------
+
+_TONE_GUIDANCE = {
+    "formal": "Use a polished, professional, slightly formal register.",
+    "confident": "Use a confident, assertive, achievement-forward voice.",
+    "concise": "Be tight and economical; cut filler, keep only high-signal wording.",
+    "friendly": "Use a warm, approachable, human tone while staying professional.",
+}
+
+_REFINE_SCHEMAS = {
+    "summary": "{\"summary\": str}",
+    "skills": "{\"skills\": [str]}",
+    "bullets": "{\"bullets\": [str]}",
+    "cover_letter": "{\"greeting\": str, \"body_paragraphs\": [str], \"closing\": str}",
+}
+
+
+def refine_section(kind, content, instruction="", tone="", length="", context=None):
+    """Rewrite ONE resume/cover-letter section in place.
+
+    kind: 'summary' | 'skills' | 'bullets' | 'cover_letter'
+    content: the current value for that section (str / list / dict)
+    instruction: free-text user ask (e.g. "make it punchier")
+    tone: one of _TONE_GUIDANCE keys (optional)
+    length: 'shorter' | 'longer' | '' (optional)
+    context: optional dict with 'job' / 'role' / 'company' for grounding
+
+    Returns a dict matching _REFINE_SCHEMAS[kind]. Never invents facts.
+    """
+    if kind not in _REFINE_SCHEMAS:
+        raise ValueError(f"Unknown refine kind: {kind}")
+
+    asks = []
+    if instruction:
+        asks.append(instruction.strip())
+    if tone and tone in _TONE_GUIDANCE:
+        asks.append(_TONE_GUIDANCE[tone])
+    if length == "shorter":
+        asks.append("Make it noticeably shorter without losing key substance.")
+    elif length == "longer":
+        asks.append("Expand with more relevant detail, staying truthful.")
+    ask_text = " ".join(asks) or "Improve clarity and impact."
+
+    system = (
+        "You are an expert resume writer and editor. You rewrite a SINGLE section "
+        "of a candidate's resume or cover letter.\n\n"
+        "ABSOLUTE RULE - TRUTHFULNESS: Use ONLY facts already present in the provided "
+        "content. Never invent employers, titles, dates, metrics, tools, or skills the "
+        "candidate has not stated. You may rephrase, reorder, tighten, and re-emphasise. "
+        "Do not add numbers or technologies that are not already there.\n\n"
+        "Respond with ONLY a JSON object, no prose, no markdown fences. Schema: "
+        + _REFINE_SCHEMAS[kind] + "\n"
+        "Return the same shape you were given (a skills list stays a list of strings; "
+        "bullets stay a list of strings; the summary stays a single string)."
+    )
+    parts = [f"SECTION TYPE: {kind}", f"EDITING INSTRUCTION: {ask_text}"]
+    if context:
+        parts.append("JOB CONTEXT (for relevance only, not new facts):\n"
+                      + json.dumps(context, indent=2))
+    parts.append("CURRENT CONTENT:\n" + json.dumps(content, indent=2, ensure_ascii=False))
+    parts.append("Rewrite it now and return ONLY the JSON object.")
+    return _json_call(system, "\n\n".join(parts))

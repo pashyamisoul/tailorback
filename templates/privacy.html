@@ -1,0 +1,112 @@
+{% extends "legal_base.html" %}
+{% block title %}Privacy Policy{% endblock %}
+{% block heading %}Privacy Policy{% endblock %}
+{% block content %}
+
+<p>This Privacy Policy explains what data TailorBack ("we", "us") collects, why,
+and what we do with it. TailorBack is operated by [Company legal name],
+[jurisdiction]. For privacy questions or data requests, contact [support email].</p>
+
+<h2>1. Data we collect</h2>
+<ul>
+  <li><strong>Account details:</strong> your name and email address (via Google
+      sign-in or email sign-up), a securely hashed password (email accounts only),
+      email-verification status, and optionally your country and ZIP/postal code.</li>
+  <li><strong>The content you submit:</strong> the CV/résumé text or files you
+      upload and the job descriptions or job links you provide.</li>
+  <li><strong>Generated content:</strong> the tailored résumé, cover letter, match
+      score, and gaps we produce, plus basic metadata (which AI provider was used
+      and how long generation took).</li>
+  <li><strong>Billing data:</strong> a record of credit purchases and grants. Card
+      payments are handled by Stripe; we receive confirmation and a Stripe session
+      reference, not your full card number.</li>
+  <li><strong>Technical data:</strong> standard server logs (e.g. request times)
+      needed to operate and secure the Service.</li>
+</ul>
+
+<h2>2. How uploaded files are handled</h2>
+<p>When you upload a <code>.pdf</code> or <code>.docx</code>, we extract its text
+and then delete the uploaded file from disk immediately — we do not retain the
+original file. The extracted text is stored with your generation record so you can
+revisit and edit the result.</p>
+
+<h2>3. Third-party AI providers</h2>
+<p>To generate documents, your CV text and the job description are sent to one of
+the following AI providers (in fallback order, until one succeeds):</p>
+<ul>
+  <li>OpenAI</li>
+  <li>Google (Gemini)</li>
+  <li>Anthropic (Claude)</li>
+</ul>
+<p>These providers process the text to return the tailored output. Their handling
+of data is governed by their own terms and privacy policies. We send only the CV
+text and job description needed for the task — not your name, email, or payment
+details — beyond what you have chosen to include in your CV text itself.</p>
+
+<h2>4. Sharing, processors &amp; legal disclosure</h2>
+<p>We rely on the following processors to run the Service:</p>
+<ul>
+  <li><strong>Google OAuth</strong> — if you sign in with Google, Google provides
+      us your email, name, and a user identifier.</li>
+  <li><strong>Stripe</strong> — processes payments and sends us signed
+      confirmation of completed checkouts.</li>
+  <li><strong>[Hosting / email provider]</strong> — hosts the Service and, once
+      configured, sends account-activation emails.</li>
+</ul>
+<p>We <strong>do not sell</strong> your personal data or email address, and we do
+not share it with third parties for their own marketing. Apart from the processors
+above, we share your data only when you direct us to, or when we are required to do
+so by law, regulation, legal process, or a valid government request, or where
+disclosure is reasonably necessary to investigate fraud or protect the rights,
+safety, and security of TailorBack and its users.</p>
+
+<h2>5. Why we use your data</h2>
+<ul>
+  <li>To create your account and authenticate you.</li>
+  <li>To generate, store, and let you edit and download your documents.</li>
+  <li>To track free and paid generation credits and process purchases.</li>
+  <li>To operate, secure, debug, and improve the Service.</li>
+  <li>To send essential account emails (e.g. activation).</li>
+</ul>
+
+<h2>6. Retention</h2>
+<ul>
+  <li>Generated document files (the downloadable <code>.docx</code>/<code>.pdf</code>)
+      are deleted automatically after {{ retention_days }} days, or sooner if you
+      delete them.</li>
+  <li>Your account, generation history (including stored CV and job-description
+      text), and credit records are retained while your account is active, so you
+      can revisit past generations.</li>
+  <li>You can request deletion of your account and associated data at any time by
+      contacting [support email].</li>
+</ul>
+
+<h2>7. Your rights</h2>
+<p>Depending on your location (for example under the EU/UK GDPR), you may have the
+right to access, correct, export, or delete your personal data, to object to or
+restrict certain processing, and to withdraw consent. To exercise these rights,
+contact [support email]. You may also change your password and delete generated
+documents directly in your account settings.</p>
+
+<h2>8. Security</h2>
+<p>We use measures such as hashed passwords, account-scoped access to your
+documents, expiring download links, and signed payment webhooks. No method of
+transmission or storage is perfectly secure, but we work to protect your data.</p>
+
+<h2>9. Children</h2>
+<p>The Service is not directed to children under 16, and we do not knowingly
+collect their data.</p>
+
+<h2>10. International transfers</h2>
+<p>Because we use third-party AI and infrastructure providers, your data may be
+processed in countries other than your own. Where required, we rely on appropriate
+safeguards for such transfers.</p>
+
+<h2>11. Changes</h2>
+<p>We may update this Policy. The "Last updated" date above reflects the latest
+version; material changes will be highlighted in the app where appropriate.</p>
+
+<h2>12. Contact</h2>
+<p>Privacy questions and data requests: [support email].</p>
+
+{% endblock %}
