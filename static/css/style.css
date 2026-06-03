@@ -447,33 +447,38 @@ html[data-theme="terminal"] .go .gicon { display: none; }
   gap: .25rem;
   margin-bottom: .95rem;
 }
-.pro-head span {
-  color: var(--accent);
-  font-family: "Spline Sans Mono", monospace;
-  font-size: .72rem;
-  text-transform: uppercase;
-  letter-spacing: .08em;
+/* Two-tone "Tailorback" wordmark, used in the nav trigger and popover header */
+.tb-logo {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: 900;
+  letter-spacing: -.03em;
+  text-transform: none;
+  line-height: 1;
+  color: var(--ink);
 }
-/* Branded logo pill in the popover header (mirrors the .pro-trigger button) */
+.tb-logo .tb-accent { color: var(--accent); }
+.tb-logo .tb-pro {
+  font-weight: 700;
+  font-size: .58em;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  align-self: center;
+  margin-left: .45em;
+}
+/* Logo pill in the popover header (mirrors the .pro-trigger button) */
 .pro-head .pro-logo {
   justify-self: start;
   display: inline-flex;
   align-items: center;
-  gap: .4rem;
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: .34rem .62rem;
-  margin-bottom: .25rem;
+  padding: .36rem .66rem;
+  margin-bottom: .3rem;
+  font-size: 1rem;
 }
-.pro-head .pro-logo span {
-  color: var(--ink);
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: .78rem;
-  font-weight: 800;
-  text-transform: none;
-  letter-spacing: 0;
-}
-.pro-head .pro-logo .pro-star { color: #f4b43f; }
 .pro-head strong {
   font-size: 1.35rem;
   line-height: 1.1;
@@ -1700,10 +1705,7 @@ html[data-theme="terminal"] .go::before{ content:"\25B6  "; }
 html[data-theme="terminal"] .go:hover{ background:var(--accent-deep); }
 html[data-theme="terminal"] .quiet-meta{ font-family:"JetBrains Mono",monospace; }
 html[data-theme="terminal"] .quiet-meta span:not(:last-child)::before{ color:var(--accent); }
-html[data-theme="terminal"] .pro-trigger,
-html[data-theme="terminal"] .pro-head span,
-html[data-theme="terminal"] .buy-pack,
-html[data-theme="terminal"] .billing-note{ font-family:"JetBrains Mono",monospace; }
+html[data-theme="terminal"] .buy-pack{ font-family:"JetBrains Mono",monospace; }
 html[data-theme="terminal"] .pro-popover,
 html[data-theme="terminal"] .pro-pack{ background:var(--paper-2); }
 html[data-theme="terminal"] .pro-pack.featured{ background:rgba(57,211,83,.08); border-color:var(--accent); }
