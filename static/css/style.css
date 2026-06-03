@@ -344,30 +344,37 @@ textarea:focus, input[type="url"]:focus, input[type="email"]:focus, input[type="
 .go:disabled { opacity: .5; cursor: wait; }
 .go .gicon { vertical-align: middle; margin-right: 4px; }
 html[data-theme="terminal"] .go .gicon { display: none; }
-.quiet-meta {
+/* "What each generation includes" — icon mini-cards */
+.qm-cards-wrap { margin-top: -.1rem; }
+.qm-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .55rem;
+  margin-bottom: .8rem;
+}
+.qm-card {
   display: flex;
-  flex-wrap: wrap;
-  gap: .45rem;
-  max-width: 58rem;
-  margin-top: -.15rem;
-  color: var(--ink-soft);
-  font-family: "Spline Sans Mono", monospace;
-  font-size: .7rem;
-  line-height: 1.2;
+  align-items: center;
+  gap: .6rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255,255,255,.4);
+  padding: .65rem .75rem;
 }
-.quiet-meta span {
-  border: 0;
-  background: transparent;
-  padding: .18rem 0;
+.qm-card .ic {
+  width: 34px; height: 34px; flex: 0 0 auto; border-radius: 8px;
+  display: grid; place-items: center; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--paper));
 }
-.quiet-meta span:not(:last-child)::before,
-.quiet-meta span:last-child::before {
-  content: "✓";
-  color: var(--good);
-  margin-right: .35rem;
+.qm-card strong { display: block; font-size: .86rem; color: var(--ink); }
+.qm-card span { display: block; font-size: .72rem; color: var(--ink-soft); }
+.qm-priv {
+  display: flex; align-items: center; gap: .45rem; margin: 0;
+  color: var(--ink-soft); font-size: .8rem;
 }
-.quiet-meta span:last-child {
-  flex-basis: auto;
+.qm-priv svg { flex: 0 0 auto; }
+@media (max-width: 540px) {
+  .qm-cards { grid-template-columns: 1fr; }
 }
 .site-footer {
   max-width: 980px;
@@ -1738,8 +1745,8 @@ html[data-theme="terminal"] .dz-file{ color:var(--accent); }
 html[data-theme="terminal"] .go{ background:var(--accent); color:var(--paper); font-family:"JetBrains Mono",monospace; }
 html[data-theme="terminal"] .go::before{ content:"\25B6  "; }
 html[data-theme="terminal"] .go:hover{ background:var(--accent-deep); }
-html[data-theme="terminal"] .quiet-meta{ font-family:"JetBrains Mono",monospace; }
-html[data-theme="terminal"] .quiet-meta span:not(:last-child)::before{ color:var(--accent); }
+html[data-theme="terminal"] .qm-card, html[data-theme="terminal"] .qm-priv{ font-family:"JetBrains Mono",monospace; }
+html[data-theme="terminal"] .qm-card{ background:var(--paper-2); }
 html[data-theme="terminal"] .buy-pack{ font-family:"JetBrains Mono",monospace; }
 html[data-theme="terminal"] .pro-popover,
 html[data-theme="terminal"] .pro-pack{ background:var(--paper-2); }
