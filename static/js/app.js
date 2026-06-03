@@ -606,16 +606,8 @@ form.addEventListener('submit', async e => {
 function renderResults(data) {
   updateAccountCredits(data.credits_remaining, data.credits_limit);
   currentJobId = data.job_id || null;
-// Wire up DOCX (always present) and PDF (may be null if LibreOffice missing).
-  const setDl = (id, url) => {
-    const el = document.getElementById(id);
-    if (url) { el.href = url; el.style.display = ''; }
-    else { el.style.display = 'none'; }
-  };
-  setDl('dlResumeDocx', data.resume_docx_url);
-  setDl('dlResumePdf', data.resume_pdf_url);
-  setDl('dlCoverDocx', data.cover_docx_url);
-  setDl('dlCoverPdf', data.cover_pdf_url);
+  // Hand the editable document + downloads off to the studio (editor.js).
+  if (window.renderStudio) window.renderStudio(data);
   const retention = document.getElementById('retentionNote');
   if (retention) {
     const days = Number.isFinite(data.expires_in_days) ? data.expires_in_days : 7;
@@ -680,13 +672,6 @@ function renderResults(data) {
   const missing = data.match?.missing?.length ? data.match.missing : data.gaps;
   (missing || []).forEach(t => { const li = document.createElement('li'); li.textContent = t; gaps.appendChild(li); });
   if (!gaps.children.length) { const li = document.createElement('li'); li.textContent = 'No major gaps detected.'; gaps.appendChild(li); }
-
-  const pv = data.preview || {};
-  document.getElementById('pvName').textContent = pv.name || '';
-  document.getElementById('pvSummary').textContent = pv.summary || '';
-  const skills = document.getElementById('pvSkills');
-  skills.innerHTML = '';
-  (pv.skills || []).forEach(s => { const sp = document.createElement('span'); sp.textContent = s; skills.appendChild(sp); });
 
   const results = document.getElementById('results');
   results.classList.remove('hidden');

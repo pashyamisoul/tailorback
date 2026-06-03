@@ -189,24 +189,12 @@
     <section id="results" class="results hidden">
       <div class="result-head">
         <h2>Your documents are ready</h2>
-        <div class="downloads">
-          <div class="dl-menu" id="dlResumeMenu">
-            <button type="button" class="dl-btn">Download Resume <span class="dl-caret">▾</span></button>
-            <div class="dl-options">
-              <a id="dlResumeDocx" href="#" download>Word (.docx)</a>
-              <a id="dlResumePdf" href="#" download>PDF (.pdf)</a>
-            </div>
-          </div>
-          <div class="dl-menu" id="dlCoverMenu">
-            <button type="button" class="dl-btn">Download Cover Letter <span class="dl-caret">▾</span></button>
-            <div class="dl-options">
-              <a id="dlCoverDocx" href="#" download>Word (.docx)</a>
-              <a id="dlCoverPdf" href="#" download>PDF (.pdf)</a>
-            </div>
-          </div>
-        </div>
       </div>
       <p class="retention-note" id="retentionNote"></p>
+
+      <!-- LIVE EDITOR / STUDIO (populated by editor.js) -->
+      <section class="studio" id="studio" aria-label="Document editor"></section>
+
 <div class="analysis-panel" id="analysisPanel">
         <div class="analysis-head">
           <div>
@@ -247,11 +235,6 @@
         </div>
       </div>
 
-      <div class="preview-card">
-        <h3 id="pvName"></h3>
-        <p id="pvSummary" class="pv-summary"></p>
-        <div id="pvSkills" class="pv-skills"></div>
-      </div>
     </section>
   </main>
 
@@ -356,5 +339,6 @@
   </footer>
 
   <script src="/static/js/app.js"></script>
+  <script src="/static/js/editor.js"></script>
 </body>
 </html>

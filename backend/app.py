@@ -56,6 +56,17 @@ ALLOWED = {".pdf", ".docx"}
 MAX_BYTES = 8 * 1024 * 1024
 FREE_LIMIT = int(os.environ.get("FREE_GENERATION_LIMIT", "2"))
 GENERATED_RETENTION_DAYS = int(os.environ.get("GENERATED_RETENTION_DAYS", "7"))
+
+# --- Document style gallery (drives docx_builder + the in-app editor) ---
+ALLOWED_TEMPLATES = {"editorial", "modern", "classic", "compact"}
+ALLOWED_FONTS = {"Calibri", "Georgia", "Arial", "Garamond", "Helvetica", "Times New Roman"}
+ALLOWED_DENSITY = {"comfortable", "compact"}
+_DEFAULT_DOC_STYLE = {
+    "template": "editorial",
+    "accent": "c8462e",
+    "font": "Calibri",
+    "density": "comfortable",
+}
 STRIPE_API = "https://api.stripe.com/v1"
 STRIPE_PACKS = [
     {
@@ -166,6 +177,7 @@ class GenerationRun(db.Model):
     model_provider = db.Column(db.String(32), nullable=True)
     model_name = db.Column(db.String(128), nullable=True)
     generation_seconds = db.Column(db.Float, nullable=True)
+    style_json = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -190,6 +202,7 @@ def _ensure_schema():
             "model_provider": "VARCHAR(32)",
             "model_name": "VARCHAR(128)",
             "generation_seconds": "FLOAT",
+            "style_json": "TEXT",
         },
     }
     with db.engine.connect() as conn:
@@ -310,6 +323,132 @@ def _cleanup_generated():
             pass
         db.session.delete(doc)
     db.session.commit()
+
+
+import re as _re
+
+
+def _slugify(*parts):
+    out = []
+    for p in parts:
+        if not p:
+            continue
+        s = _re.sub(r"[^A-Za-z0-9]+", "-", str(p)).strip("-")
+        if s:
+            out.append(s)
+    return "-".join(out)
+
+
+def _sanitize_style(style):
+    """Clamp an incoming style dict to known-safe values."""
+    style = style if isinstance(style, dict) else {}
+    accent = str(style.get("accent") or "").lstrip("#")
+    if not _re.fullmatch(r"[0-9a-fA-F]{6}", accent or ""):
+        accent = _DEFAULT_DOC_STYLE["accent"]
+    template = style.get("template")
+    font = style.get("font")
+    density = style.get("density")
+    return {
+        "template": template if template in ALLOWED_TEMPLATES else _DEFAULT_DOC_STYLE["template"],
+        "accent": accent.lower(),
+        "font": font if font in ALLOWED_FONTS else _DEFAULT_DOC_STYLE["font"],
+        "density": density if density in ALLOWED_DENSITY else _DEFAULT_DOC_STYLE["density"],
+    }
+
+
+def _clean_str(v, limit=4000):
+    return str(v).strip()[:limit] if v is not None else ""
+
+
+def _clean_str_list(v, limit=60, item_limit=600):
+    if not isinstance(v, list):
+        return []
+    out = []
+    for item in v[:limit]:
+        s = _clean_str(item, item_limit)
+        if s:
+            out.append(s)
+    return out
+
+
+def _sanitize_resume(resume):
+    """Structurally validate/coerce an edited resume payload before building."""
+    resume = resume if isinstance(resume, dict) else {}
+    contact = resume.get("contact") if isinstance(resume.get("contact"), dict) else {}
+    experience = []
+    for job in (resume.get("experience") or [])[:25]:
+        if not isinstance(job, dict):
+            continue
+        experience.append({
+            "title": _clean_str(job.get("title"), 200),
+            "company": _clean_str(job.get("company"), 200),
+            "dates": _clean_str(job.get("dates"), 120),
+            "bullets": _clean_str_list(job.get("bullets"), limit=20, item_limit=1000),
+        })
+    education = []
+    for ed in (resume.get("education") or [])[:15]:
+        if not isinstance(ed, dict):
+            continue
+        education.append({
+            "degree": _clean_str(ed.get("degree"), 200),
+            "institution": _clean_str(ed.get("institution"), 200),
+            "dates": _clean_str(ed.get("dates"), 120),
+        })
+    return {
+        "name": _clean_str(resume.get("name"), 200),
+        "contact": {
+            "email": _clean_str(contact.get("email"), 200),
+            "phone": _clean_str(contact.get("phone"), 80),
+            "location": _clean_str(contact.get("location"), 200),
+            "links": _clean_str_list(contact.get("links"), limit=10, item_limit=300),
+        },
+        "summary": _clean_str(resume.get("summary"), 3000),
+        "skills": _clean_str_list(resume.get("skills"), limit=60, item_limit=120),
+        "experience": experience,
+        "education": education,
+        "certifications": _clean_str_list(resume.get("certifications"), limit=30, item_limit=300),
+    }
+
+
+def _sanitize_cover(cover):
+    cover = cover if isinstance(cover, dict) else {}
+    return {
+        "greeting": _clean_str(cover.get("greeting"), 300),
+        "body_paragraphs": _clean_str_list(cover.get("body_paragraphs"), limit=12, item_limit=3000),
+        "closing": _clean_str(cover.get("closing"), 300),
+    }
+
+
+def _build_documents(user, job_id, resume, cover, style, job=None):
+    """Build resume + cover-letter docx/pdf for a job, register them, and return
+    download URLs. Replaces any previously generated files for this job_id."""
+    # Drop the previous file set for this job (edits supersede older exports).
+    for old in GeneratedDocument.query.filter_by(user_id=user.id, job_id=job_id).all():
+        try:
+            os.remove(os.path.join(GENERATED, old.filename))
+        except FileNotFoundError:
+            pass
+        db.session.delete(old)
+
+    job = job or {}
+    full = (resume.get("name", "") or "").strip()
+    last = full.split()[-1] if full else ""
+    stem = _slugify(last, job.get("company")) or "tailorback"
+    rev = uuid.uuid4().hex[:4]
+    resume_path = os.path.join(GENERATED, f"{job_id}__{stem}_{rev}_resume.docx")
+    cover_path = os.path.join(GENERATED, f"{job_id}__{stem}_{rev}_coverletter.docx")
+
+    docx_builder.build_resume(resume, resume_path, style=style)
+    c = resume.get("contact", {}) or {}
+    contact_line = "   •   ".join(
+        x for x in (c.get("email"), c.get("phone"), c.get("location")) if x)
+    docx_builder.build_cover_letter(
+        cover, resume.get("name", ""), cover_path,
+        contact_line=contact_line, links=c.get("links") or [], style=style)
+    pdfs = docx_builder.to_pdfs([resume_path, cover_path])
+    for path in (resume_path, cover_path, pdfs.get(resume_path), pdfs.get(cover_path)):
+        _register_generated_file(user, job_id, path)
+    return _download_urls_for_job(user.id, job_id)
 
 
 def _public_credit_packs():
@@ -779,6 +918,10 @@ def generate():
                 "match": result.get("match_summary", {}),
                 "analysis": analysis,
                 **credits,
+                "resume": resume,
+                "cover_letter": result.get("cover_letter", {}),
+                "job": _job,
+                "style": _DEFAULT_DOC_STYLE,
                 "preview": {
                     "name": resume.get("name", ""),
                     "summary": resume.get("summary", ""),
@@ -935,6 +1078,86 @@ def delete_generated(job_id):
         db.session.delete(doc)
     db.session.commit()
     return jsonify({"status": "ok", "deleted": deleted})
+
+
+@app.route("/api/refine", methods=["POST"])
+def refine_section():
+    """Regenerate a single resume/cover-letter section. Does not consume credits —
+    iterating on a generation you already paid for stays free."""
+    current_user = _current_user()
+    if not current_user:
+        return jsonify({"status": "error", "message": "Please sign in."}), 401
+    if not any(os.environ.get(k) for k in (
+            "OPENAI_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY")):
+        return jsonify({"status": "error", "message": "Server missing an LLM API key."}), 500
+    data = request.get_json(silent=True) or {}
+    kind = data.get("kind")
+    if kind not in ("summary", "skills", "bullets", "cover_letter"):
+        return jsonify({"status": "error", "message": "Unknown section."}), 400
+    content = data.get("content")
+    if content is None:
+        return jsonify({"status": "error", "message": "Nothing to refine."}), 400
+    instruction = _clean_str(data.get("instruction"), 400)
+    tone = data.get("tone") if data.get("tone") in (
+        "formal", "confident", "concise", "friendly") else ""
+    length = data.get("length") if data.get("length") in ("shorter", "longer") else ""
+    context = data.get("context") if isinstance(data.get("context"), dict) else None
+    try:
+        refined = llm.refine_section(
+            kind, content, instruction=instruction, tone=tone, length=length, context=context)
+    except Exception:
+        app.logger.exception("Refine failed")
+        return jsonify({"status": "error", "message": "Could not refine that section. Try again."}), 502
+    # Coerce to the exact shape the editor expects.
+    if kind == "summary":
+        out = _clean_str(refined.get("summary"), 3000)
+    elif kind == "skills":
+        out = _clean_str_list(refined.get("skills"), limit=60, item_limit=120)
+    elif kind == "bullets":
+        out = _clean_str_list(refined.get("bullets"), limit=20, item_limit=1000)
+    else:
+        out = _sanitize_cover(refined)
+    return jsonify({"status": "ok", "kind": kind, "content": out})
+
+
+@app.route("/api/export", methods=["POST"])
+def export_documents():
+    """Rebuild resume + cover-letter docx/pdf from edited content and a chosen
+    style. Owner-scoped to the job_id; does not consume credits."""
+    current_user = _current_user()
+    if not current_user:
+        return jsonify({"status": "error", "message": "Please sign in."}), 401
+    data = request.get_json(silent=True) or {}
+    job_id = (data.get("job_id") or "").strip()
+    run = GenerationRun.query.filter_by(job_id=job_id, user_id=current_user.id).first()
+    if not run:
+        return jsonify({"status": "error", "message": "Unknown document."}), 404
+    resume = _sanitize_resume(data.get("resume"))
+    cover = _sanitize_cover(data.get("cover_letter"))
+    style = _sanitize_style(data.get("style"))
+    if not resume["name"] and not resume["experience"]:
+        return jsonify({"status": "error", "message": "The resume looks empty."}), 400
+    try:
+        downloads = _build_documents(current_user, job_id, resume, cover, style, job={})
+        run.resume_json = _json.dumps(resume)
+        run.cover_letter_json = _json.dumps(cover)
+        run.style_json = _json.dumps(style)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Export failed")
+        return jsonify({"status": "error", "message": "Could not rebuild the documents."}), 500
+    return jsonify({
+        "status": "ok",
+        "job_id": job_id,
+        "style": style,
+        "downloads": downloads,
+        "resume_docx_url": downloads.get("resume_docx_url"),
+        "resume_pdf_url": downloads.get("resume_pdf_url"),
+        "cover_docx_url": downloads.get("cover_docx_url"),
+        "cover_pdf_url": downloads.get("cover_pdf_url"),
+        "expires_in_days": GENERATED_RETENTION_DAYS,
+    })
 
 
 @app.route("/api/account")
