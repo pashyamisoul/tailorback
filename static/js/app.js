@@ -161,11 +161,6 @@ function showActivationNotice(data) {
 
 document.getElementById('openSignin')?.addEventListener('click', () => openAuth('signin'));
 document.getElementById('openSignup')?.addEventListener('click', () => openAuth('signup'));
-document.getElementById('navHistory')?.addEventListener('click', () => openHistory());
-document.getElementById('navPricing')?.addEventListener('click', () => {
-  const proPopover = document.getElementById('proPopover');
-  if (proPopover) proPopover.hidden = false;
-});
 document.querySelectorAll('[data-close-modal]').forEach(btn => {
   btn.addEventListener('click', () => closeModal(btn.closest('.modal')));
 });
