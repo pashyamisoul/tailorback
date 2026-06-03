@@ -1357,14 +1357,17 @@ footer {
 
 /* toast */
 .toast {
-  position: fixed; left: 50%; bottom: 2rem; transform: translateX(-50%) translateY(120%);
+  position: fixed; left: 50%; bottom: 2rem; transform: translateX(-50%) translateY(140%);
   background: var(--ink); color: var(--paper); padding: .9rem 1.3rem; border-radius: var(--radius);
   font-family: "Spline Sans Mono", monospace; font-size: .85rem; z-index: 1200;
-  transition: transform .35s cubic-bezier(.2,.8,.2,1); max-width: min(90vw, 720px);
+  transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .3s ease; max-width: min(90vw, 720px);
   display: flex; align-items: center;
   box-shadow: 0 14px 40px rgba(0,0,0,.18);
+  /* Hidden state: opacity + pointer-events guarantee it fully disappears and
+     never intercepts clicks, regardless of the toast's height vs. the bottom gap. */
+  opacity: 0; pointer-events: none;
 }
-.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto; }
 .toast.warn { background: var(--warn); }
 .toast-msg { line-height: 1.45; }
 
