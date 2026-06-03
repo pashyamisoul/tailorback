@@ -416,6 +416,10 @@ html[data-theme="terminal"] .go .gicon { display: none; }
   border-color: var(--accent);
   color: var(--paper);
 }
+/* On hover the trigger background turns dark, so flip the ink-coloured parts of
+   the wordmark to paper (the accent "back" stays readable against the dark). */
+.pro-trigger:hover .tb-logo,
+.pro-trigger:hover .tb-logo .tb-pro { color: var(--paper); }
 .pro-star {
   color: #f4b43f;
 }
