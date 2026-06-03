@@ -176,7 +176,7 @@ document.querySelectorAll('.sign-in-pack[data-pack-id]').forEach(btn => {
   btn.addEventListener('click', () => {
     const popover = document.getElementById('proPopover');
     if (popover) popover.hidden = true;
-    openAuth('signup');
+    openAuth('signin');
   });
 });
 document.getElementById('signinForm')?.addEventListener('submit', async e => {
