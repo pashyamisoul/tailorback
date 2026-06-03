@@ -32,6 +32,10 @@ window.addEventListener("message", (e) => {
       const remaining = Number.isFinite(e.data.creditsRemaining) ? e.data.creditsRemaining : 0;
       const limit = Number.isFinite(e.data.creditsLimit) ? e.data.creditsLimit : 5;
       const pct = limit ? Math.max(0, Math.min(100, Math.round((remaining / limit) * 100))) : 0;
+      const credits = document.createElement("div");
+      credits.className = "nav-credits";
+      credits.setAttribute("aria-label", "Credits remaining");
+      credits.innerHTML = `<strong>${remaining}</strong><span>credits</span>`;
       const account = document.createElement("div");
       account.className = "account";
       account.id = "account";
@@ -52,10 +56,11 @@ window.addEventListener("message", (e) => {
             </div>
             <div class="credits-bar"><div class="credits-fill" style="width: ${pct}%"></div></div>
           </div>
-          <button type="button" class="account-action" id="openHistory">Generation history</button>
+          <button type="button" class="account-action" id="openHistory">Account &amp; settings</button>
           <a class="account-signout" href="/auth/logout">Sign out</a>
         </div>`;
       account.querySelector(".account-email").textContent = email;
+      nav.appendChild(credits);
       nav.appendChild(account);
       bindAccountDropdown();
       bindHistoryButton();
@@ -67,7 +72,9 @@ function updateAccountCredits(remaining, limit) {
   if (!Number.isFinite(remaining) || !Number.isFinite(limit) || limit <= 0) return;
   const count = document.querySelector(".credits-count");
   const fill = document.querySelector(".credits-fill");
+  const navCredits = document.querySelector(".nav-credits strong");
   if (count) count.textContent = `${remaining} of ${limit} left`;
+  if (navCredits) navCredits.textContent = remaining;
   if (fill) {
     const pct = Math.max(0, Math.min(100, Math.round((remaining / limit) * 100)));
     fill.style.width = `${pct}%`;
@@ -88,8 +95,9 @@ const historyModal = document.getElementById('historyModal');
 const signinView = document.getElementById('signinView');
 const signupView = document.getElementById('signupView');
 const signupForm = document.getElementById('signupForm');
-const packStep = document.getElementById('packStep');
-const selectedPackId = document.getElementById('selectedPackId');
+const signupCheck = document.getElementById('signupCheck');
+const devActivationLink = document.getElementById('devActivationLink');
+const signinError = document.getElementById('signinError');
 
 function openModal(modal) {
   modal?.classList.remove('hidden');
@@ -100,6 +108,7 @@ function closeModal(modal) {
 }
 
 function switchAuthTab(tab) {
+  hideSigninError();
   document.querySelectorAll('.auth-tab').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.authTab === tab);
   });
@@ -109,11 +118,30 @@ function switchAuthTab(tab) {
 
 function openAuth(tab = 'signin') {
   switchAuthTab(tab);
-  if (tab === 'signup') {
-    packStep?.classList.remove('hidden');
-    signupForm?.classList.add('hidden');
-  }
   openModal(authModal);
+}
+
+function hideSigninError() {
+  if (!signinError) return;
+  signinError.classList.add('hidden');
+  signinError.textContent = '';
+}
+
+function showSigninError(message, includeSignupLink = false) {
+  if (!signinError) return;
+  signinError.classList.remove('hidden');
+  signinError.innerHTML = '';
+  const text = document.createElement('span');
+  text.textContent = message;
+  signinError.appendChild(text);
+  if (includeSignupLink) {
+    signinError.appendChild(document.createTextNode(' '));
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = 'Sign up';
+    btn.addEventListener('click', () => switchAuthTab('signup'));
+    signinError.appendChild(btn);
+  }
 }
 
 function showSignedInUi(user) {
@@ -121,10 +149,23 @@ function showSignedInUi(user) {
   window.location.reload();
 }
 
+function showActivationNotice(data) {
+  switchAuthTab('signup');
+  signupForm?.classList.add('hidden');
+  signupCheck?.classList.remove('hidden');
+  if (data?.activation_url && devActivationLink) {
+    devActivationLink.href = data.activation_url;
+    devActivationLink.classList.remove('hidden');
+  }
+}
+
 document.getElementById('openSignin')?.addEventListener('click', () => openAuth('signin'));
 document.getElementById('openSignup')?.addEventListener('click', () => openAuth('signup'));
-document.getElementById('gateSignin')?.addEventListener('click', () => openAuth('signin'));
-document.getElementById('gateSignup')?.addEventListener('click', () => openAuth('signup'));
+document.getElementById('navHistory')?.addEventListener('click', () => openHistory());
+document.getElementById('navPricing')?.addEventListener('click', () => {
+  const proPopover = document.getElementById('proPopover');
+  if (proPopover) proPopover.hidden = false;
+});
 document.querySelectorAll('[data-close-modal]').forEach(btn => {
   btn.addEventListener('click', () => closeModal(btn.closest('.modal')));
 });
@@ -133,21 +174,19 @@ document.querySelectorAll('.modal').forEach(modal => {
     if (e.target === modal) closeModal(modal);
   });
 });
-document.querySelectorAll('.auth-tab').forEach(btn => {
+document.querySelectorAll('[data-auth-tab]').forEach(btn => {
   btn.addEventListener('click', () => switchAuthTab(btn.dataset.authTab));
 });
-document.querySelectorAll('.signup-plan').forEach(plan => {
-  plan.addEventListener('click', () => {
-    document.querySelectorAll('.signup-plan').forEach(p => p.classList.remove('selected'));
-    plan.classList.add('selected');
-    selectedPackId.value = plan.dataset.packId;
-    packStep.classList.add('hidden');
-    signupForm.classList.remove('hidden');
-    signupForm.querySelector('input[name=email]')?.focus();
+document.querySelectorAll('.sign-in-pack[data-pack-id]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const popover = document.getElementById('proPopover');
+    if (popover) popover.hidden = true;
+    openAuth('signup');
   });
 });
 document.getElementById('signinForm')?.addEventListener('submit', async e => {
   e.preventDefault();
+  hideSigninError();
   const fd = new FormData(e.currentTarget);
   try {
     const res = await fetch('/api/auth/signin', {
@@ -156,11 +195,21 @@ document.getElementById('signinForm')?.addEventListener('submit', async e => {
       body: JSON.stringify(Object.fromEntries(fd)),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Sign in failed.');
+    if (!res.ok) {
+      if (data.status === 'verification_required') showActivationNotice(data);
+      if (data.status === 'account_not_found') {
+        showSigninError('No user account found for this email. Please', true);
+        return;
+      }
+      showSigninError(data.message || 'Sign in failed.');
+      throw new Error(data.message || 'Sign in failed.');
+    }
     toast('Signed in.');
     showSignedInUi(data.user);
   } catch (err) {
-    toast(err.message || 'Sign in failed.', true);
+    if (!signinError || signinError.classList.contains('hidden')) {
+      showSigninError(err.message || 'Sign in failed.');
+    }
   }
 });
 signupForm?.addEventListener('submit', async e => {
@@ -174,18 +223,31 @@ signupForm?.addEventListener('submit', async e => {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Sign up failed.');
-    toast(data.payment_required ? 'Account created. Local paywall unlocked for testing.' : 'Account created.');
-    showSignedInUi(data.user);
+    showActivationNotice(data);
+    toast(data.message || 'Check your email to activate your account.');
   } catch (err) {
     toast(err.message || 'Sign up failed.', true);
   }
 });
 
+const authState = new URLSearchParams(window.location.search).get('auth');
+if (authState === 'activated') {
+  toast('Account activated. You are signed in.');
+  window.history.replaceState({}, document.title, window.location.pathname);
+} else if (authState === 'invalid_activation') {
+  toast('That activation link is invalid or has already been used.', true);
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
+
 async function openHistory() {
   openModal(historyModal);
+  const profile = document.getElementById('accountProfile');
   const summary = document.getElementById('historySummary');
+  const settings = document.getElementById('accountSettings');
   const list = document.getElementById('historyList');
+  if (profile) profile.innerHTML = '';
   summary.innerHTML = '<span>Loading account...</span>';
+  if (settings) settings.innerHTML = '';
   list.innerHTML = '';
   try {
     const [accountRes, runsRes] = await Promise.all([
@@ -195,18 +257,66 @@ async function openHistory() {
     const account = await accountRes.json();
     const runs = await runsRes.json();
     if (!accountRes.ok) throw new Error(account.message || 'Could not load account.');
+    const user = account.user;
+    if (profile) {
+      const initial = (user.email?.[0] || 'T').toUpperCase();
+      profile.innerHTML = `
+        <div class="account-profile-main">
+          <span class="avatar avatar-lg">${initial}</span>
+          <div>
+            <strong>${escapeHtml(user.full_name || 'TailorBack user')}</strong>
+            <span>${escapeHtml(user.email || '')}</span>
+          </div>
+        </div>
+        <div class="account-profile-meta">
+          <span>${escapeHtml(user.provider || 'email')}</span>
+          <span>${user.email_verified ? 'Verified' : 'Unverified'}</span>
+          <span>${escapeHtml(user.current_pack || 'Free')}</span>
+        </div>`;
+    }
     summary.innerHTML = `
-      <div><strong>${account.user.current_pack}</strong><span>Current pack</span></div>
-      <div><strong>${account.user.credits_used}</strong><span>Used</span></div>
-      <div><strong>${account.user.credits_remaining}</strong><span>Left</span></div>
-      <div><strong>${account.user.credits_limit}</strong><span>Total limit</span></div>`;
+      <div><strong>${user.credits_remaining}</strong><span>Credits left</span></div>
+      <div><strong>${user.credits_used}</strong><span>Used</span></div>
+      <div><strong>${user.credits_limit}</strong><span>Total limit</span></div>
+      <div><strong>${user.paid_credits}</strong><span>Paid credits</span></div>`;
+    if (settings) {
+      settings.innerHTML = user.has_password ? `
+        <details class="settings-card">
+          <summary>
+            <strong>Change password</strong>
+            <span>Update the password for this email account.</span>
+          </summary>
+          <form class="password-form" id="passwordForm">
+            <label>
+              <span>Current password</span>
+              <input type="password" name="current_password" autocomplete="current-password" required />
+            </label>
+            <label>
+              <span>New password</span>
+              <input type="password" name="new_password" autocomplete="new-password" minlength="8" required />
+            </label>
+            <label>
+              <span>Repeat new password</span>
+              <input type="password" name="repeat_password" autocomplete="new-password" minlength="8" required />
+            </label>
+            <button type="submit">Update password</button>
+            <p class="settings-message" id="passwordMessage"></p>
+          </form>
+        </details>` : `
+        <div class="settings-card google-managed">
+          <strong>Password managed by Google</strong>
+          <span>This account signs in with Google, so password changes happen in your Google account.</span>
+        </div>`;
+      bindPasswordForm();
+    }
     const generations = runs.generations || [];
     list.innerHTML = generations.length ? generations.map(run => `
       <article class="history-item">
         <div>
-          <strong>${run.resume_name || 'Tailored documents'}</strong>
+          <strong>${escapeHtml(run.resume_name || 'Tailored documents')}</strong>
           <span>${new Date(run.created_at).toLocaleString()}</span>
         </div>
+        <span>${escapeHtml(run.model_provider || 'unknown')} ${run.generation_seconds ? `· ${run.generation_seconds}s` : ''}</span>
         <div class="history-links">
           ${run.downloads.resume_docx_url ? `<a href="${run.downloads.resume_docx_url}">Resume</a>` : ''}
           ${run.downloads.cover_docx_url ? `<a href="${run.downloads.cover_docx_url}">Cover letter</a>` : ''}
@@ -215,6 +325,50 @@ async function openHistory() {
   } catch (err) {
     summary.innerHTML = `<p>${err.message || 'Could not load account history.'}</p>`;
   }
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[ch]));
+}
+
+function bindPasswordForm() {
+  const form = document.getElementById('passwordForm');
+  if (!form || form.dataset.bound === 'true') return;
+  form.dataset.bound = 'true';
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const msg = document.getElementById('passwordMessage');
+    if (msg) {
+      msg.textContent = '';
+      msg.className = 'settings-message';
+    }
+    const fd = new FormData(form);
+    try {
+      const res = await fetch('/api/account/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.fromEntries(fd)),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Could not update password.');
+      form.reset();
+      if (msg) {
+        msg.textContent = data.message || 'Password updated.';
+        msg.classList.add('ok');
+      }
+    } catch (err) {
+      if (msg) {
+        msg.textContent = err.message || 'Could not update password.';
+        msg.classList.add('warn');
+      }
+    }
+  });
 }
 // ---- mode toggles ----
 document.querySelectorAll('.toggle').forEach(toggle => {
@@ -303,19 +457,14 @@ function toast(msg, warn = false) {
     toastEl = document.createElement('div');
     toastEl.className = 'toast';
     toastEl.setAttribute('role', 'status');
-    toastEl.innerHTML = '<span class="toast-msg"></span><button type="button" class="toast-close" aria-label="Dismiss message">×</button>';
-    toastEl.querySelector('.toast-close').addEventListener('click', () => {
-      toastEl.classList.remove('show');
-    });
+    toastEl.innerHTML = '<span class="toast-msg"></span>';
     document.body.appendChild(toastEl);
   }
   toastEl.querySelector('.toast-msg').textContent = msg;
   toastEl.classList.toggle('warn', warn);
   toastEl.classList.add('show');
   clearTimeout(toastEl._t);
-  if (!warn) {
-    toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 4200);
-  }
+  toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 3000);
 }
 
 // ---- loader ----
@@ -393,7 +542,7 @@ form.addEventListener('submit', async e => {
   const hasCV = (fd.get('cv_text') || '').trim() || (fileInput.files.length > 0);
   if (!hasJD) return toast('Add the job description or a job link first.', true);
   if (!hasCV) return toast('Upload or paste your CV first.', true);
-  if (!go) return toast('Sign in with Google before generation.', true);
+  if (!go) return toast('Sign in before generation.', true);
   go.disabled = true; startLoader();
   try {
     const res = await fetch('/api/generate', { method: 'POST', body: fd });

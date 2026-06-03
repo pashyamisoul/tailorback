@@ -10,25 +10,67 @@
   <header class="admin-top">
     <div>
       <span class="admin-kicker">TailorBack Admin</span>
-      <h1>Backend portal</h1>
+      <h1>Operations dashboard</h1>
     </div>
     <a href="/admin/logout">Sign out</a>
   </header>
+
   <main class="admin-shell">
+    {% if request.args.get("adjusted") %}
+    <p class="admin-success">User credit limit updated.</p>
+    {% endif %}
+    {% if request.args.get("error") %}
+    <p class="form-error">Credit update failed. Check the action and amount.</p>
+    {% endif %}
+
+    <section class="admin-metrics" aria-label="Portal overview">
+      <article>
+        <span>Total users</span>
+        <strong>{{ stats.total_users }}</strong>
+        <small>{{ stats.verified_users }} verified</small>
+      </article>
+      <article>
+        <span>Generations</span>
+        <strong>{{ stats.total_generations }}</strong>
+        <small>{{ stats.visible_generations }} shown below</small>
+      </article>
+      <article>
+        <span>Credits left</span>
+        <strong>{{ stats.credits_remaining }}</strong>
+        <small>{{ stats.credits_granted }} granted</small>
+      </article>
+      <article>
+        <span>Avg generation</span>
+        <strong>{% if stats.avg_generation_seconds %}{{ stats.avg_generation_seconds }}s{% else %}-{% endif %}</strong>
+        <small>new runs only</small>
+      </article>
+    </section>
+
     <section class="admin-panel">
-      <h2>Users</h2>
-      {% if request.args.get("adjusted") %}
-      <p class="admin-success">User credit limit updated.</p>
-      {% endif %}
-      {% if request.args.get("error") %}
-      <p class="form-error">Credit update failed. Check the action and amount.</p>
-      {% endif %}
-      <div class="admin-user-actions">
+      <div class="admin-section-head">
+        <div>
+          <h2>Users and limits</h2>
+          <p>Registered users, verification state, credits, and manual adjustments.</p>
+        </div>
+      </div>
+      <div class="admin-user-grid">
         {% for user in users %}
         <article class="admin-user-card">
-          <div>
-            <strong>{{ user.email }}</strong>
-            <span>{{ user.credits_used }} used · {{ user.credits_remaining }} left · {{ user.credits_limit }} total</span>
+          <div class="admin-user-main">
+            <strong>{{ user.full_name or user.email }}</strong>
+            <span>{{ user.email }}</span>
+            <div class="admin-badges">
+              <b>{{ user.provider }}</b>
+              <b class="{% if user.email_verified %}ok{% else %}warn{% endif %}">
+                {% if user.email_verified %}verified{% else %}unverified{% endif %}
+              </b>
+              <b>{{ user.current_pack }}</b>
+            </div>
+          </div>
+          <div class="admin-credit-summary">
+            <strong>{{ user.credits_remaining }}</strong>
+            <span>left of {{ user.credits_limit }}</span>
+            <small>{{ user.credits_used }} used</small>
           </div>
           <form class="admin-credit-form" method="post" action="/admin/users/{{ user.id }}/credits">
             <select name="action" aria-label="Credit action">
@@ -42,34 +84,43 @@
             <button type="submit">Apply</button>
           </form>
         </article>
+        {% else %}
+        <p>No users yet.</p>
         {% endfor %}
+      </div>
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-section-head">
+        <div>
+          <h2>Invoices and credit grants</h2>
+          <p>Stripe purchases and manual admin credit changes.</p>
+        </div>
       </div>
       <div class="admin-table-wrap">
         <table class="admin-table">
           <thead>
             <tr>
-              <th>Email</th>
-              <th>Provider</th>
+              <th>Date</th>
+              <th>User</th>
+              <th>Credits</th>
+              <th>Source</th>
               <th>Pack</th>
-              <th>Used</th>
-              <th>Left</th>
-              <th>Country</th>
-              <th>ZIP</th>
-              <th>Created</th>
+              <th>Note / session</th>
             </tr>
           </thead>
           <tbody>
-            {% for user in users %}
+            {% for grant in grants %}
             <tr>
-              <td>{{ user.email }}</td>
-              <td>{{ user.provider }}</td>
-              <td>{{ user.current_pack }}</td>
-              <td>{{ user.credits_used }}</td>
-              <td>{{ user.credits_remaining }} / {{ user.credits_limit }}</td>
-              <td>{{ user.country or "-" }}</td>
-              <td>{{ user.zip_code or "-" }}</td>
-              <td>{{ user.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+              <td>{{ grant.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+              <td>{{ grant.user_email }}</td>
+              <td>{{ grant.credits }}</td>
+              <td>{{ grant.source }}</td>
+              <td>{{ grant.pack_id }}</td>
+              <td>{{ grant.note or grant.stripe_session_id or "-" }}</td>
             </tr>
+            {% else %}
+            <tr><td colspan="6">No credit grants yet.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -77,24 +128,34 @@
     </section>
 
     <section class="admin-panel">
-      <h2>Generation runs</h2>
+      <div class="admin-section-head">
+        <div>
+          <h2>Generation audit</h2>
+          <p>Inputs, model, duration, downloads, and generated outputs for recent runs.</p>
+        </div>
+      </div>
       <div class="run-list">
         {% for run in runs %}
         <details class="run-card">
           <summary>
-            <strong>{{ run.user_email }}</strong>
-            <span>{{ run.created_at }}</span>
-            <span>{{ run.job_id }}</span>
-            <span>JD: {{ run.jd_source_type }}</span>
-            <span>CV: {{ run.cv_source_type }}</span>
+            <div>
+              <strong>{{ run.user_email }}</strong>
+              <span>{{ run.resume_name or "Tailored documents" }}</span>
+            </div>
+            <div class="run-summary-meta">
+              <span>{{ run.created_at[:19].replace("T", " ") }}</span>
+              <span>{{ run.model_provider }} / {{ run.model_name }}</span>
+              <span>{% if run.generation_seconds %}{{ run.generation_seconds }}s{% else %}time unknown{% endif %}</span>
+            </div>
           </summary>
 
           <div class="run-meta">
-            <span><strong>Job source:</strong> {{ run.jd_source_type }}</span>
+            <span><strong>Job ID:</strong> {{ run.job_id }}</span>
+            <span><strong>JD:</strong> {{ run.jd_source_type }}</span>
+            <span><strong>CV:</strong> {{ run.cv_source_type }}</span>
             {% if run.jd_url %}
             <span><strong>Job link:</strong> <a href="{{ run.jd_url }}" target="_blank" rel="noreferrer">{{ run.jd_url }}</a></span>
             {% endif %}
-            <span><strong>CV source:</strong> {{ run.cv_source_type }}</span>
             <span><strong>Downloads:</strong>
               {% if run.downloads.resume_docx_url %}<a href="{{ run.downloads.resume_docx_url }}">ATS CV DOCX</a>{% endif %}
               {% if run.downloads.resume_pdf_url %}<a href="{{ run.downloads.resume_pdf_url }}">ATS CV PDF</a>{% endif %}
@@ -103,22 +164,26 @@
             </span>
           </div>
 
+          <div class="admin-warning">
+            Sensitive user data below. Use for support, abuse review, and debugging only.
+          </div>
+
           <div class="run-section">
             <h3>User inputs</h3>
             <div class="run-grid">
               <div>
-                <h4>JD pasted / parsed from link</h4>
+                <h4>Job description</h4>
                 <pre>{{ run.jd_text }}</pre>
               </div>
               <div>
-                <h4>CV uploaded / pasted parsed text</h4>
+                <h4>CV text</h4>
                 <pre>{{ run.cv_text }}</pre>
               </div>
             </div>
           </div>
 
           <div class="run-section">
-            <h3>LLM-generated documents</h3>
+            <h3>Generated outputs</h3>
             <div class="run-grid">
               <div>
                 <h4>ATS CV</h4>

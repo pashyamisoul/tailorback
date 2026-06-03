@@ -14,8 +14,13 @@
 
   <header class="masthead">
     <div class="mark">T<span>.</span></div>
+    <div class="site-nav" aria-label="Primary">
+      <button type="button" class="site-nav-link" id="navPricing">Pricing</button>
+      {% if user_email %}
+      <button type="button" class="site-nav-link" id="navHistory">History</button>
+      {% endif %}
+    </div>
     <nav>
-      <span class="kicker">ATS&#8202;/&#8202;Tailoring Engine</span>
       <button id="themeToggle">terminal mode</button>
       <div class="pro-menu" id="proMenu">
         <button type="button" class="pro-trigger" id="proTrigger">
@@ -25,14 +30,15 @@
         <div class="pro-popover" id="proPopover" hidden>
           <div class="pro-head">
             <span>TailorBack Pro</span>
-            <strong>Buy more generations</strong>
+            <strong>Generation credit packs</strong>
+            <p>One credit creates one tailored resume, cover letter, match score, and gap list.</p>
           </div>
           <div class="pro-options">
             {% for pack in credit_packs %}
             <article class="pro-pack{% if pack.featured %} featured{% endif %}">
               <div>
                 <strong>{{ pack.name }}</strong>
-                <span>{{ pack.credits }} generations</span>
+                <span>{{ pack.credits }} generation credits</span>
               </div>
               <div class="pro-buy">
                 <span>{{ pack.price }}</span>
@@ -41,20 +47,24 @@
                   Buy
                 </button>
                 {% else %}
-                <a href="#" onclick="startPopupLogin(); return false;" class="buy-pack sign-in-pack" data-pack-id="{{ pack.id }}">
+                <button type="button" class="buy-pack sign-in-pack" data-pack-id="{{ pack.id }}">
                   Sign in
-                </a>
+                </button>
                 {% endif %}
               </div>
             </article>
             {% endfor %}
           </div>
           {% if not billing_enabled %}
-          <p class="billing-note">Checkout is not live yet. Add Stripe keys to enable payments.</p>
+          <p class="billing-note">Secure checkout is being prepared. Credit packs are shown for preview.</p>
           {% endif %}
         </div>
       </div>
       {% if user_email %}
+      <div class="nav-credits" aria-label="Credits remaining">
+        <strong>{{ credits_remaining }}</strong>
+        <span>credits</span>
+      </div>
       <div class="account" id="account">
         <button type="button" class="account-btn" id="accountBtn" aria-label="Account menu">
           <span class="avatar">{{ user_email[0]|upper }}</span>
@@ -74,14 +84,14 @@
               <div class="credits-fill" style="width: {{ (credits_remaining / credits_limit * 100)|round|int }}%"></div>
             </div>
           </div>
-          <button type="button" class="account-action" id="openHistory">Generation history</button>
+          <button type="button" class="account-action" id="openHistory">Account &amp; settings</button>
           <a class="account-signout" href="/auth/logout">Sign out</a>
         </div>
       </div>
       {% else %}
       <div class="auth-actions">
-        <button type="button" class="nav-login" id="openSignin">Sign In</button>
-        <button type="button" class="nav-signup" id="openSignup">Sign Up</button>
+        <button type="button" class="nav-login" id="openSignin">Sign in</button>
+        <button type="button" class="nav-signup" id="openSignup">Sign up</button>
       </div>
       {% endif %}
     </nav>
@@ -101,17 +111,6 @@
     </section>
 
     <form id="builder" class="builder">
-      <div class="readiness" aria-label="Input readiness">
-        <div class="ready-item" id="jobReady">
-          <span class="ready-dot" aria-hidden="true"></span>
-          <span>Job needed</span>
-        </div>
-        <div class="ready-item" id="cvReady">
-          <span class="ready-dot" aria-hidden="true"></span>
-          <span>CV needed</span>
-        </div>
-      </div>
-
       <fieldset class="panel">
         <legend>Job description</legend>
 
@@ -169,10 +168,12 @@
         <span class="arrow">→</span>
       </button>
       {% else %}
-      <div class="auth-gate" id="authGate">
-        <p class="signin-note">Sign in or create an account to unlock generation. Your filled form stays on this page.</p>
-        <button type="button" class="signin-google" id="gateSignin">Sign In</button>
-        <button type="button" class="go gate-signup" id="gateSignup">Sign Up</button>
+      <div class="generate-locked" id="authGate">
+        <button type="button" class="go locked-go" disabled>
+          <span>Generate tailored documents</span>
+          <span class="lock-mark">Locked</span>
+        </button>
+        <p>Use the header to sign in or create a free account when you are ready to generate.</p>
       </div>
       {% endif %}
       <div class="quiet-meta" aria-label="Generated outputs and privacy">
@@ -182,9 +183,6 @@
         <span>Gap list</span>
         <span>Private downloads expire automatically.</span>
       </div>
-      <p class="ethics">
-        Built to reframe, never to fabricate. Generated documents are owner-only downloads.
-      </p>
     </form>
 
     <!-- RESULTS -->
@@ -260,13 +258,11 @@
   <div class="modal hidden" id="authModal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
     <div class="modal-card auth-modal-card">
       <button type="button" class="modal-close" data-close-modal aria-label="Close">×</button>
-      <div class="auth-tabs">
-        <button type="button" class="auth-tab active" data-auth-tab="signin">Sign In</button>
-        <button type="button" class="auth-tab" data-auth-tab="signup">Sign Up</button>
-      </div>
 
       <section class="auth-view" id="signinView">
         <h2 id="authTitle">Sign in</h2>
+        <p class="auth-subtitle">Welcome back. Use your TailorBack account or continue with Google.</p>
+        <div class="auth-inline-error hidden" id="signinError" role="alert"></div>
         <form class="auth-form" id="signinForm">
           <label>
             <span>Email address</span>
@@ -279,26 +275,31 @@
           <button type="submit" class="go">Sign In</button>
         </form>
         <div class="or-line"><span>or</span></div>
-        <a href="#" onclick="startPopupLogin(); return false;" class="signin-google google-wide">Sign in with Google</a>
+        <a href="#" onclick="startPopupLogin(); return false;" class="signin-google google-wide">
+          <svg class="google-icon" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
+            <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.12-.84 2.07-1.8 2.71v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.61z"/>
+            <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.19l-2.92-2.26c-.81.54-1.85.86-3.04.86-2.34 0-4.33-1.58-5.04-3.71H.94v2.33C2.42 15.97 5.46 18 9 18z"/>
+            <path fill="#FBBC05" d="M3.96 10.7c-.18-.54-.28-1.11-.28-1.7s.1-1.16.28-1.7V4.97H.94C.34 6.17 0 7.54 0 9s.34 2.83.94 4.03l3.02-2.33z"/>
+            <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.46 0 2.42 2.03.94 4.97L3.96 7.3C4.67 5.16 6.66 3.58 9 3.58z"/>
+          </svg>
+          <span>Continue with Google</span>
+        </a>
+        <p class="auth-switch">New to TailorBack? <button type="button" data-auth-tab="signup">Create an account</button></p>
+        <p class="admin-entry"><a href="/admin">Admin sign in</a></p>
       </section>
 
       <section class="auth-view hidden" id="signupView">
-        <h2>Sign up</h2>
-        <div class="signup-step" id="packStep">
-          <div class="signup-plans">
-            {% for pack in credit_packs %}
-            <button type="button" class="signup-plan{% if pack.featured %} featured{% endif %}" data-pack-id="{{ pack.id }}">
-              {% if pack.featured %}<span class="plan-flag">Best value</span>{% endif %}
-              <strong>{{ pack.name }}</strong>
-              <span class="plan-price">{{ pack.price }}</span>
-              <span>{{ pack.cadence }}</span>
-              <small>{{ pack.credits }} generations</small>
-            </button>
-            {% endfor %}
-          </div>
+        <h2>Create an account</h2>
+        <div class="auth-check hidden" id="signupCheck">
+          <strong>Check your email</strong>
+          <p>Open the activation link we sent, then come back here to sign in.</p>
+          <a class="dev-activation hidden" id="devActivationLink" href="#">Open local activation link</a>
         </div>
-        <form class="auth-form hidden" id="signupForm">
-          <input type="hidden" name="pack_id" id="selectedPackId" />
+        <form class="auth-form" id="signupForm">
+          <label>
+            <span>Full name</span>
+            <input name="full_name" autocomplete="name" required />
+          </label>
           <label>
             <span>Email address</span>
             <input type="email" name="email" autocomplete="email" required />
@@ -311,19 +312,20 @@
             <span>Repeat password</span>
             <input type="password" name="repeat_password" autocomplete="new-password" minlength="8" required />
           </label>
-          <div class="form-grid">
-            <label>
-              <span>Country</span>
-              <input name="country" autocomplete="country-name" required />
-            </label>
-            <label>
-              <span>ZIP/Postcode</span>
-              <input name="zip_code" autocomplete="postal-code" required />
-            </label>
-          </div>
-          <button type="submit" class="go">Continue to paywall</button>
-          <a href="#" onclick="startPopupLogin(); return false;" class="signin-google google-wide">Sign up with Google</a>
+          <button type="submit" class="go">Create account</button>
         </form>
+        <div class="or-line"><span>or</span></div>
+        <a href="#" onclick="startPopupLogin(); return false;" class="signin-google google-wide">
+          <svg class="google-icon" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
+            <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.12-.84 2.07-1.8 2.71v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.61z"/>
+            <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.19l-2.92-2.26c-.81.54-1.85.86-3.04.86-2.34 0-4.33-1.58-5.04-3.71H.94v2.33C2.42 15.97 5.46 18 9 18z"/>
+            <path fill="#FBBC05" d="M3.96 10.7c-.18-.54-.28-1.11-.28-1.7s.1-1.16.28-1.7V4.97H.94C.34 6.17 0 7.54 0 9s.34 2.83.94 4.03l3.02-2.33z"/>
+            <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.46 0 2.42 2.03.94 4.97L3.96 7.3C4.67 5.16 6.66 3.58 9 3.58z"/>
+          </svg>
+          <span>Continue with Google</span>
+        </a>
+        <p class="auth-switch">Already have an account? <button type="button" data-auth-tab="signin">Sign in</button></p>
+        <p class="auth-legal"><a href="#">Terms of Use</a><span>|</span><a href="#">Privacy Policy</a></p>
       </section>
     </div>
   </div>
@@ -332,7 +334,10 @@
     <div class="modal-card history-card">
       <button type="button" class="modal-close" data-close-modal aria-label="Close">×</button>
       <h2 id="historyTitle">Your TailorBack account</h2>
+      <div class="account-profile" id="accountProfile"></div>
       <div class="history-summary" id="historySummary"></div>
+      <div class="account-settings" id="accountSettings"></div>
+      <h3 class="history-subtitle">Generation history</h3>
       <div class="history-list" id="historyList"></div>
     </div>
   </div>
@@ -344,10 +349,10 @@
     </div>
   </div>
 
-  <footer>
-    <span>Tailorback</span>
-    <span class="dot">·</span>
-    <span>reframes real experience — no fabrication</span>
+  <footer class="site-footer">
+    <span>TailorBack</span>
+    <a href="#">Terms</a>
+    <a href="#">Privacy</a>
   </footer>
 
   <script src="/static/js/app.js"></script>

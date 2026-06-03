@@ -60,27 +60,27 @@ STRIPE_API = "https://api.stripe.com/v1"
 STRIPE_PACKS = [
     {
         "id": "starter",
-        "name": "1 month",
+        "name": "Starter",
         "credits": 10,
         "price": "€7",
-        "cadence": "per month",
+        "cadence": "10 generations",
         "price_env": "STRIPE_PRICE_STARTER",
     },
     {
         "id": "hunt",
-        "name": "12 months",
+        "name": "Job Hunt",
         "credits": 40,
         "price": "€19",
-        "cadence": "per year",
+        "cadence": "40 generations",
         "price_env": "STRIPE_PRICE_HUNT",
         "featured": True,
     },
     {
         "id": "sprint",
-        "name": "Lifetime",
+        "name": "Career Sprint",
         "credits": 150,
         "price": "€49",
-        "cadence": "pay once",
+        "cadence": "150 generations",
         "price_env": "STRIPE_PRICE_SPRINT",
     },
 ]
@@ -116,10 +116,13 @@ oauth.register(
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    full_name = db.Column(db.String(255), nullable=True)
     email = db.Column(db.String(255), unique=True, nullable=False)
     provider = db.Column(db.String(32), nullable=False)
     provider_id = db.Column(db.String(255), nullable=False)
     password_hash = db.Column(db.String(255), nullable=True)
+    email_verified = db.Column(db.Boolean, default=False, nullable=False)
+    email_verification_token = db.Column(db.String(64), unique=True, nullable=True)
     country = db.Column(db.String(120), nullable=True)
     zip_code = db.Column(db.String(32), nullable=True)
     current_pack = db.Column(db.String(64), nullable=True)
@@ -160,6 +163,9 @@ class GenerationRun(db.Model):
     cover_letter_json = db.Column(db.Text, nullable=True)
     analysis_json = db.Column(db.Text, nullable=True)
     model_status = db.Column(db.String(64), nullable=True)
+    model_provider = db.Column(db.String(32), nullable=True)
+    model_name = db.Column(db.String(128), nullable=True)
+    generation_seconds = db.Column(db.Float, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -168,7 +174,10 @@ def _ensure_schema():
         return
     columns = {
         "user": {
+            "full_name": "VARCHAR(255)",
             "password_hash": "VARCHAR(255)",
+            "email_verified": "BOOLEAN DEFAULT 0",
+            "email_verification_token": "VARCHAR(64)",
             "country": "VARCHAR(120)",
             "zip_code": "VARCHAR(32)",
             "current_pack": "VARCHAR(64)",
@@ -177,6 +186,11 @@ def _ensure_schema():
             "pack_id": "VARCHAR(64)",
             "note": "TEXT",
         },
+        "generation_run": {
+            "model_provider": "VARCHAR(32)",
+            "model_name": "VARCHAR(128)",
+            "generation_seconds": "FLOAT",
+        },
     }
     with db.engine.connect() as conn:
         for table, wanted in columns.items():
@@ -184,6 +198,7 @@ def _ensure_schema():
             for name, ddl in wanted.items():
                 if name not in existing:
                     conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
+        conn.exec_driver_sql("UPDATE user SET email_verified = 1 WHERE provider IN ('google', 'both')")
         conn.commit()
 
 
@@ -253,6 +268,9 @@ def _generation_payload(run, include_inputs=False):
         "jd_url": run.jd_url,
         "cv_source_type": run.cv_source_type,
         "downloads": _download_urls_for_job(run.user_id, run.job_id),
+        "model_provider": run.model_provider or "unknown",
+        "model_name": run.model_name or run.model_status or "Unknown",
+        "generation_seconds": run.generation_seconds,
     }
     try:
         resume = _json.loads(run.resume_json or "{}")
@@ -322,12 +340,39 @@ def _safe_user_payload(user):
     credits = _credits_payload(user)
     pack = _credit_pack(user.current_pack) if user and user.current_pack else None
     return {
+        "full_name": user.full_name,
         "email": user.email,
+        "email_verified": bool(user.email_verified),
+        "provider": user.provider,
+        "has_password": bool(user.password_hash),
         "country": user.country,
         "zip_code": user.zip_code,
         "current_pack": pack["name"] if pack else "Free",
         **credits,
     }
+
+
+def _make_email_verification_token():
+    return uuid.uuid4().hex + uuid.uuid4().hex
+
+
+def _send_activation_email(user):
+    activation_url = url_for("activate_email", token=user.email_verification_token, _external=True)
+    if os.environ.get("FLASK_ENV") == "production":
+        app.logger.warning("Email provider is not configured; activation email was not sent for %s", user.email)
+    else:
+        app.logger.warning("TailorBack activation link for %s: %s", user.email, activation_url)
+    return activation_url
+
+
+def _model_from_stages(stages):
+    if "generating_claude" in stages or "switching_to_claude" in stages:
+        return "anthropic", os.environ.get("ANTHROPIC_MODEL", llm.CLAUDE_MODEL)
+    if "trying_gemini" in stages or "switching_to_gemini" in stages:
+        return "gemini", os.environ.get("GEMINI_MODEL", llm.GEMINI_MODEL)
+    if "generating_openai" in stages:
+        return "openai", os.environ.get("OPENAI_MODEL", llm.OPENAI_MODEL)
+    return "unknown", "Unknown"
 
 
 def _admin_adjust_user_credits(user, action, amount, note):
@@ -415,12 +460,24 @@ def auth_google_callback():
         return "Login failed: no email returned.", 400
     user = User.query.filter_by(email=email).first()
     if not user:
-        user = User(email=email, provider="google", provider_id=sub or "")
+        user = User(
+            full_name=info.get("name") or "",
+            email=email,
+            provider="google",
+            provider_id=sub or "",
+            email_verified=True,
+        )
         db.session.add(user)
         db.session.commit()
     elif user.provider != "google":
         user.provider = "both"
         user.provider_id = sub or user.provider_id
+        user.email_verified = True
+        if info.get("name") and not user.full_name:
+            user.full_name = info.get("name")
+        db.session.commit()
+    elif not user.email_verified:
+        user.email_verified = True
         db.session.commit()
     _login_user(user)
     if session.pop("login_popup", False):
@@ -447,47 +504,53 @@ def auth_google_callback():
 @app.route("/api/auth/signup", methods=["POST"])
 def auth_signup_email():
     data = request.get_json(silent=True) or {}
+    full_name = (data.get("full_name") or "").strip()
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
     repeat = data.get("repeat_password") or ""
-    country = (data.get("country") or "").strip()
-    zip_code = (data.get("zip_code") or "").strip()
-    pack_id = (data.get("pack_id") or "").strip()
+    if not full_name:
+        return jsonify({"status": "error", "message": "Enter your full name."}), 400
     if not email or "@" not in email:
         return jsonify({"status": "error", "message": "Enter a valid email address."}), 400
     if len(password) < 8:
         return jsonify({"status": "error", "message": "Password must be at least 8 characters."}), 400
     if password != repeat:
         return jsonify({"status": "error", "message": "Passwords do not match."}), 400
-    if not country or not zip_code:
-        return jsonify({"status": "error", "message": "Country and ZIP/postcode are required."}), 400
-    if pack_id and not _credit_pack(pack_id):
-        return jsonify({"status": "error", "message": "Choose a valid TailorBack Pro pack."}), 400
     existing = User.query.filter_by(email=email).first()
     if existing:
         return jsonify({"status": "error", "message": "This email already has an account. Sign in instead."}), 409
+    token = _make_email_verification_token()
     user = User(
+        full_name=full_name,
         email=email,
         provider="email",
         provider_id=email,
         password_hash=generate_password_hash(password, method="pbkdf2:sha256"),
-        country=country,
-        zip_code=zip_code,
-        current_pack=pack_id or None,
+        email_verified=False,
+        email_verification_token=token,
     )
     db.session.add(user)
-    if pack_id:
-        pack = _credit_pack(pack_id)
-        db.session.flush()
-        db.session.add(CreditGrant(
-            user_id=user.id,
-            credits=pack["credits"],
-            source=f"local-signup:{pack_id}",
-            pack_id=pack_id,
-        ))
+    db.session.commit()
+    activation_url = _send_activation_email(user)
+    payload = {
+        "status": "verification_required",
+        "message": "Account created. Check your email to activate your account.",
+    }
+    if os.environ.get("FLASK_ENV") != "production":
+        payload["activation_url"] = activation_url
+    return jsonify(payload)
+
+
+@app.route("/auth/activate/<token>")
+def activate_email(token):
+    user = User.query.filter_by(email_verification_token=token).first()
+    if not user:
+        return redirect(url_for("index", auth="invalid_activation"))
+    user.email_verified = True
+    user.email_verification_token = None
     db.session.commit()
     _login_user(user)
-    return jsonify({"status": "ok", "user": _safe_user_payload(user), "payment_required": bool(pack_id)})
+    return redirect(url_for("index", auth="activated"))
 
 
 @app.route("/api/auth/signin", methods=["POST"])
@@ -496,8 +559,27 @@ def auth_signin_email():
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
     user = User.query.filter_by(email=email).first()
-    if not user or not user.password_hash or not check_password_hash(user.password_hash, password):
-        return jsonify({"status": "error", "message": "Invalid email or password."}), 401
+    if not user:
+        return jsonify({
+            "status": "account_not_found",
+            "message": "No TailorBack account exists for this email. Create an account first.",
+        }), 404
+    if not user.password_hash:
+        return jsonify({
+            "status": "use_google",
+            "message": "This email uses Google sign-in. Continue with Google instead.",
+        }), 401
+    if not check_password_hash(user.password_hash, password):
+        return jsonify({"status": "error", "message": "Incorrect password."}), 401
+    if not user.email_verified:
+        activation_url = _send_activation_email(user)
+        payload = {
+            "status": "verification_required",
+            "message": "Please activate your account from the email we sent before signing in.",
+        }
+        if os.environ.get("FLASK_ENV") != "production":
+            payload["activation_url"] = activation_url
+        return jsonify(payload), 403
     _login_user(user)
     return jsonify({"status": "ok", "user": _safe_user_payload(user)})
 
@@ -551,7 +633,10 @@ def generate():
     current_user = _current_user()
     if not current_user:
         return jsonify({"status": "error",
-                        "message": "Please sign in with Google to generate."}), 401
+                        "message": "Please sign in to generate."}), 401
+    if not current_user.email_verified:
+        return jsonify({"status": "error",
+                        "message": "Please activate your account before generating."}), 403
     _cleanup_generated()
     credits_before = _credits_payload(current_user)
     if credits_before["credits_remaining"] <= 0:
@@ -580,8 +665,11 @@ def generate():
 
     def event_stream():
         q = _queue.Queue()
+        stages = []
+        generation_started_at = time.perf_counter()
 
         def on_status(stage):
+            stages.append(stage)
             q.put({"type": "status", "stage": stage})
 
         holder = {}
@@ -611,6 +699,8 @@ def generate():
             return
 
         result = holder["result"]
+        provider, model_name = _model_from_stages(stages)
+        generation_seconds = round(time.perf_counter() - generation_started_at, 2)
         # Count this successful generation against the user's free quota.
         try:
             current_user.generations_used += 1
@@ -664,6 +754,10 @@ def generate():
             resume_json=_json.dumps(result.get("resume", {})),
             cover_letter_json=_json.dumps(result.get("cover_letter", {})),
             analysis_json=_json.dumps(analysis),
+            model_status=",".join(stages[-8:]),
+            model_provider=provider,
+            model_name=model_name,
+            generation_seconds=generation_seconds,
         )
         db.session.add(run)
         db.session.commit()
@@ -851,6 +945,33 @@ def account_summary():
     return jsonify({"status": "ok", "user": _safe_user_payload(current_user)})
 
 
+@app.route("/api/account/password", methods=["POST"])
+def change_account_password():
+    current_user = _current_user()
+    if not current_user:
+        return jsonify({"status": "error", "message": "Please sign in."}), 401
+    if not current_user.password_hash:
+        return jsonify({
+            "status": "error",
+            "message": "This account uses Google sign-in. Manage the password with Google.",
+        }), 400
+    data = request.get_json(silent=True) or {}
+    current_password = data.get("current_password") or ""
+    new_password = data.get("new_password") or ""
+    repeat_password = data.get("repeat_password") or ""
+    if not check_password_hash(current_user.password_hash, current_password):
+        return jsonify({"status": "error", "message": "Current password is incorrect."}), 401
+    if len(new_password) < 8:
+        return jsonify({"status": "error", "message": "New password must be at least 8 characters."}), 400
+    if new_password != repeat_password:
+        return jsonify({"status": "error", "message": "New passwords do not match."}), 400
+    if check_password_hash(current_user.password_hash, new_password):
+        return jsonify({"status": "error", "message": "Choose a new password that is different."}), 400
+    current_user.password_hash = generate_password_hash(new_password, method="pbkdf2:sha256")
+    db.session.commit()
+    return jsonify({"status": "ok", "message": "Password updated."})
+
+
 @app.route("/api/generations")
 def account_generations():
     current_user = _current_user()
@@ -884,13 +1005,16 @@ def admin_portal():
         return render_template("admin_login.html", error=error)
     users = User.query.order_by(User.created_at.desc()).all()
     runs = GenerationRun.query.order_by(GenerationRun.created_at.desc()).limit(100).all()
+    grants = CreditGrant.query.order_by(CreditGrant.created_at.desc()).limit(60).all()
     user_rows = []
     for user in users:
         credits = _credits_payload(user)
         user_rows.append({
             "id": user.id,
+            "full_name": user.full_name,
             "email": user.email,
             "provider": user.provider,
+            "email_verified": bool(user.email_verified),
             "country": user.country,
             "zip_code": user.zip_code,
             "current_pack": user.current_pack or "free",
@@ -903,7 +1027,39 @@ def admin_portal():
         row = _generation_payload(run, include_inputs=True)
         row["user_email"] = user.email if user else "deleted-user"
         run_rows.append(row)
-    return render_template("admin.html", users=user_rows, runs=run_rows)
+    grant_rows = []
+    for grant in grants:
+        user = db.session.get(User, grant.user_id)
+        grant_rows.append({
+            "id": grant.id,
+            "user_email": user.email if user else "deleted-user",
+            "credits": grant.credits,
+            "source": grant.source,
+            "pack_id": grant.pack_id or "-",
+            "note": grant.note or "",
+            "stripe_session_id": grant.stripe_session_id,
+            "created_at": grant.created_at,
+        })
+    total_credits_remaining = sum(row["credits_remaining"] for row in user_rows)
+    verified_users = sum(1 for row in user_rows if row["email_verified"])
+    paid_credit_grants = sum(max(0, row["credits"]) for row in grant_rows)
+    avg_seconds_values = [row["generation_seconds"] for row in run_rows if row.get("generation_seconds") is not None]
+    stats = {
+        "total_users": len(user_rows),
+        "verified_users": verified_users,
+        "total_generations": GenerationRun.query.count(),
+        "visible_generations": len(run_rows),
+        "credits_remaining": total_credits_remaining,
+        "credits_granted": paid_credit_grants,
+        "avg_generation_seconds": round(sum(avg_seconds_values) / len(avg_seconds_values), 1) if avg_seconds_values else None,
+    }
+    return render_template(
+        "admin.html",
+        users=user_rows,
+        runs=run_rows,
+        grants=grant_rows,
+        stats=stats,
+    )
 
 
 @app.route("/admin/logout")
