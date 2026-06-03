@@ -2,9 +2,9 @@
 window.addEventListener("message", (e) => {
   if (e.origin !== window.location.origin) return;
   if (e.data && e.data.type === "tailorback-login-success") {
-    const gate = document.getElementById("authGate");
+    const gate = document.getElementById("signinGate");
     const authActions = document.querySelector(".auth-actions");
-    const quietMeta = document.querySelector(".quiet-meta");
+    const anchor = document.querySelector(".qm-cards-wrap");
     if (gate) gate.remove();
     if (authActions) authActions.remove();
     closeModal(authModal);
@@ -14,7 +14,7 @@ window.addEventListener("message", (e) => {
       submit.className = "go";
       submit.id = "go";
       submit.innerHTML = '<span>Run TailorBack</span><span class="arrow">→</span>';
-      form.insertBefore(submit, quietMeta);
+      form.insertBefore(submit, anchor);
       go = submit;
     }
     document.querySelectorAll(".sign-in-pack[data-pack-id]").forEach(link => {
@@ -161,6 +161,8 @@ function showActivationNotice(data) {
 
 document.getElementById('openSignin')?.addEventListener('click', () => openAuth('signin'));
 document.getElementById('openSignup')?.addEventListener('click', () => openAuth('signup'));
+// Logged-out CTA: clicking "Run TailorBack" prompts sign-in.
+document.getElementById('signinGate')?.addEventListener('click', () => openAuth('signin'));
 document.querySelectorAll('[data-close-modal]').forEach(btn => {
   btn.addEventListener('click', () => closeModal(btn.closest('.modal')));
 });

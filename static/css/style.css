@@ -259,33 +259,6 @@ textarea:focus, input[type="url"]:focus, input[type="email"]:focus, input[type="
   text-decoration: none;
 }
 .auth-gate,
-.generate-locked {
-  display: grid;
-  gap: .55rem;
-  justify-items: start;
-}
-.locked-go {
-  opacity: .72;
-  cursor: not-allowed;
-  background: color-mix(in srgb, var(--ink) 82%, var(--paper));
-}
-.locked-go:hover {
-  background: color-mix(in srgb, var(--ink) 82%, var(--paper));
-  transform: none;
-}
-.lock-mark {
-  border: 1px solid rgba(255,255,255,.42);
-  border-radius: 999px;
-  padding: .18rem .45rem;
-  font-size: .65rem;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-}
-.generate-locked p {
-  max-width: 48ch;
-  color: var(--ink-soft);
-  font-size: .86rem;
-}
 .signin-note {
   font-family: "Spline Sans Mono", monospace;
   font-size: .78rem;
