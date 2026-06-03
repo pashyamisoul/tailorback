@@ -24,7 +24,7 @@
         </button>
         <div class="pro-popover" id="proPopover" hidden>
           <div class="pro-head">
-            <span>TailorBack Pro</span>
+            <span class="pro-logo"><span class="pro-star">★</span><span>TailorBack Pro</span></span>
             <strong>Generation credit packs</strong>
             <p>One credit creates one tailored resume, cover letter, match score, and gap list.</p>
           </div>
@@ -51,9 +51,6 @@
             </article>
             {% endfor %}
           </div>
-          {% if not billing_enabled %}
-          <p class="billing-note">Secure checkout is being prepared. Credit packs are shown for preview.</p>
-          {% endif %}
         </div>
       </div>
       {% if user_email %}

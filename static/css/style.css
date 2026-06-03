@@ -454,6 +454,26 @@ html[data-theme="terminal"] .go .gicon { display: none; }
   text-transform: uppercase;
   letter-spacing: .08em;
 }
+/* Branded logo pill in the popover header (mirrors the .pro-trigger button) */
+.pro-head .pro-logo {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: .34rem .62rem;
+  margin-bottom: .25rem;
+}
+.pro-head .pro-logo span {
+  color: var(--ink);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: .78rem;
+  font-weight: 800;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.pro-head .pro-logo .pro-star { color: #f4b43f; }
 .pro-head strong {
   font-size: 1.35rem;
   line-height: 1.1;
