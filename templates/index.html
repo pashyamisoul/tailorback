@@ -98,7 +98,6 @@
           ATS-clean resume and a matching cover letter — and tells you honestly where
           you fall short, instead of making things up.
         </p>
-        <p class="free-note">Your first {{ free_credits_limit }} generations are free. Extra generations use TailorBack Pro credits.</p>
       </div>
     </section>
 
@@ -153,6 +152,11 @@
             placeholder="Paste your full CV / resume text here…"></textarea>
         </div>
       </fieldset>
+
+      <p class="free-note">
+        <span class="fn-star">✦</span>
+        <span>Your first <strong>{{ free_credits_limit }}</strong> generations are free — after that, tailoring runs on TailorBack&nbsp;Pro credits.</span>
+      </p>
 
       {% if user_email %}
       <button type="submit" class="go" id="go">
@@ -300,7 +304,7 @@
           <span>Continue with Google</span>
         </a>
         <p class="auth-switch">Already have an account? <button type="button" data-auth-tab="signin">Sign in</button></p>
-        <p class="auth-legal"><a href="#">Terms of Use</a><span>|</span><a href="#">Privacy Policy</a></p>
+        <p class="auth-legal"><a href="/terms" target="_blank" rel="noopener">Terms of Use</a><span>|</span><a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a></p>
       </section>
     </div>
   </div>
@@ -326,8 +330,8 @@
 
   <footer class="site-footer">
     <span>TailorBack</span>
-    <a href="#">Terms</a>
-    <a href="#">Privacy</a>
+    <a href="/terms">Terms</a>
+    <a href="/privacy">Privacy</a>
   </footer>
 
   <script src="/static/js/app.js"></script>

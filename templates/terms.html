@@ -1,0 +1,120 @@
+{% extends "legal_base.html" %}
+{% block title %}Terms of Use{% endblock %}
+{% block heading %}Terms of Use{% endblock %}
+{% block content %}
+
+<p>Welcome to TailorBack ("TailorBack", "we", "us"). These Terms of Use ("Terms")
+govern your access to and use of the TailorBack website and service (the
+"Service"), operated by [Company legal name], [jurisdiction]. By creating an
+account or using the Service, you agree to these Terms. If you do not agree, do
+not use the Service.</p>
+
+<h2>1. What TailorBack does</h2>
+<p>TailorBack takes a job description and your existing CV/résumé and uses
+third-party AI models to produce an ATS-friendly résumé and a matching cover
+letter, plus a match score and an honest list of gaps. The Service reframes your
+real experience; it is designed not to invent employers, titles, dates,
+credentials, metrics, or skills you do not have. Any requirement your CV does not
+evidence is reported as a gap rather than fabricated.</p>
+
+<h2>2. Eligibility &amp; accounts</h2>
+<ul>
+  <li>You must be at least 16 years old (or the age of digital consent in your
+      country) to use the Service.</li>
+  <li>You may sign in with Google or with an email address and password. You are
+      responsible for keeping your credentials secure and for all activity under
+      your account.</li>
+  <li>Email-and-password accounts must verify their email address before
+      generating documents.</li>
+  <li>You agree to provide accurate information and to keep it current.</li>
+</ul>
+
+<h2>3. Generations &amp; credits</h2>
+<ul>
+  <li>Each new account receives <strong>{{ free_limit }}</strong> free generations.
+      One generation produces one tailored résumé, one cover letter, one match
+      score, and one gap list.</li>
+  <li>Additional generations require credits, sold as one-time packs:
+      {% for pack in packs %}<strong>{{ pack.name }}</strong> ({{ pack.credits }} credits, {{ pack.price }}){% if not loop.last %}, {% endif %}{% endfor %}.</li>
+  <li>Credits are consumed only when a generation succeeds. Editing,
+      re-styling, downloading, or regenerating individual sections of a document
+      you have already generated does not consume additional credits.</li>
+  <li>Credits are tied to your account, have no cash value, and are not
+      transferable.</li>
+</ul>
+
+<h2>4. Payments &amp; refunds</h2>
+<p>Payments are processed by Stripe. We do not see or store your full card
+details. Prices are shown at checkout and may change over time. Because credits
+unlock a digital service that can be used immediately, all sales are final except
+where a refund is required by applicable law or at our discretion. Refund
+requests can be sent to [support email].</p>
+
+<h2>5. Your content</h2>
+<ul>
+  <li>You retain ownership of the CV text, job descriptions, and other material
+      you submit ("Your Content"), and of the documents the Service generates for
+      you.</li>
+  <li>You grant TailorBack a limited licence to process Your Content solely to
+      operate the Service — including transmitting it to the AI providers
+      described in our <a href="/privacy">Privacy Policy</a> to generate your
+      documents.</li>
+  <li>You confirm you have the right to submit Your Content and that it does not
+      infringe anyone else's rights or contain unlawful material.</li>
+</ul>
+
+<h2>6. Acceptable use</h2>
+<p>You agree not to:</p>
+<ul>
+  <li>submit content that is unlawful, fraudulent, or that misrepresents another
+      person's identity or qualifications;</li>
+  <li>use the Service to create deliberately false or deceptive résumés;</li>
+  <li>attempt to access other users' accounts, documents, or data;</li>
+  <li>scrape, overload, reverse-engineer, or disrupt the Service, or bypass usage
+      limits, credit checks, or security controls;</li>
+  <li>resell or commercially redistribute the Service without our written
+      consent.</li>
+</ul>
+
+<h2>7. AI output &amp; accuracy</h2>
+<p>The Service relies on automated language models. Output can contain errors,
+omissions, or awkward phrasing, and may need editing. <strong>You are responsible
+for reviewing every generated document for accuracy and truthfulness before you
+use or submit it.</strong> TailorBack does not guarantee interviews, job offers,
+or that any résumé will pass a particular applicant-tracking system. The match
+score is an automated estimate, not a hiring decision.</p>
+
+<h2>8. Document availability</h2>
+<p>Generated files are private to your signed-in account and are automatically
+deleted after {{ retention_days }} days. You can also delete them earlier from
+your account. Download and keep your own copies; we are not a storage service and
+do not guarantee retention beyond this period.</p>
+
+<h2>9. Service availability</h2>
+<p>The Service is provided on an "as is" and "as available" basis. We may modify,
+suspend, or discontinue features, providers, or the Service at any time. AI
+providers may be unavailable; in that case generation may fail and you can try
+again.</p>
+
+<h2>10. Limitation of liability</h2>
+<p>To the maximum extent permitted by law, TailorBack and its operators are not
+liable for indirect, incidental, or consequential damages, lost opportunities, or
+lost profits arising from your use of the Service. Where liability cannot be
+excluded, it is limited to the amount you paid us in the 12 months before the
+claim. Nothing in these Terms limits rights that cannot be limited under
+applicable consumer law.</p>
+
+<h2>11. Termination</h2>
+<p>You may stop using the Service and request deletion of your account at any
+time. We may suspend or terminate accounts that violate these Terms. Unused
+credits are forfeited on termination for cause.</p>
+
+<h2>12. Changes to these Terms</h2>
+<p>We may update these Terms. Material changes will be reflected by updating the
+"Last updated" date above and, where appropriate, by notice in the app. Continued
+use after changes means you accept the revised Terms.</p>
+
+<h2>13. Contact</h2>
+<p>Questions about these Terms: [support email]. Governing law: [jurisdiction].</p>
+
+{% endblock %}

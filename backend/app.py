@@ -1313,6 +1313,29 @@ def admin_adjust_credits(user_id):
     return redirect(url_for("admin_portal", adjusted=user.id))
 
 
+LEGAL_UPDATED = "June 3, 2026"
+
+
+@app.route("/terms")
+def terms_page():
+    return render_template(
+        "terms.html",
+        updated=LEGAL_UPDATED,
+        free_limit=FREE_LIMIT,
+        retention_days=GENERATED_RETENTION_DAYS,
+        packs=_public_credit_packs(),
+    )
+
+
+@app.route("/privacy")
+def privacy_page():
+    return render_template(
+        "privacy.html",
+        updated=LEGAL_UPDATED,
+        retention_days=GENERATED_RETENTION_DAYS,
+    )
+
+
 @app.route("/favicon.ico")
 def favicon():
     svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
