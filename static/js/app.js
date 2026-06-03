@@ -13,7 +13,7 @@ window.addEventListener("message", (e) => {
       submit.type = "submit";
       submit.className = "go";
       submit.id = "go";
-      submit.innerHTML = '<span>Generate tailored documents</span><span class="arrow">→</span>';
+      submit.innerHTML = '<span>Run TailorBack</span><span class="arrow">→</span>';
       form.insertBefore(submit, quietMeta);
       go = submit;
     }
@@ -685,7 +685,7 @@ function resetBuilderInputs() {
   setMode('cv', 'upload');
   if (go) {
     go.disabled = false;
-    go.innerHTML = '<span>Generate tailored documents</span><span class="arrow">→</span>';
+    go.innerHTML = '<span>Run TailorBack</span><span class="arrow">→</span>';
   }
   updateReadiness();
 }
