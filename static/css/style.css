@@ -468,6 +468,7 @@ html[data-theme="terminal"] .go .gicon { display: none; }
   gap: .6rem;
 }
 .pro-pack {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -480,6 +481,22 @@ html[data-theme="terminal"] .go .gicon { display: none; }
 .pro-pack.featured {
   border-color: var(--accent);
   background: linear-gradient(135deg, rgba(200,70,46,.08), rgba(255,255,255,.38));
+}
+.pro-pack .pack-badge {
+  position: absolute;
+  top: -9px; left: 14px;
+  display: block;
+  margin: 0;
+  background: var(--accent);
+  color: #fff;
+  font-family: "Spline Sans Mono", monospace;
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  padding: .16rem .55rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.18);
 }
 .pro-pack strong {
   display: block;

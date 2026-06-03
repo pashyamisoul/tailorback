@@ -31,6 +31,7 @@
           <div class="pro-options">
             {% for pack in credit_packs %}
             <article class="pro-pack{% if pack.featured %} featured{% endif %}">
+              {% if pack.featured %}<span class="pack-badge">Recommended</span>{% endif %}
               <div>
                 <strong>{{ pack.name }}</strong>
                 <span>{{ pack.credits }} generation credits</span>
