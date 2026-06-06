@@ -874,20 +874,24 @@ html[data-theme="terminal"] .go .gicon { display: none; }
   color: var(--ink-soft);
 }
 .history-summary {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: .75rem;
-  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 0 0 1.2rem;
 }
-.history-summary > div,
+.history-summary .cred-text { font-size: .9rem; white-space: nowrap; }
+.history-summary .cred-text strong { font-weight: 800; }
+.history-summary .cred-bar {
+  flex: 1; min-width: 120px; max-width: 280px; height: 8px;
+  background: var(--paper-2); border-radius: 999px; overflow: hidden;
+}
+.history-summary .cred-bar i { display: block; height: 100%; background: var(--accent); }
+.history-summary .cred-sub { font-size: .78rem; color: var(--ink-soft); }
 .history-item {
   border: 1px solid var(--line);
   background: rgba(255,255,255,.32);
   padding: .85rem;
-}
-.history-summary strong {
-  display: block;
-  font-size: 1.3rem;
 }
 .history-summary span,
 .history-item span {
@@ -2276,30 +2280,6 @@ html[data-theme="terminal"] .result-delete { font-family: "JetBrains Mono", mono
 /* ============================================================================
    PHASE 4 — saved CV/JD library + application tracker
    ==========================================================================*/
-/* form library bar (load / save) */
-.lib-bar { display: flex; gap: .5rem; margin-top: .6rem; flex-wrap: wrap; }
-.lib-pick {
-  flex: 1; min-width: 160px; font: inherit; font-size: .82rem; padding: .4rem .55rem;
-  border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink);
-}
-.lib-save {
-  border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer;
-  font: inherit; font-size: .8rem; font-weight: 600; padding: .4rem .8rem; border-radius: 6px;
-}
-.lib-save:hover { border-color: var(--accent); color: var(--accent); }
-
-/* library section in the account modal */
-.library-section { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.4rem; }
-.lib-col h4 { font-size: .82rem; font-weight: 800; margin-bottom: .5rem; }
-.lib-row {
-  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
-  border: 1px solid var(--line); border-radius: 6px; padding: .4rem .6rem; margin-bottom: .35rem; background: var(--paper);
-}
-.lib-label { font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lib-del { border: 0; background: transparent; color: #c0392b; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 .2rem; }
-.lib-del:hover { color: var(--accent-deep); }
-.lib-empty, .lib-loading { font-size: .82rem; color: var(--ink-soft); }
-@media (max-width: 560px) { .library-section { grid-template-columns: 1fr; } }
 
 /* application tracker — compact rows (Option A) */
 .app-row { border: 1px solid var(--line); border-radius: 8px; background: var(--paper); margin-bottom: .5rem; }
@@ -2328,3 +2308,30 @@ html[data-theme="terminal"] .result-delete { font-family: "JetBrains Mono", mono
   font: inherit; font-size: .82rem; padding: .4rem .55rem; border: 1px solid var(--line);
   border-radius: 6px; background: var(--paper); color: var(--ink); width: 100%;
 }
+
+/* ============================================================================
+   PHASE 5 — account modal: compact header + tabs (Option A)
+   ==========================================================================*/
+.acct-id { display: flex; align-items: center; gap: .85rem; min-width: 0; }
+.acct-id-text { min-width: 0; }
+.acct-id-text strong { display: block; font-size: 1.05rem; }
+.acct-id-text span { display: block; color: var(--ink-soft); font-size: .85rem; word-break: break-all; }
+.acct-chips { display: flex; flex-wrap: wrap; gap: .4rem; justify-content: flex-end; }
+.acct-chips .chip {
+  border: 1px solid var(--line); border-radius: 999px; padding: .2rem .55rem;
+  font-family: "Spline Sans Mono", monospace; font-size: .62rem; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-soft); white-space: nowrap;
+}
+/* tabs */
+.acct-tabs { display: flex; gap: .25rem; border-bottom: 1px solid var(--line); margin: 0 0 1.1rem; }
+.acct-tab {
+  border: 0; background: transparent; font: inherit; font-weight: 700; font-size: .88rem;
+  color: var(--ink-soft); padding: .55rem .95rem; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.acct-tab:hover { color: var(--ink); }
+.acct-tab.on { color: var(--ink); border-bottom-color: var(--accent); }
+.acct-panel { animation: fadein .18s ease both; }
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+html[data-theme="terminal"] .acct-id-text strong,
+html[data-theme="terminal"] .acct-tab { font-family: "JetBrains Mono", monospace; }

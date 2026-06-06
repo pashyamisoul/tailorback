@@ -188,26 +188,7 @@ class GenerationRun(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
-class SavedCV(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), index=True, nullable=False)
-    label = db.Column(db.String(160), nullable=False)
-    cv_text = db.Column(db.Text, nullable=False)
-    is_default = db.Column(db.Boolean, default=False, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-
-
-class SavedJD(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), index=True, nullable=False)
-    label = db.Column(db.String(160), nullable=False)
-    jd_text = db.Column(db.Text, nullable=False)
-    jd_url = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-
-
 ALLOWED_APP_STATUSES = ("not_applied", "applied", "interviewing", "offer", "rejected")
-SAVED_ITEM_CAP = 25
 
 
 def _ensure_schema():
@@ -564,11 +545,22 @@ def _login_user(user):
     session["email"] = user.email
 
 
+def _display_name(user):
+    """Best display name: stored full name, else derived from the email local part."""
+    if user.full_name and user.full_name.strip():
+        return user.full_name.strip()
+    local = (user.email or "").split("@")[0]
+    parts = [p for p in _re.split(r"[._\-+]+", local) if p]
+    name = " ".join(p.capitalize() for p in parts)
+    return name or "there"
+
+
 def _safe_user_payload(user):
     credits = _credits_payload(user)
     pack = _credit_pack(user.current_pack) if user and user.current_pack else None
     return {
         "full_name": user.full_name,
+        "display_name": _display_name(user),
         "email": user.email,
         "email_verified": bool(user.email_verified),
         "provider": user.provider,
@@ -707,6 +699,10 @@ def auth_google_callback():
         db.session.commit()
     elif not user.email_verified:
         user.email_verified = True
+        db.session.commit()
+    # Backfill the name for any existing account that's missing it.
+    if info.get("name") and not (user.full_name or "").strip():
+        user.full_name = info.get("name")
         db.session.commit()
     _login_user(user)
     if session.pop("login_popup", False):
@@ -1368,95 +1364,6 @@ def get_generation(job_id):
     })
 
 
-# ---------------------------------------------------------------------------
-# Phase 4: saved CV/JD library + application tracker
-# ---------------------------------------------------------------------------
-
-def _saved_cv_payload(item):
-    return {"id": item.id, "label": item.label, "is_default": bool(item.is_default),
-            "preview": (item.cv_text or "")[:140], "created_at": item.created_at.isoformat() + "Z"}
-
-
-def _saved_jd_payload(item):
-    return {"id": item.id, "label": item.label, "jd_url": item.jd_url,
-            "preview": (item.jd_text or "")[:140], "created_at": item.created_at.isoformat() + "Z"}
-
-
-@app.route("/api/saved-cvs", methods=["GET", "POST"])
-def saved_cvs():
-    user = _current_user()
-    if not user:
-        return jsonify({"status": "error", "message": "Please sign in."}), 401
-    if request.method == "GET":
-        items = SavedCV.query.filter_by(user_id=user.id).order_by(
-            SavedCV.is_default.desc(), SavedCV.created_at.desc()).all()
-        return jsonify({"status": "ok", "items": [_saved_cv_payload(i) for i in items]})
-    data = request.get_json(silent=True) or {}
-    cv_text = _clean_str(data.get("cv_text"), 30000)
-    label = _clean_str(data.get("label"), 160) or "Saved CV"
-    if not cv_parser.looks_like_cv(cv_text):
-        return jsonify({"status": "error", "message": "Add some CV text before saving."}), 400
-    if SavedCV.query.filter_by(user_id=user.id).count() >= SAVED_ITEM_CAP:
-        return jsonify({"status": "error",
-                        "message": f"You can store up to {SAVED_ITEM_CAP} CVs. Delete one first."}), 400
-    make_default = SavedCV.query.filter_by(user_id=user.id).count() == 0
-    item = SavedCV(user_id=user.id, label=label, cv_text=cv_text, is_default=make_default)
-    db.session.add(item)
-    db.session.commit()
-    return jsonify({"status": "ok", "item": _saved_cv_payload(item)})
-
-
-@app.route("/api/saved-cvs/<int:item_id>", methods=["GET", "DELETE"])
-def saved_cv_detail(item_id):
-    user = _current_user()
-    if not user:
-        return jsonify({"status": "error", "message": "Please sign in."}), 401
-    item = SavedCV.query.filter_by(id=item_id, user_id=user.id).first()
-    if not item:
-        return jsonify({"status": "error", "message": "Not found."}), 404
-    if request.method == "DELETE":
-        db.session.delete(item)
-        db.session.commit()
-        return jsonify({"status": "ok"})
-    return jsonify({"status": "ok", "item": _saved_cv_payload(item), "cv_text": item.cv_text})
-
-
-@app.route("/api/saved-jds", methods=["GET", "POST"])
-def saved_jds():
-    user = _current_user()
-    if not user:
-        return jsonify({"status": "error", "message": "Please sign in."}), 401
-    if request.method == "GET":
-        items = SavedJD.query.filter_by(user_id=user.id).order_by(SavedJD.created_at.desc()).all()
-        return jsonify({"status": "ok", "items": [_saved_jd_payload(i) for i in items]})
-    data = request.get_json(silent=True) or {}
-    jd_text = _clean_str(data.get("jd_text"), 30000)
-    jd_url = _clean_str(data.get("jd_url"), 500) or None
-    label = _clean_str(data.get("label"), 160) or "Saved job"
-    if len(jd_text) < 40:
-        return jsonify({"status": "error", "message": "Add the job description text before saving."}), 400
-    if SavedJD.query.filter_by(user_id=user.id).count() >= SAVED_ITEM_CAP:
-        return jsonify({"status": "error",
-                        "message": f"You can store up to {SAVED_ITEM_CAP} jobs. Delete one first."}), 400
-    item = SavedJD(user_id=user.id, label=label, jd_text=jd_text, jd_url=jd_url)
-    db.session.add(item)
-    db.session.commit()
-    return jsonify({"status": "ok", "item": _saved_jd_payload(item)})
-
-
-@app.route("/api/saved-jds/<int:item_id>", methods=["GET", "DELETE"])
-def saved_jd_detail(item_id):
-    user = _current_user()
-    if not user:
-        return jsonify({"status": "error", "message": "Please sign in."}), 401
-    item = SavedJD.query.filter_by(id=item_id, user_id=user.id).first()
-    if not item:
-        return jsonify({"status": "error", "message": "Not found."}), 404
-    if request.method == "DELETE":
-        db.session.delete(item)
-        db.session.commit()
-        return jsonify({"status": "ok"})
-    return jsonify({"status": "ok", "item": _saved_jd_payload(item), "jd_text": item.jd_text})
 
 
 @app.route("/api/generation/<job_id>/status", methods=["POST"])

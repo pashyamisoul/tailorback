@@ -289,18 +289,13 @@ document.getElementById('historyList')?.addEventListener('blur', async (e) => {
     inp.dataset.saved = inp.value;
   } catch { toast('Could not save notes.', true); }
 }, true);
-// Library: delete a saved CV/JD.
-document.getElementById('librarySection')?.addEventListener('click', async (e) => {
-  const btn = e.target.closest('.lib-del');
+// Account modal tabs (Applications / Settings).
+document.getElementById('acctTabs')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('.acct-tab');
   if (!btn) return;
-  if (!confirm('Delete this saved item?')) return;
-  try {
-    const res = await fetch(`/api/saved-${btn.dataset.kind}s/${btn.dataset.id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error();
-    renderLibrarySection();
-    refreshLibraryPickers();
-    toast('Deleted.');
-  } catch { toast('Could not delete.', true); }
+  const tab = btn.dataset.tab;
+  document.querySelectorAll('.acct-tab').forEach(t => t.classList.toggle('on', t === btn));
+  document.querySelectorAll('.acct-panel').forEach(p => p.classList.toggle('hidden', p.dataset.panel !== tab));
 });
 document.querySelectorAll('[data-close-modal]').forEach(btn => {
   btn.addEventListener('click', () => closeModal(btn.closest('.modal')));
@@ -398,26 +393,28 @@ async function openHistory() {
     if (!accountRes.ok) throw new Error(account.message || 'Could not load account.');
     const user = account.user;
     if (profile) {
-      const initial = (user.email?.[0] || 'T').toUpperCase();
+      const name = user.display_name || user.full_name || 'there';
+      const initial = (name[0] || user.email?.[0] || 'T').toUpperCase();
       profile.innerHTML = `
-        <div class="account-profile-main">
+        <div class="acct-id">
           <span class="avatar avatar-lg">${initial}</span>
-          <div>
-            <strong>${escapeHtml(user.full_name || 'TailorBack user')}</strong>
+          <div class="acct-id-text">
+            <strong>${escapeHtml(name)}</strong>
             <span>${escapeHtml(user.email || '')}</span>
           </div>
         </div>
-        <div class="account-profile-meta">
-          <span>${escapeHtml(user.provider || 'email')}</span>
-          <span>${user.email_verified ? 'Verified' : 'Unverified'}</span>
-          <span>${escapeHtml(user.current_pack || 'Free')}</span>
+        <div class="acct-chips">
+          <span class="chip">${escapeHtml((user.provider || 'email').toUpperCase())}</span>
+          <span class="chip">${user.email_verified ? 'VERIFIED' : 'UNVERIFIED'}</span>
+          <span class="chip">${escapeHtml((user.current_pack || 'Free').toUpperCase())}</span>
         </div>`;
     }
+    const limit = Math.max(1, Number(user.credits_limit) || 1);
+    const pct = Math.max(0, Math.min(100, Math.round((Number(user.credits_remaining) || 0) / limit * 100)));
     summary.innerHTML = `
-      <div><strong>${user.credits_remaining}</strong><span>Credits left</span></div>
-      <div><strong>${user.credits_used}</strong><span>Used</span></div>
-      <div><strong>${user.credits_limit}</strong><span>Total limit</span></div>
-      <div><strong>${user.paid_credits}</strong><span>Paid credits</span></div>`;
+      <span class="cred-text"><strong>${user.credits_remaining}</strong> of ${user.credits_limit} credits left</span>
+      <span class="cred-bar"><i style="width:${pct}%"></i></span>
+      <span class="cred-sub">${user.paid_credits} paid · ${user.free_credits_limit} free</span>`;
     if (settings) {
       settings.innerHTML = user.has_password ? `
         <details class="settings-card">
@@ -448,7 +445,6 @@ async function openHistory() {
         </div>`;
       bindPasswordForm();
     }
-    renderLibrarySection();
     const STATUS_OPTIONS = [
       ['not_applied', 'Not applied'], ['applied', 'Applied'],
       ['interviewing', 'Interviewing'], ['offer', 'Offer'], ['rejected', 'Rejected'],
@@ -487,31 +483,6 @@ async function openHistory() {
     }).join('') : '<p class="lib-empty">No applications yet — tailor a resume to start tracking.</p>';
   } catch (err) {
     summary.innerHTML = `<p>${err.message || 'Could not load account history.'}</p>`;
-  }
-}
-
-// Render the saved CV/JD library inside the account modal.
-async function renderLibrarySection() {
-  const box = document.getElementById('librarySection');
-  if (!box) return;
-  box.innerHTML = '<span class="lib-loading">Loading…</span>';
-  try {
-    const [cvs, jds] = await Promise.all([
-      fetch('/api/saved-cvs').then(r => r.json()),
-      fetch('/api/saved-jds').then(r => r.json()),
-    ]);
-    const col = (title, kind, items) => `
-      <div class="lib-col">
-        <h4>${title}</h4>
-        ${(items || []).length ? (items).map(i => `
-          <div class="lib-row">
-            <span class="lib-label">${escapeHtml(i.label)}</span>
-            <button type="button" class="lib-del" data-kind="${kind}" data-id="${i.id}" aria-label="Delete">×</button>
-          </div>`).join('') : '<p class="lib-empty">None saved yet.</p>'}
-      </div>`;
-    box.innerHTML = col('Saved CVs', 'cv', cvs.items) + col('Saved jobs', 'jd', jds.items);
-  } catch {
-    box.innerHTML = '<p class="lib-empty">Could not load your library.</p>';
   }
 }
 
@@ -558,62 +529,6 @@ function bindPasswordForm() {
     }
   });
 }
-// ---- saved CV / JD library (form pickers) ----
-function fillPicker(sel, items, placeholder) {
-  if (!sel) return;
-  sel.innerHTML = `<option value="">${placeholder}</option>` +
-    (items || []).map(i => `<option value="${i.id}">${escapeHtml(i.label)}</option>`).join('');
-}
-async function refreshLibraryPickers() {
-  const cvSel = document.querySelector('.lib-bar[data-kind="cv"] .lib-pick');
-  const jdSel = document.querySelector('.lib-bar[data-kind="jd"] .lib-pick');
-  if (!cvSel && !jdSel) return;
-  try {
-    const [cvs, jds] = await Promise.all([
-      fetch('/api/saved-cvs').then(r => r.ok ? r.json() : { items: [] }),
-      fetch('/api/saved-jds').then(r => r.ok ? r.json() : { items: [] }),
-    ]);
-    fillPicker(cvSel, cvs.items, 'Load a saved CV…');
-    fillPicker(jdSel, jds.items, 'Load a saved job…');
-  } catch { /* not signed in / offline — ignore */ }
-}
-document.querySelectorAll('.lib-bar').forEach(bar => {
-  const kind = bar.dataset.kind; // 'cv' | 'jd'
-  const sel = bar.querySelector('.lib-pick');
-  const saveBtn = bar.querySelector('.lib-save');
-  const textarea = document.querySelector(kind === 'cv' ? '[name=cv_text]' : '[name=jd_text]');
-  sel?.addEventListener('change', async () => {
-    const id = sel.value;
-    if (!id) return;
-    try {
-      const res = await fetch(`/api/saved-${kind}s/${id}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Could not load.');
-      textarea.value = kind === 'cv' ? data.cv_text : data.jd_text;
-      updateReadiness();
-      toast('Loaded from your library.');
-    } catch (e) { toast(e.message || 'Could not load.', true); }
-    sel.value = '';
-  });
-  saveBtn?.addEventListener('click', async () => {
-    const text = (textarea.value || '').trim();
-    if (!text) return toast(kind === 'cv' ? 'Paste your CV first.' : 'Paste the job description first.', true);
-    const label = prompt(kind === 'cv' ? 'Name this CV:' : 'Name this job:', kind === 'cv' ? 'My CV' : 'Job');
-    if (label === null) return;
-    try {
-      const body = kind === 'cv' ? { cv_text: text, label } : { jd_text: text, label };
-      const res = await fetch(`/api/saved-${kind}s`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Could not save.');
-      toast('Saved to your library.');
-      refreshLibraryPickers();
-    } catch (e) { toast(e.message || 'Could not save.', true); }
-  });
-});
-refreshLibraryPickers();
-
 // ---- mode toggles ----
 document.querySelectorAll('.toggle').forEach(toggle => {
   const group = toggle.dataset.group;            // "jd" | "cv"
