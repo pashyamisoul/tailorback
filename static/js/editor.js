@@ -64,6 +64,14 @@
     o[ks[ks.length - 1]] = val;
   }
 
+  // Swap an array item with its neighbour (dir -1 = up, +1 = down).
+  function move(arr, idx, dir) {
+    if (!Array.isArray(arr)) return;
+    const to = idx + dir;
+    if (to < 0 || to >= arr.length) return;
+    const tmp = arr[idx]; arr[idx] = arr[to]; arr[to] = tmp;
+  }
+
   function markDirty() {
     ST.dirty = true;
     ST.exported = false;
@@ -175,8 +183,9 @@
           <button type="button" data-density="comfortable" class="${ST.style.density === "comfortable" ? "active" : ""}">Comfortable</button>
           <button type="button" data-density="compact" class="${ST.style.density === "compact" ? "active" : ""}">Compact</button>
         </div>
+        <p class="side-hint">Compact fits more on a page — use it to keep a long resume to one page.</p>
       </div>
-      <p class="side-note">Edits and style apply to your download. Click any text in the page to edit it.</p>`;
+      <p class="side-note">Edits and style apply to your download. Click any text in the page to edit it. Use ↑ ↓ to reorder bullets and roles.</p>`;
 
     side.querySelector("#tplGrid").addEventListener("click", e => {
       const b = e.target.closest("[data-tpl]"); if (!b) return;
@@ -322,6 +331,8 @@
         <div class="job-meta">
           ${ed("experience." + i + ".dates", j.dates, "job-dates")}
           ${refineBtn("Punchier", "bullets", String(i))}
+          <button class="mini-move" data-act="move-job-up" data-i="${i}" title="Move role up"${i === 0 ? " disabled" : ""}>↑</button>
+          <button class="mini-move" data-act="move-job-down" data-i="${i}" title="Move role down"${i === total - 1 ? " disabled" : ""}>↓</button>
           <button class="mini-x job-del" data-act="del-job" data-i="${i}" title="Remove role">×</button>
         </div>
       </div>
@@ -329,7 +340,11 @@
         ${bullets.map((b, bi) => `
           <li>
             ${ed("experience." + i + ".bullets." + bi, b, "")}
-            <button class="mini-x" data-act="del-bullet" data-job="${i}" data-i="${bi}" title="Remove">×</button>
+            <span class="bullet-tools">
+              <button class="mini-move" data-act="move-bullet-up" data-job="${i}" data-i="${bi}" title="Move up"${bi === 0 ? " disabled" : ""}>↑</button>
+              <button class="mini-move" data-act="move-bullet-down" data-job="${i}" data-i="${bi}" title="Move down"${bi === bullets.length - 1 ? " disabled" : ""}>↓</button>
+              <button class="mini-x" data-act="del-bullet" data-job="${i}" data-i="${bi}" title="Remove">×</button>
+            </span>
           </li>`).join("")}
       </ul>
       <button class="mini-add row-add" data-act="add-bullet" data-job="${i}">+ bullet</button>
@@ -415,6 +430,10 @@
       case "del-cert": r.certifications.splice(i, 1); break;
       case "add-para": (cl.body_paragraphs = cl.body_paragraphs || []).push("New paragraph."); break;
       case "del-para": cl.body_paragraphs.splice(i, 1); break;
+      case "move-job-up": move(r.experience, i, -1); break;
+      case "move-job-down": move(r.experience, i, 1); break;
+      case "move-bullet-up": move(r.experience[jobIdx].bullets, i, -1); break;
+      case "move-bullet-down": move(r.experience[jobIdx].bullets, i, 1); break;
       default: return;
     }
     markDirty();

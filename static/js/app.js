@@ -163,6 +163,21 @@ document.getElementById('openSignin')?.addEventListener('click', () => openAuth(
 document.getElementById('openSignup')?.addEventListener('click', () => openAuth('signup'));
 // Logged-out CTA: clicking "Run TailorBack" prompts sign-in.
 document.getElementById('signinGate')?.addEventListener('click', () => openAuth('signin'));
+// Delete the current generation's documents from the results screen.
+document.getElementById('deleteGenerated')?.addEventListener('click', async () => {
+  if (!currentJobId) return;
+  if (!confirm('Delete these documents from your account? This cannot be undone.')) return;
+  try {
+    const res = await fetch(`/api/generated/${currentJobId}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Could not delete.');
+    document.getElementById('results').classList.add('hidden');
+    currentJobId = null;
+    toast('Documents deleted.');
+  } catch (err) {
+    toast(err.message || 'Could not delete the documents.', true);
+  }
+});
 document.querySelectorAll('[data-close-modal]').forEach(btn => {
   btn.addEventListener('click', () => closeModal(btn.closest('.modal')));
 });
@@ -634,11 +649,13 @@ function renderResults(data) {
       seenDims.add(d.name);
       const row = document.createElement('div');
       row.className = 'dim-row';
+      // d.name / d.note are model output — escape to avoid HTML injection.
+      const score = Math.max(0, Math.min(100, Number(d.score) || 0));
       row.innerHTML =
-        '<div class="dim-top"><span class="dim-name">' + d.name +
-        '</span><span class="dim-score">' + d.score + '</span></div>' +
-        '<div class="dim-bar"><div class="dim-fill" style="width:' + d.score + '%"></div></div>' +
-        '<div class="dim-note">' + (d.note || '') + '</div>';
+        '<div class="dim-top"><span class="dim-name">' + escapeHtml(d.name) +
+        '</span><span class="dim-score">' + score + '</span></div>' +
+        '<div class="dim-bar"><div class="dim-fill" style="width:' + score + '%"></div></div>' +
+        '<div class="dim-note">' + escapeHtml(d.note || '') + '</div>';
       dims.appendChild(row);
     });
 
