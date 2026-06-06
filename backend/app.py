@@ -389,6 +389,16 @@ def _sanitize_resume(resume):
             "dates": _clean_str(job.get("dates"), 120),
             "bullets": _clean_str_list(job.get("bullets"), limit=20, item_limit=1000),
         })
+    projects = []
+    for proj in (resume.get("projects") or [])[:25]:
+        if not isinstance(proj, dict):
+            continue
+        projects.append({
+            "name": _clean_str(proj.get("name"), 200),
+            "link": _clean_str(proj.get("link"), 300),
+            "dates": _clean_str(proj.get("dates"), 120),
+            "bullets": _clean_str_list(proj.get("bullets"), limit=20, item_limit=1000),
+        })
     education = []
     for ed in (resume.get("education") or [])[:15]:
         if not isinstance(ed, dict):
@@ -409,6 +419,7 @@ def _sanitize_resume(resume):
         "summary": _clean_str(resume.get("summary"), 3000),
         "skills": _clean_str_list(resume.get("skills"), limit=60, item_limit=120),
         "experience": experience,
+        "projects": projects,
         "education": education,
         "certifications": _clean_str_list(resume.get("certifications"), limit=30, item_limit=300),
     }

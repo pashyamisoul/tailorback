@@ -257,6 +257,7 @@
     const links = (c.links || []);
     const skills = (r.skills || []);
     const exp = (r.experience || []);
+    const projects = (r.projects || []);
     const edu = (r.education || []);
     const certs = (r.certifications || []);
 
@@ -293,6 +294,14 @@
           ${exp.map((j, i) => jobHtml(j, i, exp.length)).join("")}
         </div>
         <button class="mini-add row-add" data-act="add-job">+ Add role</button>
+      </section>
+
+      <section class="doc-sec">
+        ${sectionHead("Projects")}
+        <div data-list="projects">
+          ${projects.map((p, i) => projectHtml(p, i, projects.length)).join("")}
+        </div>
+        <button class="mini-add row-add" data-act="add-project">+ Add project</button>
       </section>
 
       ${edu.length || true ? `
@@ -348,6 +357,39 @@
           </li>`).join("")}
       </ul>
       <button class="mini-add row-add" data-act="add-bullet" data-job="${i}">+ bullet</button>
+    </div>`;
+  }
+
+  function projectHtml(p, i, total) {
+    p = p || {};
+    const bullets = (p.bullets || []);
+    return `
+    <div class="doc-job" data-project="${i}">
+      <div class="job-head">
+        <div class="job-title-row">
+          ${ed("projects." + i + ".name", p.name, "job-title")}
+          <span class="job-co">| ${ed("projects." + i + ".link", p.link, "job-company")}</span>
+        </div>
+        <div class="job-meta">
+          ${ed("projects." + i + ".dates", p.dates, "job-dates")}
+          ${refineBtn("Punchier", "bullets", "proj:" + i)}
+          <button class="mini-move" data-act="move-project-up" data-i="${i}" title="Move project up"${i === 0 ? " disabled" : ""}>↑</button>
+          <button class="mini-move" data-act="move-project-down" data-i="${i}" title="Move project down"${i === total - 1 ? " disabled" : ""}>↓</button>
+          <button class="mini-x job-del" data-act="del-project" data-i="${i}" title="Remove project">×</button>
+        </div>
+      </div>
+      <ul class="job-bullets">
+        ${bullets.map((b, bi) => `
+          <li>
+            ${ed("projects." + i + ".bullets." + bi, b, "")}
+            <span class="bullet-tools">
+              <button class="mini-move" data-act="move-pbullet-up" data-project="${i}" data-i="${bi}" title="Move up"${bi === 0 ? " disabled" : ""}>↑</button>
+              <button class="mini-move" data-act="move-pbullet-down" data-project="${i}" data-i="${bi}" title="Move down"${bi === bullets.length - 1 ? " disabled" : ""}>↓</button>
+              <button class="mini-x" data-act="del-pbullet" data-project="${i}" data-i="${bi}" title="Remove">×</button>
+            </span>
+          </li>`).join("")}
+      </ul>
+      <button class="mini-add row-add" data-act="add-pbullet" data-project="${i}">+ bullet</button>
     </div>`;
   }
 
@@ -416,6 +458,7 @@
     const r = ST.resume, cl = ST.cover;
     const i = act.dataset.i != null ? parseInt(act.dataset.i, 10) : null;
     const jobIdx = act.dataset.job != null ? parseInt(act.dataset.job, 10) : null;
+    const projIdx = act.dataset.project != null ? parseInt(act.dataset.project, 10) : null;
     switch (act.dataset.act) {
       case "add-skill": (r.skills = r.skills || []).push("New skill"); break;
       case "del-skill": r.skills.splice(i, 1); break;
@@ -434,6 +477,14 @@
       case "move-job-down": move(r.experience, i, 1); break;
       case "move-bullet-up": move(r.experience[jobIdx].bullets, i, -1); break;
       case "move-bullet-down": move(r.experience[jobIdx].bullets, i, 1); break;
+      case "add-project": (r.projects = r.projects || []).push({ name: "Project name", link: "", dates: "", bullets: ["What you built and the impact"] }); break;
+      case "del-project": r.projects.splice(i, 1); break;
+      case "add-pbullet": (r.projects[projIdx].bullets = r.projects[projIdx].bullets || []).push("What you built and the impact"); break;
+      case "del-pbullet": r.projects[projIdx].bullets.splice(i, 1); break;
+      case "move-project-up": move(r.projects, i, -1); break;
+      case "move-project-down": move(r.projects, i, 1); break;
+      case "move-pbullet-up": move(r.projects[projIdx].bullets, i, -1); break;
+      case "move-pbullet-down": move(r.projects[projIdx].bullets, i, 1); break;
       default: return;
     }
     markDirty();
@@ -525,6 +576,10 @@
     } else if (kind === "skills") {
       content = ST.resume.skills || [];
       apply = (v) => { if (Array.isArray(v)) ST.resume.skills = v; };
+    } else if (kind === "bullets" && String(ref).startsWith("proj:")) {
+      const idx = parseInt(String(ref).slice(5), 10);
+      content = (ST.resume.projects[idx] || {}).bullets || [];
+      apply = (v) => { if (Array.isArray(v)) ST.resume.projects[idx].bullets = v; };
     } else if (kind === "bullets") {
       const idx = parseInt(ref, 10);
       content = (ST.resume.experience[idx] || {}).bullets || [];
