@@ -635,14 +635,23 @@ function renderResults(data) {
     retention.textContent = `Downloads are private to your signed-in account and expire in ${days} days.`;
   }
 
-  // --- Before → after match-score lift ---
+  // --- Before → after match-score lift (ring + thermometer) ---
   const lift = document.getElementById('scoreLift');
   if (lift) {
     const before = Number(data.score_before);
     const after = Number(data.score_after);
     if (Number.isFinite(before) && Number.isFinite(after)) {
-      document.getElementById('slBefore').textContent = before;
-      document.getElementById('slAfter').textContent = after;
+      const b = Math.max(0, Math.min(100, before));
+      const a = Math.max(0, Math.min(100, after));
+      document.getElementById('slAfter').textContent = after;        // ring centre
+      document.getElementById('slBefore').textContent = before;       // "Uploaded" mark
+      document.getElementById('slAfterMark').textContent = after;     // "Tailored" mark
+      document.getElementById('slRing').style.setProperty('--pct', a);
+      // baseline (uploaded) fill, then the improvement segment in accent on top
+      document.getElementById('slTrackBase').style.width = b + '%';
+      const gainBar = document.getElementById('slTrackGain');
+      gainBar.style.left = b + '%';
+      gainBar.style.width = Math.max(0, a - b) + '%';
       const gain = after - before;
       const gainEl = document.getElementById('slGain');
       gainEl.textContent = gain > 0 ? `▲ +${gain}` : gain < 0 ? `▼ ${gain}` : 'no change';

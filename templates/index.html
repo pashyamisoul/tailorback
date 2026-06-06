@@ -211,13 +211,21 @@
 
 <div class="analysis-panel" id="analysisPanel">
         <div class="score-lift hidden" id="scoreLift" aria-live="polite">
-          <span class="sl-label">Match score</span>
-          <span class="sl-pair">
-            <span class="sl-before"><b id="slBefore">—</b><small>uploaded</small></span>
-            <span class="sl-arrow" aria-hidden="true">→</span>
-            <span class="sl-after"><b id="slAfter">—</b><small>tailored</small></span>
-          </span>
-          <span class="sl-gain" id="slGain"></span>
+          <div class="sl-ring" id="slRing"><div class="sl-ring-in"><b id="slAfter">—</b><small>/100</small></div></div>
+          <div class="sl-body">
+            <div class="sl-head">
+              <span class="sl-kick">Tailored match score vs. this job</span>
+              <span class="sl-gain" id="slGain"></span>
+            </div>
+            <div class="sl-track">
+              <div class="sl-base" id="slTrackBase"></div>
+              <div class="sl-gainbar" id="slTrackGain"></div>
+            </div>
+            <div class="sl-marks">
+              <span class="m1">Uploaded <b id="slBefore">—</b></span>
+              <span class="m2">Tailored <b id="slAfterMark">—</b></span>
+            </div>
+          </div>
         </div>
         <div class="analysis-head">
           <div>
