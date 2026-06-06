@@ -389,6 +389,16 @@ def _sanitize_resume(resume):
             "dates": _clean_str(job.get("dates"), 120),
             "bullets": _clean_str_list(job.get("bullets"), limit=20, item_limit=1000),
         })
+    projects = []
+    for proj in (resume.get("projects") or [])[:25]:
+        if not isinstance(proj, dict):
+            continue
+        projects.append({
+            "name": _clean_str(proj.get("name"), 200),
+            "link": _clean_str(proj.get("link"), 300),
+            "dates": _clean_str(proj.get("dates"), 120),
+            "bullets": _clean_str_list(proj.get("bullets"), limit=20, item_limit=1000),
+        })
     education = []
     for ed in (resume.get("education") or [])[:15]:
         if not isinstance(ed, dict):
@@ -409,9 +419,45 @@ def _sanitize_resume(resume):
         "summary": _clean_str(resume.get("summary"), 3000),
         "skills": _clean_str_list(resume.get("skills"), limit=60, item_limit=120),
         "experience": experience,
+        "projects": projects,
         "education": education,
         "certifications": _clean_str_list(resume.get("certifications"), limit=30, item_limit=300),
     }
+
+
+def _resume_to_text(resume):
+    """Flatten a structured resume into plain text for the deterministic scorer
+    (so the tailored output can be scored the same way the uploaded CV is)."""
+    resume = resume if isinstance(resume, dict) else {}
+    parts = []
+    if resume.get("name"):
+        parts.append(resume["name"])
+    c = resume.get("contact") or {}
+    contact_bits = [c.get("email"), c.get("phone"), c.get("location"), *(c.get("links") or [])]
+    contact = " | ".join(x for x in contact_bits if x)
+    if contact:
+        parts.append(contact)
+    if resume.get("summary"):
+        parts.append("Summary\n" + resume["summary"])
+    if resume.get("skills"):
+        parts.append("Skills\n" + ", ".join(resume["skills"]))
+    if resume.get("experience"):
+        parts.append("Experience")
+        for j in resume["experience"]:
+            parts.append(f"{j.get('title','')} - {j.get('company','')} ({j.get('dates','')})")
+            parts.extend("• " + b for b in (j.get("bullets") or []))
+    if resume.get("projects"):
+        parts.append("Projects")
+        for p in resume["projects"]:
+            parts.append(f"{p.get('name','')} ({p.get('dates','')})")
+            parts.extend("• " + b for b in (p.get("bullets") or []))
+    if resume.get("education"):
+        parts.append("Education")
+        for e in resume["education"]:
+            parts.append(f"{e.get('degree','')} - {e.get('institution','')} ({e.get('dates','')})")
+    if resume.get("certifications"):
+        parts.append("Certifications\n" + "; ".join(resume["certifications"]))
+    return "\n".join(parts)
 
 
 def _sanitize_cover(cover):
@@ -860,6 +906,10 @@ def generate():
         analysis = scoring.score_resume(cv_text, jd_text, result.get("analysis", {}))
         job_id = uuid.uuid4().hex[:10]
         resume = result.get("resume", {})
+        # Re-score the tailored resume so the UI can show the before→after lift.
+        tailored_analysis = scoring.score_resume(_resume_to_text(resume), jd_text)
+        score_before = analysis.get("overall_score")
+        score_after = tailored_analysis.get("overall_score")
 
         def _slug(*parts):
             import re
@@ -927,6 +977,8 @@ def generate():
                 "gaps": result.get("gaps", []),
                 "match": result.get("match_summary", {}),
                 "analysis": analysis,
+                "score_before": score_before,
+                "score_after": score_after,
                 **credits,
                 "resume": resume,
                 "cover_letter": result.get("cover_letter", {}),

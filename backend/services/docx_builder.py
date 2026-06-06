@@ -194,6 +194,21 @@ def build_resume(resume, out_path, style=None):
             for b in job.get("bullets", []):
                 bp = doc.add_paragraph(b, style="List Bullet"); _sp(bp, after=2, line=1.08)
 
+    if resume.get("projects"):
+        _heading(doc, "Projects", S)
+        for proj in resume["projects"]:
+            head = doc.add_paragraph(); _sp(head, before=7 * S["scale"], after=1)
+            head.paragraph_format.tab_stops.add_tab_stop(Inches(6.8), WD_TAB_ALIGNMENT.RIGHT)
+            r = head.add_run(proj.get("name", "")); r.bold = True; r.font.size = Pt(S["base_size"])
+            if proj.get("link"):
+                lr = head.add_run(f"   |   {proj['link']}")
+                lr.font.size = Pt(9); lr.font.color.rgb = S["heading_color"]
+            if proj.get("dates"):
+                d = head.add_run(f"\t{proj['dates']}"); d.italic = True
+                d.font.size = Pt(9); d.font.color.rgb = GREY
+            for b in proj.get("bullets", []):
+                bp = doc.add_paragraph(b, style="List Bullet"); _sp(bp, after=2, line=1.08)
+
     if resume.get("education"):
         _heading(doc, "Education", S)
         for ed in resume["education"]:
