@@ -370,6 +370,7 @@ html[data-theme="terminal"] .go .gicon { display: none; }
   font-weight: 800;
   margin-right: auto;
 }
+.site-footer .footer-copy { font-weight: 500; color: var(--ink-soft); }
 .site-footer a {
   color: var(--ink-soft);
   text-decoration: none;
