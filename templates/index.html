@@ -114,12 +114,6 @@
         <div class="mode jd-paste">
           <textarea name="jd_text" rows="8"
             placeholder="Paste the full job description here…"></textarea>
-          {% if user_email %}
-          <div class="lib-bar" data-kind="jd">
-            <select class="lib-pick" aria-label="Load a saved job"><option value="">Load a saved job…</option></select>
-            <button type="button" class="lib-save">Save this job</button>
-          </div>
-          {% endif %}
         </div>
 
         <div class="mode jd-link hidden">
@@ -157,12 +151,6 @@
         <div class="mode cv-paste hidden">
           <textarea name="cv_text" rows="8"
             placeholder="Paste your full CV / resume text here…"></textarea>
-          {% if user_email %}
-          <div class="lib-bar" data-kind="cv">
-            <select class="lib-pick" aria-label="Load a saved CV"><option value="">Load a saved CV…</option></select>
-            <button type="button" class="lib-save">Save this CV</button>
-          </div>
-          {% endif %}
         </div>
       </fieldset>
 

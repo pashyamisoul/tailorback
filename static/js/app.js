@@ -298,7 +298,6 @@ document.getElementById('librarySection')?.addEventListener('click', async (e) =
     const res = await fetch(`/api/saved-${btn.dataset.kind}s/${btn.dataset.id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error();
     renderLibrarySection();
-    refreshLibraryPickers();
     toast('Deleted.');
   } catch { toast('Could not delete.', true); }
 });
@@ -568,62 +567,6 @@ function bindPasswordForm() {
     }
   });
 }
-// ---- saved CV / JD library (form pickers) ----
-function fillPicker(sel, items, placeholder) {
-  if (!sel) return;
-  sel.innerHTML = `<option value="">${placeholder}</option>` +
-    (items || []).map(i => `<option value="${i.id}">${escapeHtml(i.label)}</option>`).join('');
-}
-async function refreshLibraryPickers() {
-  const cvSel = document.querySelector('.lib-bar[data-kind="cv"] .lib-pick');
-  const jdSel = document.querySelector('.lib-bar[data-kind="jd"] .lib-pick');
-  if (!cvSel && !jdSel) return;
-  try {
-    const [cvs, jds] = await Promise.all([
-      fetch('/api/saved-cvs').then(r => r.ok ? r.json() : { items: [] }),
-      fetch('/api/saved-jds').then(r => r.ok ? r.json() : { items: [] }),
-    ]);
-    fillPicker(cvSel, cvs.items, 'Load a saved CV…');
-    fillPicker(jdSel, jds.items, 'Load a saved job…');
-  } catch { /* not signed in / offline — ignore */ }
-}
-document.querySelectorAll('.lib-bar').forEach(bar => {
-  const kind = bar.dataset.kind; // 'cv' | 'jd'
-  const sel = bar.querySelector('.lib-pick');
-  const saveBtn = bar.querySelector('.lib-save');
-  const textarea = document.querySelector(kind === 'cv' ? '[name=cv_text]' : '[name=jd_text]');
-  sel?.addEventListener('change', async () => {
-    const id = sel.value;
-    if (!id) return;
-    try {
-      const res = await fetch(`/api/saved-${kind}s/${id}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Could not load.');
-      textarea.value = kind === 'cv' ? data.cv_text : data.jd_text;
-      updateReadiness();
-      toast('Loaded from your library.');
-    } catch (e) { toast(e.message || 'Could not load.', true); }
-    sel.value = '';
-  });
-  saveBtn?.addEventListener('click', async () => {
-    const text = (textarea.value || '').trim();
-    if (!text) return toast(kind === 'cv' ? 'Paste your CV first.' : 'Paste the job description first.', true);
-    const label = prompt(kind === 'cv' ? 'Name this CV:' : 'Name this job:', kind === 'cv' ? 'My CV' : 'Job');
-    if (label === null) return;
-    try {
-      const body = kind === 'cv' ? { cv_text: text, label } : { jd_text: text, label };
-      const res = await fetch(`/api/saved-${kind}s`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Could not save.');
-      toast('Saved to your library.');
-      refreshLibraryPickers();
-    } catch (e) { toast(e.message || 'Could not save.', true); }
-  });
-});
-refreshLibraryPickers();
-
 // ---- mode toggles ----
 document.querySelectorAll('.toggle').forEach(toggle => {
   const group = toggle.dataset.group;            // "jd" | "cv"

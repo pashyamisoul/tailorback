@@ -2280,18 +2280,6 @@ html[data-theme="terminal"] .result-delete { font-family: "JetBrains Mono", mono
 /* ============================================================================
    PHASE 4 — saved CV/JD library + application tracker
    ==========================================================================*/
-/* form library bar (load / save) */
-.lib-bar { display: flex; gap: .5rem; margin-top: .6rem; flex-wrap: wrap; }
-.lib-pick {
-  flex: 1; min-width: 160px; font: inherit; font-size: .82rem; padding: .4rem .55rem;
-  border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink);
-}
-.lib-save {
-  border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer;
-  font: inherit; font-size: .8rem; font-weight: 600; padding: .4rem .8rem; border-radius: 6px;
-}
-.lib-save:hover { border-color: var(--accent); color: var(--accent); }
-
 /* library section in the account modal */
 .library-section { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.4rem; }
 .lib-col h4 { font-size: .82rem; font-weight: 800; margin-bottom: .5rem; }
