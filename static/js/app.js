@@ -17,7 +17,7 @@ window.addEventListener("message", (e) => {
       submit.type = "submit";
       submit.className = "go";
       submit.id = "go";
-      submit.innerHTML = '<span>Run TailorBack</span><span class="arrow">→</span>';
+      submit.innerHTML = '<span class="run">Run</span><span class="tb-logo big">Tailor<span class="tb-accent">Back</span></span><span class="arrow">→</span>';
       form.insertBefore(submit, anchor);
       go = submit;
     }
@@ -184,6 +184,78 @@ document.getElementById('deleteGenerated')?.addEventListener('click', async () =
     toast(err.message || 'Could not delete the documents.', true);
   }
 });
+// "See a sample result" — render a built-in example so visitors feel the value
+// before signing up or uploading their own data (client-side, no credit used).
+const SAMPLE_RESULT = {
+  status: 'ok', sample: true, job_id: null,
+  resume_docx_url: null, resume_pdf_url: null, cover_docx_url: null, cover_pdf_url: null,
+  style: { template: 'editorial', accent: 'c8462e', font: 'Calibri', density: 'comfortable' },
+  job: { company: 'Northwind', role: 'IT Support Engineer' },
+  score_before: 54, score_after: 82,
+  expires_in_days: 7,
+  resume: {
+    name: 'Sample Candidate',
+    contact: { email: 'sample@email.com', phone: '+1 555 0100', location: 'Remote', links: ['linkedin.com/in/sample'] },
+    summary: 'IT Support Engineer with 5+ years resolving hardware, software, and network issues for 500+ users. Strong in macOS/Windows troubleshooting, identity & access (Okta, SSO, MFA), and endpoint management with Intune.',
+    skills: ['macOS & Windows support', 'Okta / SSO / MFA', 'Intune / MDM', 'Jira & Confluence', 'Networking (TCP/IP, VPN)', 'Automation (Bash, Python)'],
+    experience: [
+      { title: 'IT Support Engineer', company: 'Acme GmbH', dates: '2021 – Present', bullets: [
+        'Resolved 2nd-level tickets for 500+ employees, cutting average resolution time 35%.',
+        'Automated onboarding/offboarding in Okta, saving ~6 hours per week.' ] },
+      { title: 'Helpdesk Technician', company: 'Beta Inc', dates: '2019 – 2021', bullets: [
+        'Handled 40+ daily tickets across hardware, software, and access requests.' ] }
+    ],
+    projects: [
+      { name: 'Self-service password reset portal', link: 'github.com/sample/reset', dates: '2023', bullets: [
+        'Built an internal portal cutting password-reset tickets by 60%.' ] }
+    ],
+    education: [{ degree: 'BSc Computer Science', institution: 'State University', dates: '2019' }],
+    certifications: ['CompTIA A+', 'Okta Certified Professional']
+  },
+  cover_letter: { greeting: 'Dear Hiring Manager,', body_paragraphs: [
+    'I am excited to apply for the IT Support Engineer role at Northwind. My five years supporting macOS and Windows environments map directly to your needs.',
+    'In my current role I cut average ticket resolution time by 35% and automated identity workflows in Okta — experience I would bring to your team.' ], closing: 'Sincerely,' },
+  gaps: ['PowerShell scripting (job lists it; not evidenced on the resume)'],
+  match: { covered: ['macOS/Windows support', 'Okta / SSO / MFA', 'Endpoint management (Intune)'], missing: ['PowerShell scripting'] },
+  analysis: {
+    overall_score: 82,
+    verdict: 'Strong, well-matched resume after tailoring — a couple of niche keywords still missing.',
+    dimensions: [
+      { name: 'Job Match', score: 85, note: '11 of 13 job requirements are clearly evidenced.' },
+      { name: 'Keyword Coverage', score: 80, note: '8 of 10 job keywords appear in the resume.' },
+      { name: 'Structure & Format', score: 90, note: 'All standard sections present with quantified results.' },
+      { name: 'Impact & Quantification', score: 70, note: '7 of 10 bullets include a concrete metric.' }
+    ],
+    strengths: ['Clear quantified achievements', 'Strong identity/access tooling match'],
+    improvements: ['Add PowerShell if you have it', 'Quantify the helpdesk role'],
+    missing_keywords: ['PowerShell', 'Active Directory']
+  }
+};
+document.getElementById('trySample')?.addEventListener('click', () => {
+  toast('Sample preview — sign up to tailor your own résumé.');
+  renderResults(SAMPLE_RESULT);
+});
+
+// Reopen a past generation from history into the editor + score view.
+document.getElementById('historyList')?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-open-job]');
+  if (!btn) return;
+  const jobId = btn.dataset.openJob;
+  if (!jobId) return;
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Opening…';
+  try {
+    const res = await fetch(`/api/generation/${jobId}`);
+    const data = await res.json();
+    if (!res.ok || data.status !== 'ok') throw new Error(data.message || 'Could not open.');
+    closeModal(historyModal);
+    renderResults(data.result);
+  } catch (err) {
+    toast(err.message || 'Could not open that generation.', true);
+  } finally {
+    btn.disabled = false; btn.textContent = original;
+  }
+});
 document.querySelectorAll('[data-close-modal]').forEach(btn => {
   btn.addEventListener('click', () => closeModal(btn.closest('.modal')));
 });
@@ -339,6 +411,7 @@ async function openHistory() {
         </div>
         <span>${escapeHtml(run.model_provider || 'unknown')} ${run.generation_seconds ? `· ${run.generation_seconds}s` : ''}</span>
         <div class="history-links">
+          <button type="button" class="history-open" data-open-job="${escapeHtml(run.job_id || '')}">Open</button>
           ${run.downloads.resume_docx_url ? `<a href="${run.downloads.resume_docx_url}">Resume</a>` : ''}
           ${run.downloads.cover_docx_url ? `<a href="${run.downloads.cover_docx_url}">Cover letter</a>` : ''}
         </div>
@@ -635,14 +708,23 @@ function renderResults(data) {
     retention.textContent = `Downloads are private to your signed-in account and expire in ${days} days.`;
   }
 
-  // --- Before → after match-score lift ---
+  // --- Before → after match-score lift (ring + thermometer) ---
   const lift = document.getElementById('scoreLift');
   if (lift) {
     const before = Number(data.score_before);
     const after = Number(data.score_after);
     if (Number.isFinite(before) && Number.isFinite(after)) {
-      document.getElementById('slBefore').textContent = before;
-      document.getElementById('slAfter').textContent = after;
+      const b = Math.max(0, Math.min(100, before));
+      const a = Math.max(0, Math.min(100, after));
+      document.getElementById('slAfter').textContent = after;        // ring centre
+      document.getElementById('slBefore').textContent = before;       // "Uploaded" mark
+      document.getElementById('slAfterMark').textContent = after;     // "Tailored" mark
+      document.getElementById('slRing').style.setProperty('--pct', a);
+      // baseline (uploaded) fill, then the improvement segment in accent on top
+      document.getElementById('slTrackBase').style.width = b + '%';
+      const gainBar = document.getElementById('slTrackGain');
+      gainBar.style.left = b + '%';
+      gainBar.style.width = Math.max(0, a - b) + '%';
       const gain = after - before;
       const gainEl = document.getElementById('slGain');
       gainEl.textContent = gain > 0 ? `▲ +${gain}` : gain < 0 ? `▼ ${gain}` : 'no change';
@@ -665,6 +747,12 @@ function renderResults(data) {
     fill.style.background = an.overall_score >= 75 ? 'var(--good)'
                           : an.overall_score >= 50 ? 'var(--warn)' : 'var(--accent)';
 
+    const DIM_HELP = {
+      'Job Match': "How many of the job's must-have responsibilities your resume clearly evidences.",
+      'Keyword Coverage': "Share of the job's important keywords and hard skills that appear in your resume.",
+      'Structure & Format': 'Whether standard sections, complete contact info, and quantified results are present and ATS-friendly.',
+      'Impact & Quantification': 'How many of your experience bullets include a concrete number or measurable result.'
+    };
     const dims = document.getElementById('anDimensions');
     dims.innerHTML = '';
     const seenDims = new Set();
@@ -675,8 +763,10 @@ function renderResults(data) {
       row.className = 'dim-row';
       // d.name / d.note are model output — escape to avoid HTML injection.
       const score = Math.max(0, Math.min(100, Number(d.score) || 0));
+      const help = DIM_HELP[d.name] || d.note || '';
       row.innerHTML =
         '<div class="dim-top"><span class="dim-name">' + escapeHtml(d.name) +
+        (help ? ' <span class="dim-info" tabindex="0" title="' + escapeHtml(help) + '" aria-label="' + escapeHtml(help) + '">i</span>' : '') +
         '</span><span class="dim-score">' + score + '</span></div>' +
         '<div class="dim-bar"><div class="dim-fill" style="width:' + score + '%"></div></div>' +
         '<div class="dim-note">' + escapeHtml(d.note || '') + '</div>';
@@ -728,7 +818,7 @@ function resetBuilderInputs() {
   setMode('cv', 'upload');
   if (go) {
     go.disabled = false;
-    go.innerHTML = '<span>Run TailorBack</span><span class="arrow">→</span>';
+    go.innerHTML = '<span class="run">Run</span><span class="tb-logo big">Tailor<span class="tb-accent">Back</span></span><span class="arrow">→</span>';
   }
   updateReadiness();
 }

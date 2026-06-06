@@ -98,6 +98,7 @@
           ATS-clean resume and a matching cover letter — and tells you honestly where
           you fall short, instead of making things up.
         </p>
+        <button type="button" class="try-sample" id="trySample">See a sample result <span class="arrow">→</span></button>
       </div>
     </section>
 
@@ -160,12 +161,12 @@
 
       {% if user_email %}
       <button type="submit" class="go" id="go">
-        <span>Run TailorBack</span>
+        <span class="run">Run</span><span class="tb-logo big">Tailor<span class="tb-accent">Back</span></span>
         <span class="arrow">→</span>
       </button>
       {% else %}
       <button type="button" class="go" id="signinGate">
-        <span>Run TailorBack</span>
+        <span class="run">Run</span><span class="tb-logo big">Tailor<span class="tb-accent">Back</span></span>
         <span class="arrow">→</span>
       </button>
       {% endif %}
@@ -211,13 +212,21 @@
 
 <div class="analysis-panel" id="analysisPanel">
         <div class="score-lift hidden" id="scoreLift" aria-live="polite">
-          <span class="sl-label">Match score</span>
-          <span class="sl-pair">
-            <span class="sl-before"><b id="slBefore">—</b><small>uploaded</small></span>
-            <span class="sl-arrow" aria-hidden="true">→</span>
-            <span class="sl-after"><b id="slAfter">—</b><small>tailored</small></span>
-          </span>
-          <span class="sl-gain" id="slGain"></span>
+          <div class="sl-ring" id="slRing"><div class="sl-ring-in"><b id="slAfter">—</b><small>/100</small></div></div>
+          <div class="sl-body">
+            <div class="sl-head">
+              <span class="sl-kick">Tailored match score vs. this job</span>
+              <span class="sl-gain" id="slGain"></span>
+            </div>
+            <div class="sl-track">
+              <div class="sl-base" id="slTrackBase"></div>
+              <div class="sl-gainbar" id="slTrackGain"></div>
+            </div>
+            <div class="sl-marks">
+              <span class="m1">Uploaded <b id="slBefore">—</b></span>
+              <span class="m2">Tailored <b id="slAfterMark">—</b></span>
+            </div>
+          </div>
         </div>
         <div class="analysis-head">
           <div>
