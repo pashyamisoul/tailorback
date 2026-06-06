@@ -289,19 +289,7 @@ document.getElementById('historyList')?.addEventListener('blur', async (e) => {
     inp.dataset.saved = inp.value;
   } catch { toast('Could not save notes.', true); }
 }, true);
-// Library: delete a saved CV/JD.
-document.getElementById('librarySection')?.addEventListener('click', async (e) => {
-  const btn = e.target.closest('.lib-del');
-  if (!btn) return;
-  if (!confirm('Delete this saved item?')) return;
-  try {
-    const res = await fetch(`/api/saved-${btn.dataset.kind}s/${btn.dataset.id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error();
-    renderLibrarySection();
-    toast('Deleted.');
-  } catch { toast('Could not delete.', true); }
-});
-// Account modal tabs (Applications / Library / Settings).
+// Account modal tabs (Applications / Settings).
 document.getElementById('acctTabs')?.addEventListener('click', (e) => {
   const btn = e.target.closest('.acct-tab');
   if (!btn) return;
@@ -457,7 +445,6 @@ async function openHistory() {
         </div>`;
       bindPasswordForm();
     }
-    renderLibrarySection();
     const STATUS_OPTIONS = [
       ['not_applied', 'Not applied'], ['applied', 'Applied'],
       ['interviewing', 'Interviewing'], ['offer', 'Offer'], ['rejected', 'Rejected'],
@@ -496,31 +483,6 @@ async function openHistory() {
     }).join('') : '<p class="lib-empty">No applications yet — tailor a resume to start tracking.</p>';
   } catch (err) {
     summary.innerHTML = `<p>${err.message || 'Could not load account history.'}</p>`;
-  }
-}
-
-// Render the saved CV/JD library inside the account modal.
-async function renderLibrarySection() {
-  const box = document.getElementById('librarySection');
-  if (!box) return;
-  box.innerHTML = '<span class="lib-loading">Loading…</span>';
-  try {
-    const [cvs, jds] = await Promise.all([
-      fetch('/api/saved-cvs').then(r => r.json()),
-      fetch('/api/saved-jds').then(r => r.json()),
-    ]);
-    const col = (title, kind, items) => `
-      <div class="lib-col">
-        <h4>${title}</h4>
-        ${(items || []).length ? (items).map(i => `
-          <div class="lib-row">
-            <span class="lib-label">${escapeHtml(i.label)}</span>
-            <button type="button" class="lib-del" data-kind="${kind}" data-id="${i.id}" aria-label="Delete">×</button>
-          </div>`).join('') : '<p class="lib-empty">None saved yet.</p>'}
-      </div>`;
-    box.innerHTML = col('Saved CVs', 'cv', cvs.items) + col('Saved jobs', 'jd', jds.items);
-  } catch {
-    box.innerHTML = '<p class="lib-empty">Could not load your library.</p>';
   }
 }
 
