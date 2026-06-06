@@ -1270,6 +1270,62 @@ def account_generations():
     })
 
 
+@app.route("/api/generation/<job_id>")
+def get_generation(job_id):
+    """Return a past generation in the same shape as the live 'done' result, so
+    the frontend can reopen it in the editor + score view."""
+    current_user = _current_user()
+    if not current_user:
+        return jsonify({"status": "error", "message": "Please sign in."}), 401
+    run = GenerationRun.query.filter_by(job_id=job_id, user_id=current_user.id).first()
+    if not run:
+        return jsonify({"status": "error", "message": "Not found."}), 404
+    try:
+        resume = _json.loads(run.resume_json or "{}")
+    except ValueError:
+        resume = {}
+    try:
+        cover = _json.loads(run.cover_letter_json or "{}")
+    except ValueError:
+        cover = {}
+    try:
+        analysis = _json.loads(run.analysis_json or "{}")
+    except ValueError:
+        analysis = {}
+    try:
+        style = _sanitize_style(_json.loads(run.style_json or "{}")) if run.style_json else _DEFAULT_DOC_STYLE
+    except ValueError:
+        style = _DEFAULT_DOC_STYLE
+    # Recompute the before→after lift (score_after isn't persisted).
+    score_before = analysis.get("overall_score")
+    try:
+        score_after = scoring.score_resume(_resume_to_text(resume), run.jd_text).get("overall_score")
+    except Exception:
+        score_after = None
+    downloads = _download_urls_for_job(current_user.id, job_id)
+    return jsonify({
+        "status": "ok",
+        "result": {
+            "status": "ok",
+            "job_id": job_id,
+            "resume": resume,
+            "cover_letter": cover,
+            "analysis": analysis,
+            "match": {"covered": [], "missing": []},
+            "gaps": resume.get("gaps", []) if isinstance(resume, dict) else [],
+            "score_before": score_before,
+            "score_after": score_after,
+            "style": style,
+            "expires_in_days": GENERATED_RETENTION_DAYS,
+            "resume_docx_url": downloads.get("resume_docx_url"),
+            "resume_pdf_url": downloads.get("resume_pdf_url"),
+            "cover_docx_url": downloads.get("cover_docx_url"),
+            "cover_pdf_url": downloads.get("cover_pdf_url"),
+            **_credits_payload(current_user),
+        },
+    })
+
+
 def _admin_ok():
     return bool(session.get("admin_ok"))
 
