@@ -398,12 +398,13 @@ async function openHistory() {
     if (!accountRes.ok) throw new Error(account.message || 'Could not load account.');
     const user = account.user;
     if (profile) {
-      const initial = (user.email?.[0] || 'T').toUpperCase();
+      const name = user.display_name || user.full_name || 'there';
+      const initial = (name[0] || user.email?.[0] || 'T').toUpperCase();
       profile.innerHTML = `
         <div class="account-profile-main">
           <span class="avatar avatar-lg">${initial}</span>
           <div>
-            <strong>${escapeHtml(user.full_name || 'TailorBack user')}</strong>
+            <strong>${escapeHtml(name)}</strong>
             <span>${escapeHtml(user.email || '')}</span>
           </div>
         </div>

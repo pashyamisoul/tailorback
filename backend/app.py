@@ -564,11 +564,22 @@ def _login_user(user):
     session["email"] = user.email
 
 
+def _display_name(user):
+    """Best display name: stored full name, else derived from the email local part."""
+    if user.full_name and user.full_name.strip():
+        return user.full_name.strip()
+    local = (user.email or "").split("@")[0]
+    parts = [p for p in _re.split(r"[._\-+]+", local) if p]
+    name = " ".join(p.capitalize() for p in parts)
+    return name or "there"
+
+
 def _safe_user_payload(user):
     credits = _credits_payload(user)
     pack = _credit_pack(user.current_pack) if user and user.current_pack else None
     return {
         "full_name": user.full_name,
+        "display_name": _display_name(user),
         "email": user.email,
         "email_verified": bool(user.email_verified),
         "provider": user.provider,
@@ -707,6 +718,10 @@ def auth_google_callback():
         db.session.commit()
     elif not user.email_verified:
         user.email_verified = True
+        db.session.commit()
+    # Backfill the name for any existing account that's missing it.
+    if info.get("name") and not (user.full_name or "").strip():
+        user.full_name = info.get("name")
         db.session.commit()
     _login_user(user)
     if session.pop("login_popup", False):
