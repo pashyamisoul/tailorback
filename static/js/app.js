@@ -238,6 +238,13 @@ document.getElementById('trySample')?.addEventListener('click', () => {
 
 // Reopen a past generation from history into the editor + score view.
 document.getElementById('historyList')?.addEventListener('click', async (e) => {
+  // expand/collapse the notes + downloads row
+  const more = e.target.closest('.ar-more');
+  if (more) {
+    const extra = more.closest('.app-row')?.querySelector('.ar-extra');
+    if (extra) { extra.classList.toggle('hidden'); more.classList.toggle('open'); }
+    return;
+  }
   const btn = e.target.closest('[data-open-job]');
   if (!btn) return;
   const jobId = btn.dataset.openJob;
@@ -448,29 +455,36 @@ async function openHistory() {
     ];
     const generations = runs.generations || [];
     list.innerHTML = generations.length ? generations.map(run => {
+      const job = escapeHtml(run.job_id || '');
       const title = run.company
         ? escapeHtml(run.company) + (run.role ? ' — ' + escapeHtml(run.role) : '')
         : escapeHtml(run.resume_name || 'Tailored documents');
       const status = run.status || 'not_applied';
+      const meta = new Date(run.created_at).toLocaleDateString()
+        + (run.match_score != null ? ` · match ${run.match_score}` : '');
+      const dl = (run.downloads.resume_docx_url ? `<a href="${run.downloads.resume_docx_url}">Resume</a>` : '')
+        + (run.downloads.cover_docx_url ? `<a href="${run.downloads.cover_docx_url}">Cover letter</a>` : '');
       return `
-      <article class="history-item app-item">
-        <div class="hi-head">
-          <div class="hi-title">
+      <article class="app-row" data-job="${job}">
+        <div class="ar-line">
+          <div class="ar-main">
             <strong>${title}</strong>
-            <span>${new Date(run.created_at).toLocaleDateString()} · ${escapeHtml(run.model_provider || 'unknown')}</span>
+            <span>${meta}</span>
           </div>
-          <select class="hi-status status-${status}" data-job="${escapeHtml(run.job_id || '')}">
-            ${STATUS_OPTIONS.map(([v, l]) => `<option value="${v}" ${status === v ? 'selected' : ''}>${l}</option>`).join('')}
-          </select>
+          <div class="ar-actions">
+            <select class="hi-status status-${status}" data-job="${job}" aria-label="Application status">
+              ${STATUS_OPTIONS.map(([v, l]) => `<option value="${v}" ${status === v ? 'selected' : ''}>${l}</option>`).join('')}
+            </select>
+            <button type="button" class="history-open" data-open-job="${job}">Open</button>
+            <button type="button" class="ar-more" aria-label="Show actions" data-job="${job}">⋯</button>
+          </div>
         </div>
-        <input class="hi-notes" data-job="${escapeHtml(run.job_id || '')}" placeholder="Notes (e.g. recruiter, follow-up date)…" value="${escapeHtml(run.notes || '')}" />
-        <div class="history-links">
-          <button type="button" class="history-open" data-open-job="${escapeHtml(run.job_id || '')}">Open</button>
-          ${run.downloads.resume_docx_url ? `<a href="${run.downloads.resume_docx_url}">Resume</a>` : ''}
-          ${run.downloads.cover_docx_url ? `<a href="${run.downloads.cover_docx_url}">Cover letter</a>` : ''}
+        <div class="ar-extra hidden" data-job="${job}">
+          <input class="hi-notes" data-job="${job}" placeholder="Notes (e.g. recruiter, follow-up date)…" value="${escapeHtml(run.notes || '')}" />
+          <div class="ar-links">${dl || '<span class="ar-nodl">No downloads (expired)</span>'}</div>
         </div>
       </article>`;
-    }).join('') : '<p>No applications yet — tailor a resume to start tracking.</p>';
+    }).join('') : '<p class="lib-empty">No applications yet — tailor a resume to start tracking.</p>';
   } catch (err) {
     summary.innerHTML = `<p>${err.message || 'Could not load account history.'}</p>`;
   }

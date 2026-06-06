@@ -335,6 +335,10 @@ def _generation_payload(run, include_inputs=False):
     payload["resume_name"] = resume.get("name", "")
     payload["resume_summary"] = resume.get("summary", "")
     payload["cover_subject"] = cover.get("subject", "")
+    try:
+        payload["match_score"] = _json.loads(run.analysis_json or "{}").get("overall_score")
+    except ValueError:
+        payload["match_score"] = None
     if include_inputs:
         letter_parts = [
             cover.get("salutation"),
