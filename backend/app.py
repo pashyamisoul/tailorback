@@ -645,6 +645,11 @@ def _stripe_signature_ok(payload, signature_header):
     return any(hmac.compare_digest(expected, sig) for sig in values.get("v1", []))
 
 
+@app.context_processor
+def _inject_globals():
+    return {"current_year": datetime.utcnow().year}
+
+
 @app.route("/")
 def index():
     _cleanup_generated()
