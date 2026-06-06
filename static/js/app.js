@@ -8,6 +8,10 @@ window.addEventListener("message", (e) => {
     if (gate) gate.remove();
     if (authActions) authActions.remove();
     closeModal(authModal);
+    // Clear the sign-in form + error so nothing stale lingers behind the modal.
+    document.getElementById("signinForm")?.reset();
+    document.getElementById("signupForm")?.reset();
+    hideSigninError();
     if (!document.getElementById("go")) {
       const submit = document.createElement("button");
       submit.type = "submit";
@@ -82,6 +86,8 @@ function updateAccountCredits(remaining, limit) {
 }
 
 function startPopupLogin() {
+  // Choosing Google clears any "use Google instead" error from the email form.
+  hideSigninError();
   const w = 480, h = 640;
   const left = window.screenX + (window.outerWidth - w) / 2;
   const top = window.screenY + (window.outerHeight - h) / 2;
