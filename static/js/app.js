@@ -302,6 +302,14 @@ document.getElementById('librarySection')?.addEventListener('click', async (e) =
     toast('Deleted.');
   } catch { toast('Could not delete.', true); }
 });
+// Account modal tabs (Applications / Library / Settings).
+document.getElementById('acctTabs')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('.acct-tab');
+  if (!btn) return;
+  const tab = btn.dataset.tab;
+  document.querySelectorAll('.acct-tab').forEach(t => t.classList.toggle('on', t === btn));
+  document.querySelectorAll('.acct-panel').forEach(p => p.classList.toggle('hidden', p.dataset.panel !== tab));
+});
 document.querySelectorAll('[data-close-modal]').forEach(btn => {
   btn.addEventListener('click', () => closeModal(btn.closest('.modal')));
 });
@@ -401,24 +409,25 @@ async function openHistory() {
       const name = user.display_name || user.full_name || 'there';
       const initial = (name[0] || user.email?.[0] || 'T').toUpperCase();
       profile.innerHTML = `
-        <div class="account-profile-main">
+        <div class="acct-id">
           <span class="avatar avatar-lg">${initial}</span>
-          <div>
+          <div class="acct-id-text">
             <strong>${escapeHtml(name)}</strong>
             <span>${escapeHtml(user.email || '')}</span>
           </div>
         </div>
-        <div class="account-profile-meta">
-          <span>${escapeHtml(user.provider || 'email')}</span>
-          <span>${user.email_verified ? 'Verified' : 'Unverified'}</span>
-          <span>${escapeHtml(user.current_pack || 'Free')}</span>
+        <div class="acct-chips">
+          <span class="chip">${escapeHtml((user.provider || 'email').toUpperCase())}</span>
+          <span class="chip">${user.email_verified ? 'VERIFIED' : 'UNVERIFIED'}</span>
+          <span class="chip">${escapeHtml((user.current_pack || 'Free').toUpperCase())}</span>
         </div>`;
     }
+    const limit = Math.max(1, Number(user.credits_limit) || 1);
+    const pct = Math.max(0, Math.min(100, Math.round((Number(user.credits_remaining) || 0) / limit * 100)));
     summary.innerHTML = `
-      <div><strong>${user.credits_remaining}</strong><span>Credits left</span></div>
-      <div><strong>${user.credits_used}</strong><span>Used</span></div>
-      <div><strong>${user.credits_limit}</strong><span>Total limit</span></div>
-      <div><strong>${user.paid_credits}</strong><span>Paid credits</span></div>`;
+      <span class="cred-text"><strong>${user.credits_remaining}</strong> of ${user.credits_limit} credits left</span>
+      <span class="cred-bar"><i style="width:${pct}%"></i></span>
+      <span class="cred-sub">${user.paid_credits} paid · ${user.free_credits_limit} free</span>`;
     if (settings) {
       settings.innerHTML = user.has_password ? `
         <details class="settings-card">
