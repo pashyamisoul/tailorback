@@ -2272,3 +2272,59 @@ html[data-theme="terminal"] .result-delete { font-family: "JetBrains Mono", mono
   cursor: help; vertical-align: middle; line-height: 1;
 }
 .dim-info:hover, .dim-info:focus { border-color: var(--accent); color: var(--accent); outline: none; }
+
+/* ============================================================================
+   PHASE 4 — saved CV/JD library + application tracker
+   ==========================================================================*/
+/* form library bar (load / save) */
+.lib-bar { display: flex; gap: .5rem; margin-top: .6rem; flex-wrap: wrap; }
+.lib-pick {
+  flex: 1; min-width: 160px; font: inherit; font-size: .82rem; padding: .4rem .55rem;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink);
+}
+.lib-save {
+  border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer;
+  font: inherit; font-size: .8rem; font-weight: 600; padding: .4rem .8rem; border-radius: 6px;
+}
+.lib-save:hover { border-color: var(--accent); color: var(--accent); }
+
+/* library section in the account modal */
+.library-section { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.4rem; }
+.lib-col h4 { font-size: .82rem; font-weight: 800; margin-bottom: .5rem; }
+.lib-row {
+  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  border: 1px solid var(--line); border-radius: 6px; padding: .4rem .6rem; margin-bottom: .35rem; background: var(--paper);
+}
+.lib-label { font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-del { border: 0; background: transparent; color: #c0392b; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 .2rem; }
+.lib-del:hover { color: var(--accent-deep); }
+.lib-empty, .lib-loading { font-size: .82rem; color: var(--ink-soft); }
+@media (max-width: 560px) { .library-section { grid-template-columns: 1fr; } }
+
+/* application tracker — compact rows (Option A) */
+.app-row { border: 1px solid var(--line); border-radius: 8px; background: var(--paper); margin-bottom: .5rem; }
+.ar-line { display: flex; align-items: center; gap: 1rem; padding: .65rem .85rem; }
+.ar-main { flex: 1; min-width: 0; }
+.ar-main strong { display: block; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ar-main span { font-size: .74rem; color: var(--ink-soft); }
+.ar-actions { display: flex; align-items: center; gap: .55rem; flex: 0 0 auto; }
+.ar-more {
+  border: 1px solid var(--line); background: transparent; color: var(--ink-soft); cursor: pointer;
+  border-radius: 6px; padding: .15rem .5rem; font-size: 1rem; line-height: 1;
+}
+.ar-more:hover, .ar-more.open { border-color: var(--accent); color: var(--accent); }
+.ar-extra { padding: 0 .85rem .7rem; display: flex; flex-direction: column; gap: .5rem; }
+.ar-links { display: flex; gap: 1rem; align-items: center; }
+.ar-nodl { font-size: .78rem; color: var(--ink-soft); }
+.hi-status {
+  font: inherit; font-size: .76rem; font-weight: 700; padding: .28rem .5rem; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--paper); cursor: pointer; flex: 0 0 auto;
+}
+.hi-status.status-applied { border-color: #b06a1f; color: #b06a1f; }
+.hi-status.status-interviewing { border-color: #0369a1; color: #0369a1; }
+.hi-status.status-offer { border-color: var(--good); color: var(--good); }
+.hi-status.status-rejected { border-color: #b91c1c; color: #b91c1c; }
+.hi-notes {
+  font: inherit; font-size: .82rem; padding: .4rem .55rem; border: 1px solid var(--line);
+  border-radius: 6px; background: var(--paper); color: var(--ink); width: 100%;
+}

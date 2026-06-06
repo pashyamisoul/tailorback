@@ -238,6 +238,13 @@ document.getElementById('trySample')?.addEventListener('click', () => {
 
 // Reopen a past generation from history into the editor + score view.
 document.getElementById('historyList')?.addEventListener('click', async (e) => {
+  // expand/collapse the notes + downloads row
+  const more = e.target.closest('.ar-more');
+  if (more) {
+    const extra = more.closest('.app-row')?.querySelector('.ar-extra');
+    if (extra) { extra.classList.toggle('hidden'); more.classList.toggle('open'); }
+    return;
+  }
   const btn = e.target.closest('[data-open-job]');
   if (!btn) return;
   const jobId = btn.dataset.openJob;
@@ -255,6 +262,45 @@ document.getElementById('historyList')?.addEventListener('click', async (e) => {
   } finally {
     btn.disabled = false; btn.textContent = original;
   }
+});
+// Application tracker: status change + notes save.
+document.getElementById('historyList')?.addEventListener('change', async (e) => {
+  const sel = e.target.closest('.hi-status');
+  if (!sel) return;
+  sel.className = 'hi-status status-' + sel.value;
+  try {
+    const res = await fetch(`/api/generation/${sel.dataset.job}/status`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: sel.value }),
+    });
+    if (!res.ok) throw new Error();
+    toast('Status updated.');
+  } catch { toast('Could not update status.', true); }
+});
+document.getElementById('historyList')?.addEventListener('blur', async (e) => {
+  const inp = e.target.closest('.hi-notes');
+  if (!inp || inp.dataset.saved === inp.value) return;
+  try {
+    const res = await fetch(`/api/generation/${inp.dataset.job}/status`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: inp.value }),
+    });
+    if (!res.ok) throw new Error();
+    inp.dataset.saved = inp.value;
+  } catch { toast('Could not save notes.', true); }
+}, true);
+// Library: delete a saved CV/JD.
+document.getElementById('librarySection')?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.lib-del');
+  if (!btn) return;
+  if (!confirm('Delete this saved item?')) return;
+  try {
+    const res = await fetch(`/api/saved-${btn.dataset.kind}s/${btn.dataset.id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error();
+    renderLibrarySection();
+    refreshLibraryPickers();
+    toast('Deleted.');
+  } catch { toast('Could not delete.', true); }
 });
 document.querySelectorAll('[data-close-modal]').forEach(btn => {
   btn.addEventListener('click', () => closeModal(btn.closest('.modal')));
@@ -402,22 +448,70 @@ async function openHistory() {
         </div>`;
       bindPasswordForm();
     }
+    renderLibrarySection();
+    const STATUS_OPTIONS = [
+      ['not_applied', 'Not applied'], ['applied', 'Applied'],
+      ['interviewing', 'Interviewing'], ['offer', 'Offer'], ['rejected', 'Rejected'],
+    ];
     const generations = runs.generations || [];
-    list.innerHTML = generations.length ? generations.map(run => `
-      <article class="history-item">
-        <div>
-          <strong>${escapeHtml(run.resume_name || 'Tailored documents')}</strong>
-          <span>${new Date(run.created_at).toLocaleString()}</span>
+    list.innerHTML = generations.length ? generations.map(run => {
+      const job = escapeHtml(run.job_id || '');
+      const title = run.company
+        ? escapeHtml(run.company) + (run.role ? ' — ' + escapeHtml(run.role) : '')
+        : escapeHtml(run.resume_name || 'Tailored documents');
+      const status = run.status || 'not_applied';
+      const meta = new Date(run.created_at).toLocaleDateString()
+        + (run.match_score != null ? ` · match ${run.match_score}` : '');
+      const dl = (run.downloads.resume_docx_url ? `<a href="${run.downloads.resume_docx_url}">Resume</a>` : '')
+        + (run.downloads.cover_docx_url ? `<a href="${run.downloads.cover_docx_url}">Cover letter</a>` : '');
+      return `
+      <article class="app-row" data-job="${job}">
+        <div class="ar-line">
+          <div class="ar-main">
+            <strong>${title}</strong>
+            <span>${meta}</span>
+          </div>
+          <div class="ar-actions">
+            <select class="hi-status status-${status}" data-job="${job}" aria-label="Application status">
+              ${STATUS_OPTIONS.map(([v, l]) => `<option value="${v}" ${status === v ? 'selected' : ''}>${l}</option>`).join('')}
+            </select>
+            <button type="button" class="history-open" data-open-job="${job}">Open</button>
+            <button type="button" class="ar-more" aria-label="Show actions" data-job="${job}">⋯</button>
+          </div>
         </div>
-        <span>${escapeHtml(run.model_provider || 'unknown')} ${run.generation_seconds ? `· ${run.generation_seconds}s` : ''}</span>
-        <div class="history-links">
-          <button type="button" class="history-open" data-open-job="${escapeHtml(run.job_id || '')}">Open</button>
-          ${run.downloads.resume_docx_url ? `<a href="${run.downloads.resume_docx_url}">Resume</a>` : ''}
-          ${run.downloads.cover_docx_url ? `<a href="${run.downloads.cover_docx_url}">Cover letter</a>` : ''}
+        <div class="ar-extra hidden" data-job="${job}">
+          <input class="hi-notes" data-job="${job}" placeholder="Notes (e.g. recruiter, follow-up date)…" value="${escapeHtml(run.notes || '')}" />
+          <div class="ar-links">${dl || '<span class="ar-nodl">No downloads (expired)</span>'}</div>
         </div>
-      </article>`).join('') : '<p>No generations yet.</p>';
+      </article>`;
+    }).join('') : '<p class="lib-empty">No applications yet — tailor a resume to start tracking.</p>';
   } catch (err) {
     summary.innerHTML = `<p>${err.message || 'Could not load account history.'}</p>`;
+  }
+}
+
+// Render the saved CV/JD library inside the account modal.
+async function renderLibrarySection() {
+  const box = document.getElementById('librarySection');
+  if (!box) return;
+  box.innerHTML = '<span class="lib-loading">Loading…</span>';
+  try {
+    const [cvs, jds] = await Promise.all([
+      fetch('/api/saved-cvs').then(r => r.json()),
+      fetch('/api/saved-jds').then(r => r.json()),
+    ]);
+    const col = (title, kind, items) => `
+      <div class="lib-col">
+        <h4>${title}</h4>
+        ${(items || []).length ? (items).map(i => `
+          <div class="lib-row">
+            <span class="lib-label">${escapeHtml(i.label)}</span>
+            <button type="button" class="lib-del" data-kind="${kind}" data-id="${i.id}" aria-label="Delete">×</button>
+          </div>`).join('') : '<p class="lib-empty">None saved yet.</p>'}
+      </div>`;
+    box.innerHTML = col('Saved CVs', 'cv', cvs.items) + col('Saved jobs', 'jd', jds.items);
+  } catch {
+    box.innerHTML = '<p class="lib-empty">Could not load your library.</p>';
   }
 }
 
@@ -464,6 +558,62 @@ function bindPasswordForm() {
     }
   });
 }
+// ---- saved CV / JD library (form pickers) ----
+function fillPicker(sel, items, placeholder) {
+  if (!sel) return;
+  sel.innerHTML = `<option value="">${placeholder}</option>` +
+    (items || []).map(i => `<option value="${i.id}">${escapeHtml(i.label)}</option>`).join('');
+}
+async function refreshLibraryPickers() {
+  const cvSel = document.querySelector('.lib-bar[data-kind="cv"] .lib-pick');
+  const jdSel = document.querySelector('.lib-bar[data-kind="jd"] .lib-pick');
+  if (!cvSel && !jdSel) return;
+  try {
+    const [cvs, jds] = await Promise.all([
+      fetch('/api/saved-cvs').then(r => r.ok ? r.json() : { items: [] }),
+      fetch('/api/saved-jds').then(r => r.ok ? r.json() : { items: [] }),
+    ]);
+    fillPicker(cvSel, cvs.items, 'Load a saved CV…');
+    fillPicker(jdSel, jds.items, 'Load a saved job…');
+  } catch { /* not signed in / offline — ignore */ }
+}
+document.querySelectorAll('.lib-bar').forEach(bar => {
+  const kind = bar.dataset.kind; // 'cv' | 'jd'
+  const sel = bar.querySelector('.lib-pick');
+  const saveBtn = bar.querySelector('.lib-save');
+  const textarea = document.querySelector(kind === 'cv' ? '[name=cv_text]' : '[name=jd_text]');
+  sel?.addEventListener('change', async () => {
+    const id = sel.value;
+    if (!id) return;
+    try {
+      const res = await fetch(`/api/saved-${kind}s/${id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Could not load.');
+      textarea.value = kind === 'cv' ? data.cv_text : data.jd_text;
+      updateReadiness();
+      toast('Loaded from your library.');
+    } catch (e) { toast(e.message || 'Could not load.', true); }
+    sel.value = '';
+  });
+  saveBtn?.addEventListener('click', async () => {
+    const text = (textarea.value || '').trim();
+    if (!text) return toast(kind === 'cv' ? 'Paste your CV first.' : 'Paste the job description first.', true);
+    const label = prompt(kind === 'cv' ? 'Name this CV:' : 'Name this job:', kind === 'cv' ? 'My CV' : 'Job');
+    if (label === null) return;
+    try {
+      const body = kind === 'cv' ? { cv_text: text, label } : { jd_text: text, label };
+      const res = await fetch(`/api/saved-${kind}s`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Could not save.');
+      toast('Saved to your library.');
+      refreshLibraryPickers();
+    } catch (e) { toast(e.message || 'Could not save.', true); }
+  });
+});
+refreshLibraryPickers();
+
 // ---- mode toggles ----
 document.querySelectorAll('.toggle').forEach(toggle => {
   const group = toggle.dataset.group;            // "jd" | "cv"
