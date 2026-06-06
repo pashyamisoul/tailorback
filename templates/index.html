@@ -210,6 +210,15 @@
       <section class="studio" id="studio" aria-label="Document editor"></section>
 
 <div class="analysis-panel" id="analysisPanel">
+        <div class="score-lift hidden" id="scoreLift" aria-live="polite">
+          <span class="sl-label">Match score</span>
+          <span class="sl-pair">
+            <span class="sl-before"><b id="slBefore">—</b><small>uploaded</small></span>
+            <span class="sl-arrow" aria-hidden="true">→</span>
+            <span class="sl-after"><b id="slAfter">—</b><small>tailored</small></span>
+          </span>
+          <span class="sl-gain" id="slGain"></span>
+        </div>
         <div class="analysis-head">
           <div>
             <span class="analysis-kicker">Your uploaded resume, scored against this job</span>

@@ -425,6 +425,41 @@ def _sanitize_resume(resume):
     }
 
 
+def _resume_to_text(resume):
+    """Flatten a structured resume into plain text for the deterministic scorer
+    (so the tailored output can be scored the same way the uploaded CV is)."""
+    resume = resume if isinstance(resume, dict) else {}
+    parts = []
+    if resume.get("name"):
+        parts.append(resume["name"])
+    c = resume.get("contact") or {}
+    contact_bits = [c.get("email"), c.get("phone"), c.get("location"), *(c.get("links") or [])]
+    contact = " | ".join(x for x in contact_bits if x)
+    if contact:
+        parts.append(contact)
+    if resume.get("summary"):
+        parts.append("Summary\n" + resume["summary"])
+    if resume.get("skills"):
+        parts.append("Skills\n" + ", ".join(resume["skills"]))
+    if resume.get("experience"):
+        parts.append("Experience")
+        for j in resume["experience"]:
+            parts.append(f"{j.get('title','')} - {j.get('company','')} ({j.get('dates','')})")
+            parts.extend("• " + b for b in (j.get("bullets") or []))
+    if resume.get("projects"):
+        parts.append("Projects")
+        for p in resume["projects"]:
+            parts.append(f"{p.get('name','')} ({p.get('dates','')})")
+            parts.extend("• " + b for b in (p.get("bullets") or []))
+    if resume.get("education"):
+        parts.append("Education")
+        for e in resume["education"]:
+            parts.append(f"{e.get('degree','')} - {e.get('institution','')} ({e.get('dates','')})")
+    if resume.get("certifications"):
+        parts.append("Certifications\n" + "; ".join(resume["certifications"]))
+    return "\n".join(parts)
+
+
 def _sanitize_cover(cover):
     cover = cover if isinstance(cover, dict) else {}
     return {
@@ -871,6 +906,10 @@ def generate():
         analysis = scoring.score_resume(cv_text, jd_text, result.get("analysis", {}))
         job_id = uuid.uuid4().hex[:10]
         resume = result.get("resume", {})
+        # Re-score the tailored resume so the UI can show the before→after lift.
+        tailored_analysis = scoring.score_resume(_resume_to_text(resume), jd_text)
+        score_before = analysis.get("overall_score")
+        score_after = tailored_analysis.get("overall_score")
 
         def _slug(*parts):
             import re
@@ -938,6 +977,8 @@ def generate():
                 "gaps": result.get("gaps", []),
                 "match": result.get("match_summary", {}),
                 "analysis": analysis,
+                "score_before": score_before,
+                "score_after": score_after,
                 **credits,
                 "resume": resume,
                 "cover_letter": result.get("cover_letter", {}),

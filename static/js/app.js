@@ -635,6 +635,24 @@ function renderResults(data) {
     retention.textContent = `Downloads are private to your signed-in account and expire in ${days} days.`;
   }
 
+  // --- Before → after match-score lift ---
+  const lift = document.getElementById('scoreLift');
+  if (lift) {
+    const before = Number(data.score_before);
+    const after = Number(data.score_after);
+    if (Number.isFinite(before) && Number.isFinite(after)) {
+      document.getElementById('slBefore').textContent = before;
+      document.getElementById('slAfter').textContent = after;
+      const gain = after - before;
+      const gainEl = document.getElementById('slGain');
+      gainEl.textContent = gain > 0 ? `▲ +${gain}` : gain < 0 ? `▼ ${gain}` : 'no change';
+      gainEl.className = 'sl-gain ' + (gain > 0 ? 'up' : gain < 0 ? 'down' : 'flat');
+      lift.classList.remove('hidden');
+    } else {
+      lift.classList.add('hidden');
+    }
+  }
+
   // --- Analysis panel ---
   const an = data.analysis || {};
   const panel = document.getElementById('analysisPanel');
