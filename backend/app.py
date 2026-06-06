@@ -1018,6 +1018,14 @@ def generate():
         db.session.add(run)
         db.session.commit()
 
+        # Auto-save the CV + job to the user's library (deduped, capped).
+        try:
+            _autosave_library(
+                current_user, cv_text, jd_text, _job, resume,
+                jd_url=(request.form.get("jd_url") or "").strip() or None)
+        except Exception:
+            db.session.rollback()
+
         def _url(path):
             return f"/download/{os.path.basename(path)}" if path else None
 
@@ -1386,6 +1394,29 @@ def get_generation(job_id):
 # ---------------------------------------------------------------------------
 # Phase 4: saved CV/JD library + application tracker
 # ---------------------------------------------------------------------------
+
+def _autosave_library(user, cv_text, jd_text, job, resume, jd_url=None):
+    """After a successful generation, store the CV + job in the library so the
+    user can reuse them — deduped by exact text, capped at SAVED_ITEM_CAP."""
+    job = job or {}
+    resume = resume or {}
+    changed = False
+    if cv_text and not SavedCV.query.filter_by(user_id=user.id, cv_text=cv_text).first():
+        if SavedCV.query.filter_by(user_id=user.id).count() < SAVED_ITEM_CAP:
+            first = SavedCV.query.filter_by(user_id=user.id).count() == 0
+            label = ((resume.get("name") or "").strip() or "Saved CV")[:160]
+            db.session.add(SavedCV(user_id=user.id, label=label, cv_text=cv_text, is_default=first))
+            changed = True
+    if jd_text and not SavedJD.query.filter_by(user_id=user.id, jd_text=jd_text).first():
+        if SavedJD.query.filter_by(user_id=user.id).count() < SAVED_ITEM_CAP:
+            comp = (job.get("company") or "").strip()
+            role = (job.get("role") or "").strip()
+            label = ((comp + (" — " + role if role else "")) if comp else (role or "Saved job"))[:160]
+            db.session.add(SavedJD(user_id=user.id, label=label, jd_text=jd_text, jd_url=jd_url or None))
+            changed = True
+    if changed:
+        db.session.commit()
+
 
 def _saved_cv_payload(item):
     return {"id": item.id, "label": item.label, "is_default": bool(item.is_default),
