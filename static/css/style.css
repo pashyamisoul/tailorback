@@ -316,6 +316,11 @@ textarea:focus, input[type="url"]:focus, input[type="email"]:focus, input[type="
 .go:hover .arrow { transform: translateX(5px); }
 .go:disabled { opacity: .5; cursor: wait; }
 .go .gicon { vertical-align: middle; margin-right: 4px; }
+/* TailorBack wordmark on the dark CTA: light "Tailor" + accent "Back" */
+.go .run { font-weight: 800; }
+.go .tb-logo { color: var(--paper); font-weight: 900; letter-spacing: -.02em; }
+.go .tb-logo .tb-accent { color: var(--accent); }
+.go .tb-logo.big { font-size: 1.25rem; }
 html[data-theme="terminal"] .go .gicon { display: none; }
 /* "What each generation includes" — icon mini-cards */
 .qm-cards-wrap { margin-top: -.1rem; }
