@@ -2336,3 +2336,62 @@ html[data-theme="terminal"] .result-delete { font-family: "JetBrains Mono", mono
 @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 html[data-theme="terminal"] .acct-id-text strong,
 html[data-theme="terminal"] .acct-tab { font-family: "JetBrains Mono", monospace; }
+
+/* ============================================================================
+   PHASE 6 — landing trust content
+   ==========================================================================*/
+.landing { max-width: 980px; margin: 0 auto; padding: 1rem clamp(1.2rem,5vw,2rem) 3rem; display: flex; flex-direction: column; gap: 3rem; }
+.lz-block { }
+.lz-h { font-family: "Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-weight: 900; letter-spacing: -.03em; font-size: clamp(1.5rem, 4vw, 2.1rem); margin: 0 0 1.3rem; }
+.lz-kicker { font-family: "Spline Sans Mono", monospace; font-size: .72rem; text-transform: uppercase; letter-spacing: .18em; color: var(--accent); }
+
+/* how it works */
+.lz-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; }
+.lz-steps li { display: flex; flex-direction: column; gap: .4rem; border: 1px solid var(--line); border-radius: 12px; padding: 1.3rem; background: rgba(255,255,255,.35); }
+.lz-num { width: 30px; height: 30px; border-radius: 50%; background: var(--ink); color: var(--paper); display: grid; place-items: center; font-weight: 800; font-size: .9rem; }
+.lz-steps strong { font-size: 1.02rem; }
+.lz-steps span { color: var(--ink-soft); font-size: .9rem; line-height: 1.5; }
+.lz-steps em { font-style: normal; color: var(--accent-deep); font-weight: 600; }
+
+/* honesty band */
+.lz-honesty { border: 1px solid var(--accent); border-radius: 14px; background: color-mix(in srgb, var(--accent) 6%, var(--paper)); padding: 2rem clamp(1.5rem, 4vw, 2.4rem); }
+.lz-honesty h2 { font-weight: 900; letter-spacing: -.03em; font-size: clamp(1.5rem, 4vw, 2.3rem); line-height: 1.1; margin: .4rem 0 .8rem; max-width: 22ch; }
+.lz-honesty h2 .ink { color: var(--accent); }
+.lz-honesty p { color: var(--ink-soft); line-height: 1.6; max-width: 62ch; }
+.lz-honesty strong { color: var(--ink); }
+
+/* sample proof */
+.lz-proof { display: grid; grid-template-columns: 1.2fr 1fr; gap: 2rem; align-items: center; }
+.lz-proof-text p { color: var(--ink-soft); line-height: 1.6; margin: 0 0 1.2rem; max-width: 50ch; }
+.lz-proof-text em { font-style: normal; color: var(--ink); font-weight: 600; }
+.lz-proof-card { border: 1px solid var(--line); border-radius: 14px; background: var(--paper); padding: 1.4rem 1.6rem; box-shadow: 0 12px 34px rgba(0,0,0,.07); }
+.lz-lift { display: flex; align-items: center; gap: .7rem; margin: .5rem 0 1rem; }
+.lz-lift b { font-size: 2rem; font-weight: 900; } .lz-before { color: var(--ink-soft); } .lz-after { color: var(--accent); }
+.lz-arrow { font-size: 1.4rem; color: var(--ink-soft); }
+.lz-gain { margin-left: auto; font-weight: 800; color: var(--good); }
+.lz-deliverables { list-style: none; margin: 0; padding: .9rem 0 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: .45rem; }
+.lz-deliverables li { font-size: .88rem; color: var(--ink); padding-left: 1.3rem; position: relative; }
+.lz-deliverables li::before { content: "✓"; position: absolute; left: 0; color: var(--good); font-weight: 800; }
+
+/* faq */
+.lz-faq { display: flex; flex-direction: column; gap: .6rem; }
+.lz-faq details { border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.35); padding: .2rem .2rem; }
+.lz-faq summary { cursor: pointer; font-weight: 700; padding: .85rem 1rem; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+.lz-faq summary::-webkit-details-marker { display: none; }
+.lz-faq summary::after { content: "+"; color: var(--accent); font-weight: 800; font-size: 1.2rem; }
+.lz-faq details[open] summary::after { content: "−"; }
+.lz-faq p { color: var(--ink-soft); line-height: 1.55; padding: 0 1rem 1rem; margin: 0; max-width: 70ch; }
+.lz-faq a { color: var(--accent); }
+
+/* social proof */
+.lz-ph-note { font-size: .78rem; color: var(--ink-soft); font-style: italic; margin: -.8rem 0 1.1rem; }
+.lz-quotes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; }
+.lz-quote { margin: 0; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.35); padding: 1.3rem; }
+.lz-quote blockquote { margin: 0 0 .8rem; font-size: .95rem; line-height: 1.5; color: var(--ink); }
+.lz-quote figcaption { font-size: .82rem; color: var(--ink-soft); font-weight: 600; }
+
+@media (max-width: 720px) {
+  .lz-steps, .lz-proof, .lz-quotes { grid-template-columns: 1fr; }
+}
+html[data-theme="terminal"] .lz-kicker, html[data-theme="terminal"] .lz-num,
+html[data-theme="terminal"] .lz-lift b { font-family: "JetBrains Mono", monospace; }

@@ -231,10 +231,10 @@ const SAMPLE_RESULT = {
     missing_keywords: ['PowerShell', 'Active Directory']
   }
 };
-document.getElementById('trySample')?.addEventListener('click', () => {
+document.querySelectorAll('.try-sample').forEach(btn => btn.addEventListener('click', () => {
   toast('Sample preview — sign up to tailor your own résumé.');
   renderResults(SAMPLE_RESULT);
-});
+}));
 
 // Reopen a past generation from history into the editor + score view.
 document.getElementById('historyList')?.addEventListener('click', async (e) => {
