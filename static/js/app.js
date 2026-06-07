@@ -105,13 +105,42 @@ const signupCheck = document.getElementById('signupCheck');
 const devActivationLink = document.getElementById('devActivationLink');
 const signinError = document.getElementById('signinError');
 
+let _modalLastFocus = null;
+function _modalFocusable(modal) {
+  return Array.from(modal.querySelectorAll(
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )).filter(el => el.offsetParent !== null);
+}
 function openModal(modal) {
-  modal?.classList.remove('hidden');
+  if (!modal) return;
+  _modalLastFocus = document.activeElement;
+  modal.classList.remove('hidden');
+  const f = _modalFocusable(modal);
+  (f[0] || modal).focus?.();
 }
 
 function closeModal(modal) {
-  modal?.classList.add('hidden');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  if (_modalLastFocus && typeof _modalLastFocus.focus === 'function') {
+    _modalLastFocus.focus();
+  }
+  _modalLastFocus = null;
 }
+
+// Keyboard support for any open modal: Esc closes, Tab is trapped inside.
+document.addEventListener('keydown', (e) => {
+  const open = Array.from(document.querySelectorAll('.modal:not(.hidden)')).pop();
+  if (!open) return;
+  if (e.key === 'Escape') { closeModal(open); return; }
+  if (e.key === 'Tab') {
+    const f = _modalFocusable(open);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+});
 
 function switchAuthTab(tab) {
   hideSigninError();
@@ -762,6 +791,72 @@ form.addEventListener('submit', async e => {
 });
 
 // ---- results ----
+// Phase 9: ATS readiness checklist + keyword match report (deterministic,
+// computed from the generated resume + analysis — no extra model calls).
+function renderAtsReport(data) {
+  const panel = document.getElementById('atsReport');
+  if (!panel) return;
+  const r = data.resume || {};
+  if (!r || (!r.summary && !(r.experience || []).length && !(r.skills || []).length)) {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = '';
+
+  // --- keyword match rate ---
+  const matched = data.match?.covered || [];
+  const missingKw = (data.analysis?.missing_keywords && data.analysis.missing_keywords.length)
+    ? data.analysis.missing_keywords
+    : (data.match?.missing || []);
+  const total = matched.length + missingKw.length;
+  const rate = total ? Math.round((matched.length / total) * 100) : 0;
+  document.getElementById('kwRate').textContent = total ? rate + '%' : '—';
+  const kwBar = document.getElementById('kwBar');
+  kwBar.style.width = (total ? rate : 0) + '%';
+  kwBar.style.background = rate >= 75 ? 'var(--good)' : rate >= 50 ? 'var(--warn)' : 'var(--accent)';
+  const paintChips = (id, items, cls, emptyText) => {
+    const box = document.getElementById(id);
+    box.innerHTML = '';
+    if (!items.length) {
+      const s = document.createElement('span'); s.className = 'kw muted'; s.textContent = emptyText; box.appendChild(s); return;
+    }
+    items.forEach(k => { const s = document.createElement('span'); s.className = 'kw ' + cls; s.textContent = k; box.appendChild(s); });
+  };
+  paintChips('kwMatched', matched, 'on', '—');
+  paintChips('kwMissing', missingKw, 'off', 'None left, great coverage');
+
+  // --- ATS readiness checklist (structural, deterministic) ---
+  const exp = Array.isArray(r.experience) ? r.experience : [];
+  const allBullets = exp.reduce((acc, e) => acc.concat(e.bullets || []), []);
+  const quantified = allBullets.filter(b => /\d/.test(b || '')).length;
+  const checks = [
+    ['Contact email', !!(r.contact && r.contact.email), 'Add an email so recruiters and ATS can reach you.'],
+    ['Contact phone', !!(r.contact && r.contact.phone), 'Add a phone number for completeness.'],
+    ['Professional summary', !!(r.summary && r.summary.trim()), 'A short summary helps ATS and recruiters place you fast.'],
+    ['Skills section (5+)', (r.skills || []).length >= 5, 'List at least 5 relevant hard skills the ATS can match.'],
+    ['Work experience present', exp.length >= 1, 'Add at least one role with bullet points.'],
+    ['All roles have dates', exp.length > 0 && exp.every(e => e.dates && String(e.dates).trim()), 'Every role should show start and end dates.'],
+    ['Quantified achievements', quantified >= 1, 'Add a number or metric to at least one bullet, e.g. "cut tickets 30%".'],
+    ['Education or certifications', (r.education || []).length >= 1 || (r.certifications || []).length >= 1, 'Add your education or relevant certifications.'],
+    ['Standard single-column layout', true, 'TailorBack exports clean single-column .docx and PDF that ATS parse reliably.'],
+  ];
+  const list = document.getElementById('atsChecks');
+  list.innerHTML = '';
+  let passed = 0;
+  checks.forEach(([label, ok, hint]) => {
+    if (ok) passed++;
+    const li = document.createElement('li');
+    li.className = 'ats-item ' + (ok ? 'pass' : 'warn');
+    li.innerHTML = '<span class="ats-mark" aria-hidden="true">' + (ok ? '✓' : '!') + '</span>' +
+      '<span class="ats-label">' + escapeHtml(label) + '</span>' +
+      (ok ? '' : '<span class="ats-hint">' + escapeHtml(hint) + '</span>');
+    list.appendChild(li);
+  });
+  const scoreEl = document.getElementById('atsScore');
+  scoreEl.textContent = passed + '/' + checks.length;
+  scoreEl.className = 'ats-score ' + (passed === checks.length ? 'all' : passed >= checks.length - 2 ? 'most' : 'some');
+}
+
 function renderResults(data) {
   updateAccountCredits(data.credits_remaining, data.credits_limit);
   currentJobId = data.job_id || null;
@@ -868,6 +963,8 @@ function renderResults(data) {
   const missing = data.match?.missing?.length ? data.match.missing : data.gaps;
   (missing || []).forEach(t => { const li = document.createElement('li'); li.textContent = t; gaps.appendChild(li); });
   if (!gaps.children.length) { const li = document.createElement('li'); li.textContent = 'No major gaps detected.'; gaps.appendChild(li); }
+
+  renderAtsReport(data);
 
   const results = document.getElementById('results');
   results.classList.remove('hidden');
@@ -1003,3 +1100,119 @@ document.addEventListener("click", (e) => {
     menu.hidden = true;
   }
 });
+
+// ---- Phase 7: feedback & reviews ----
+(function () {
+  const modal = document.getElementById('feedbackModal');
+  if (!modal) return;
+  const isSignedIn = () => !!document.querySelector('.account');
+  const errEl = document.getElementById('fbError');
+  let chosen = 0; // rating bound to the modal
+
+  function hideErr() { errEl.classList.add('hidden'); errEl.textContent = ''; }
+  function showErr(m) { errEl.textContent = m; errEl.classList.remove('hidden'); }
+
+  function paint(group, val) {
+    group.querySelectorAll('.fb-star').forEach(s => {
+      s.classList.toggle('on', Number(s.dataset.val) <= val);
+    });
+  }
+  // Wire a star group: hover preview, click to pick. onPick(value) fires on click.
+  function wireStars(group, onPick) {
+    if (!group) return null;
+    let current = 0;
+    group.querySelectorAll('.fb-star').forEach(s => {
+      s.addEventListener('mouseenter', () => paint(group, Number(s.dataset.val)));
+      s.addEventListener('click', () => {
+        current = Number(s.dataset.val);
+        paint(group, current);
+        onPick(current);
+      });
+    });
+    group.addEventListener('mouseleave', () => paint(group, current));
+    group.setCurrent = (v) => { current = v; paint(group, v); };
+    return group;
+  }
+
+  const modalStars = wireStars(document.getElementById('fbModalStars'), v => { chosen = v; hideErr(); });
+
+  function openFeedback(initialRating) {
+    if (!isSignedIn()) { openAuth('signin'); return; }
+    chosen = initialRating || 0;
+    modalStars.setCurrent(chosen);
+    document.getElementById('fbComment').value = '';
+    document.getElementById('fbConsent').checked = false;
+    document.getElementById('fbPublishFields').classList.add('hidden');
+    document.getElementById('fbName').value = '';
+    document.getElementById('fbRole').value = '';
+    hideErr();
+    openModal(modal);
+  }
+
+  wireStars(document.getElementById('fbBandStars'), v => openFeedback(v));
+  wireStars(document.getElementById('fbResultStars'), v => openFeedback(v));
+  document.getElementById('openFeedback')?.addEventListener('click', () => openFeedback(0));
+
+  document.getElementById('fbConsent')?.addEventListener('change', e => {
+    document.getElementById('fbPublishFields').classList.toggle('hidden', !e.target.checked);
+  });
+
+  document.getElementById('feedbackForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (chosen < 1) { showErr('Please choose a rating from 1 to 5.'); return; }
+    const consent = document.getElementById('fbConsent').checked;
+    const payload = {
+      rating: chosen,
+      comment: document.getElementById('fbComment').value.trim(),
+      consent_to_publish: consent,
+      display_name: consent ? document.getElementById('fbName').value.trim() : '',
+      role: consent ? document.getElementById('fbRole').value.trim() : '',
+    };
+    const btn = document.getElementById('fbSubmit');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Could not send feedback.');
+      closeModal(modal);
+      window.tbHasFeedback = true;
+      toast(data.published
+        ? 'Thanks! With your okay, your review may appear on our homepage.'
+        : (data.updated ? 'Thanks, your feedback was updated.' : 'Thanks for your feedback!'));
+      const rf = document.getElementById('resultFeedback');
+      if (rf) { rf.classList.add('is-done'); rf.textContent = '✓ Thanks for the feedback!'; }
+    } catch (err) {
+      showErr(err.message || 'Could not send feedback.');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // Expose for the editor's download trigger: prompt once per session, and
+  // never if the user already left a review (one review per account).
+  let promptedThisSession = false;
+  window.openFeedback = openFeedback;
+  window.tbMaybePromptFeedback = function () {
+    if (promptedThisSession || window.tbHasFeedback || !isSignedIn()) return;
+    promptedThisSession = true;
+    setTimeout(() => openFeedback(0), 700);
+  };
+
+  // Sync the top-right account dropdown with the LIVE session: the
+  // server-rendered copy can be stale after switching accounts, which showed
+  // a previous user's email. Also read whether this user has already reviewed.
+  if (isSignedIn()) {
+    fetch('/api/account').then(r => (r.ok ? r.json() : null)).then(d => {
+      if (!d || !d.user) return;
+      window.tbHasFeedback = !!d.user.has_feedback;
+      const email = d.user.email || '';
+      const initial = (email[0] || 'A').toUpperCase();
+      document.querySelectorAll('.account-email').forEach(el => { el.textContent = email; });
+      document.querySelectorAll('.account .avatar').forEach(el => { el.textContent = initial; });
+    }).catch(() => {});
+  }
+})();

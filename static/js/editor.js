@@ -124,6 +124,7 @@
             <div class="sdl-options" id="sdlOptions">
               <button type="button" data-fmt="pdf">PDF (.pdf)</button>
               <button type="button" data-fmt="docx">Word (.docx)</button>
+              <button type="button" data-fmt="txt">Plain text (.txt)</button>
             </div>
           </div>
         </div>
@@ -617,8 +618,73 @@
     opts.addEventListener("click", e => {
       const b = e.target.closest("[data-fmt]"); if (!b) return;
       menu.classList.remove("open");
+      if (b.dataset.fmt === "txt") { downloadText(ST.activeDoc); return; }
       download(ST.activeDoc, b.dataset.fmt);
     });
+  }
+
+  // ---- plain-text export (client-side; reflects live edits) ----------------
+  function buildResumeText(r) {
+    const L = [];
+    const push = (s) => L.push(s == null ? "" : String(s));
+    if (r.name) push(r.name.toUpperCase());
+    const c = r.contact || {};
+    const contact = [c.email, c.phone, c.location].filter(Boolean);
+    const links = (c.links || []).filter(Boolean);
+    if (contact.length) push(contact.join("  |  "));
+    if (links.length) push(links.join("  |  "));
+    if (r.summary) { push(""); push("SUMMARY"); push(r.summary); }
+    if ((r.skills || []).length) { push(""); push("SKILLS"); push(r.skills.join(", ")); }
+    if ((r.experience || []).length) {
+      push(""); push("EXPERIENCE");
+      r.experience.forEach(x => {
+        const head = [x.title, x.company].filter(Boolean).join(", ") + (x.dates ? "  (" + x.dates + ")" : "");
+        push(""); push(head.trim());
+        (x.bullets || []).forEach(b => push("  - " + b));
+      });
+    }
+    if ((r.projects || []).length) {
+      push(""); push("PROJECTS");
+      r.projects.forEach(p => {
+        const head = [p.name, p.dates ? "(" + p.dates + ")" : "", p.link || ""].filter(Boolean).join("  ");
+        push(""); push(head.trim());
+        (p.bullets || []).forEach(b => push("  - " + b));
+      });
+    }
+    if ((r.education || []).length) {
+      push(""); push("EDUCATION");
+      r.education.forEach(ed => push([ed.degree, ed.institution].filter(Boolean).join(", ") + (ed.dates ? "  (" + ed.dates + ")" : "")));
+    }
+    if ((r.certifications || []).length) {
+      push(""); push("CERTIFICATIONS");
+      r.certifications.forEach(ct => push("  - " + ct));
+    }
+    return L.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
+  }
+
+  function buildCoverText(c, name) {
+    const L = [];
+    if (c.greeting) { L.push(c.greeting); L.push(""); }
+    (c.body_paragraphs || []).forEach(p => { L.push(p); L.push(""); });
+    if (c.closing) L.push(c.closing);
+    if (name) L.push(name);
+    return L.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
+  }
+
+  function downloadText(doc) {
+    const isResume = doc === "resume";
+    const text = isResume ? buildResumeText(ST.resume || {})
+                          : buildCoverText(ST.cover || {}, (ST.resume && ST.resume.name) || "");
+    const base = ((ST.resume && ST.resume.name) || "tailorback").trim().replace(/[^\w.-]+/g, "_") || "tailorback";
+    const fname = base + (isResume ? "-resume.txt" : "-cover-letter.txt");
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    notify("Plain-text file downloaded.");
+    if (window.tbMaybePromptFeedback) window.tbMaybePromptFeedback();
   }
 
   async function download(doc, fmt) {
@@ -636,6 +702,9 @@
     const a = document.createElement("a");
     a.href = url; a.download = "";
     document.body.appendChild(a); a.click(); a.remove();
+    // Prompt for feedback right after a download (once per session, and never
+    // if the user has already left a review).
+    if (window.tbMaybePromptFeedback) window.tbMaybePromptFeedback();
   }
 
   async function exportNow() {

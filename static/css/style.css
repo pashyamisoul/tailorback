@@ -2446,3 +2446,137 @@ html[data-theme="terminal"] .acct-tab { font-family: "JetBrains Mono", monospace
 }
 html[data-theme="terminal"] .lz-kicker, html[data-theme="terminal"] .lz-num,
 html[data-theme="terminal"] .lz-lift b { font-family: "JetBrains Mono", monospace; }
+
+/* ============================================================
+   PHASE 7 — feedback & reviews
+   ============================================================ */
+/* stars on landing testimonials */
+.lz-stars { color: var(--accent); letter-spacing: .12em; font-size: .95rem; margin-bottom: .5rem; }
+
+/* feedback band above the footer (Variant A) */
+.fb-band {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1.5rem; flex-wrap: wrap;
+  border: 1px solid var(--line); border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--paper));
+  padding: 1.8rem clamp(1.4rem, 4vw, 2.2rem);
+}
+.fb-text h2 { font-weight: 900; letter-spacing: -.02em; font-size: 1.35rem; margin: .35rem 0 .4rem; }
+.fb-text p { color: var(--ink-soft); font-size: .92rem; line-height: 1.5; max-width: 46ch; margin: 0; }
+.fb-action { display: flex; flex-direction: column; align-items: flex-start; gap: .7rem; }
+
+/* star rating widget (shared: band, results, modal) */
+.fb-stars { display: flex; gap: .2rem; }
+.fb-star {
+  border: 0; background: none; padding: 0 .05rem; cursor: pointer;
+  font-size: 1.5rem; line-height: 1; color: var(--line);
+  transition: color .12s, transform .12s;
+}
+.fb-star:hover { transform: scale(1.12); }
+.fb-star.on { color: var(--accent); }
+.fb-stars-lg .fb-star { font-size: 2rem; }
+
+.fb-btn {
+  font-family: inherit; font-weight: 800; font-size: .9rem; border: 0; border-radius: 10px;
+  padding: .7rem 1.3rem; background: var(--ink); color: var(--paper); cursor: pointer;
+  transition: background .15s;
+}
+.fb-btn:hover { background: var(--accent); }
+
+/* post-generation prompt on the results screen */
+.result-feedback {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  margin-top: 1.6rem; padding: 1.1rem 1.3rem;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: rgba(255,255,255,.35);
+}
+.result-feedback strong { display: block; font-size: 1rem; }
+.result-feedback span { color: var(--ink-soft); font-size: .88rem; }
+.result-feedback.is-done { justify-content: center; color: var(--good); font-weight: 700; }
+
+/* feedback modal */
+.feedback-card { max-width: 460px; }
+.feedback-card h2 { font-weight: 900; letter-spacing: -.02em; margin: 0 0 .3rem; }
+.fb-modal-sub { color: var(--ink-soft); font-size: .9rem; margin: 0 0 1.2rem; }
+.fb-field { display: block; margin-bottom: 1rem; }
+.fb-field > span { display: block; font-weight: 700; font-size: .85rem; margin-bottom: .4rem; }
+.fb-field textarea, .fb-field input[type="text"] {
+  width: 100%; box-sizing: border-box; font-family: inherit; font-size: .92rem;
+  border: 1px solid var(--line); border-radius: 10px; padding: .6rem .7rem;
+  background: var(--paper); color: var(--ink); resize: vertical;
+}
+.fb-field textarea:focus, .fb-field input[type="text"]:focus { outline: none; border-color: var(--accent); }
+.fb-consent { display: flex; align-items: flex-start; gap: .55rem; font-size: .88rem; color: var(--ink-soft); margin-bottom: 1rem; cursor: pointer; }
+.fb-consent input { margin-top: .15rem; }
+.fb-error { color: var(--accent); font-size: .85rem; font-weight: 600; margin: 0 0 .8rem; }
+.fb-submit { width: 100%; padding: .8rem; font-size: .95rem; }
+
+@media (max-width: 640px) {
+  .fb-band { flex-direction: column; align-items: flex-start; }
+  .fb-action { align-items: stretch; width: 100%; }
+  .fb-action .fb-btn { width: 100%; }
+}
+
+/* ============================================================
+   PHASE 8 — accessibility & responsiveness
+   ============================================================ */
+/* Skip-to-content link: off-screen until focused */
+.skip-link {
+  position: absolute; left: 8px; top: -48px; z-index: 1000;
+  background: var(--ink); color: var(--paper);
+  padding: .6rem 1rem; border-radius: 0 0 8px 8px; font-weight: 800; font-size: .85rem;
+  text-decoration: none; transition: top .15s ease;
+}
+.skip-link:focus { top: 0; outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Visible keyboard focus ring for interactive elements (mouse clicks stay clean) */
+a:focus-visible, button:focus-visible, summary:focus-visible,
+[role="tab"]:focus-visible, [role="radiogroup"] .fb-star:focus-visible,
+select:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+html[data-theme="terminal"] a:focus-visible,
+html[data-theme="terminal"] button:focus-visible,
+html[data-theme="terminal"] summary:focus-visible { outline-color: var(--accent); }
+
+/* Don't show the focus ring for pointer interactions on the close button */
+.modal-close:focus:not(:focus-visible) { outline: none; }
+
+/* ============================================================
+   PHASE 9 — ATS readiness + keyword match report
+   ============================================================ */
+.ats-report { margin-top: 1.6rem; }
+.ats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+.ats-card {
+  border: 1px solid var(--line); border-radius: 14px;
+  background: rgba(255,255,255,.4); padding: 1.3rem 1.4rem;
+}
+.ats-card-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: .9rem; }
+.ats-card-head h3 { margin: 0; font-size: 1.05rem; font-weight: 800; }
+.kw-rate { font-size: 1.5rem; font-weight: 900; color: var(--accent); }
+.kw-track { height: 8px; border-radius: 5px; background: var(--line); overflow: hidden; margin-bottom: 1rem; }
+.kw-bar { height: 100%; width: 0; border-radius: 5px; transition: width .5s ease; }
+.kw-group { margin-top: .8rem; }
+.kw-group h4 { margin: 0 0 .45rem; font-size: .72rem; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-soft); font-family: "Spline Sans Mono", monospace; }
+.kw-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.kw { font-size: .78rem; border-radius: 999px; padding: .22rem .65rem; border: 1px solid var(--line); }
+.kw.on { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, var(--line)); background: color-mix(in srgb, var(--good) 8%, transparent); }
+.kw.off { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.kw.muted { color: var(--ink-soft); }
+
+.ats-score { font-size: 1.25rem; font-weight: 900; }
+.ats-score.all { color: var(--good); }
+.ats-score.most { color: var(--warn); }
+.ats-score.some { color: var(--accent); }
+.ats-checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .55rem; }
+.ats-item { display: grid; grid-template-columns: 20px 1fr; gap: .55rem; align-items: start; font-size: .9rem; }
+.ats-mark { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: .75rem; margin-top: .05rem; }
+.ats-item.pass .ats-mark { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good); }
+.ats-item.warn .ats-mark { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.ats-label { font-weight: 600; }
+.ats-hint { grid-column: 2; color: var(--ink-soft); font-size: .82rem; line-height: 1.45; margin-top: .1rem; }
+html[data-theme="terminal"] .kw-rate, html[data-theme="terminal"] .ats-score { font-family: "JetBrains Mono", monospace; }
+
+@media (max-width: 720px) { .ats-grid { grid-template-columns: 1fr; } }
