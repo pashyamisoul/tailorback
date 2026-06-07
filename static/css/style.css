@@ -2690,3 +2690,14 @@ html[data-theme="terminal"] .kw.on { color: var(--good); border-color: #2f6b3f; 
 .cf-note { font-size: .85rem; margin: 0 0 .9rem; min-height: 1.1em; }
 .cf-note.ok { color: var(--good); font-weight: 600; }
 .cf-note.err { color: var(--accent); font-weight: 600; }
+
+/* ============================================================
+   Terminal mode: account-modal controls were invisible (dark border on dark).
+   Give the close button, status select, ⋯ button and notes a visible edge.
+   ============================================================ */
+html[data-theme="terminal"] .modal-close { border-color: rgba(255,255,255,.22); color: var(--ink); }
+html[data-theme="terminal"] .modal-close:hover { border-color: var(--accent); color: var(--accent); }
+html[data-theme="terminal"] .ar-more { border-color: rgba(255,255,255,.22); color: var(--ink); }
+html[data-theme="terminal"] .hi-status { background: var(--paper-2); }
+html[data-theme="terminal"] .hi-status.status-not_applied { border-color: rgba(255,255,255,.28); color: var(--ink); }
+html[data-theme="terminal"] .hi-notes { border-color: rgba(255,255,255,.22); background: var(--paper-2); }
