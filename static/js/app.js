@@ -823,7 +823,7 @@ function renderAtsReport(data) {
     items.forEach(k => { const s = document.createElement('span'); s.className = 'kw ' + cls; s.textContent = k; box.appendChild(s); });
   };
   paintChips('kwMatched', matched, 'on', '—');
-  paintChips('kwMissing', missingKw, 'off', 'None — great coverage');
+  paintChips('kwMissing', missingKw, 'off', 'None left, great coverage');
 
   // --- ATS readiness checklist (structural, deterministic) ---
   const exp = Array.isArray(r.experience) ? r.experience : [];
