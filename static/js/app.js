@@ -105,13 +105,42 @@ const signupCheck = document.getElementById('signupCheck');
 const devActivationLink = document.getElementById('devActivationLink');
 const signinError = document.getElementById('signinError');
 
+let _modalLastFocus = null;
+function _modalFocusable(modal) {
+  return Array.from(modal.querySelectorAll(
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )).filter(el => el.offsetParent !== null);
+}
 function openModal(modal) {
-  modal?.classList.remove('hidden');
+  if (!modal) return;
+  _modalLastFocus = document.activeElement;
+  modal.classList.remove('hidden');
+  const f = _modalFocusable(modal);
+  (f[0] || modal).focus?.();
 }
 
 function closeModal(modal) {
-  modal?.classList.add('hidden');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  if (_modalLastFocus && typeof _modalLastFocus.focus === 'function') {
+    _modalLastFocus.focus();
+  }
+  _modalLastFocus = null;
 }
+
+// Keyboard support for any open modal: Esc closes, Tab is trapped inside.
+document.addEventListener('keydown', (e) => {
+  const open = Array.from(document.querySelectorAll('.modal:not(.hidden)')).pop();
+  if (!open) return;
+  if (e.key === 'Escape') { closeModal(open); return; }
+  if (e.key === 'Tab') {
+    const f = _modalFocusable(open);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+});
 
 function switchAuthTab(tab) {
   hideSigninError();
