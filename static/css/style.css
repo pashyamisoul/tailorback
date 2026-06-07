@@ -99,6 +99,55 @@ main { max-width: 980px; margin: 0 auto; padding: 0 clamp(1.2rem, 5vw, 2rem) 3.5
   animation: rise .8s .1s cubic-bezier(.2,.7,.2,1) both;
 }
 .lede em { font-style: normal; color: var(--ink); font-weight: 600; }
+
+/* ---------- two-column hero + résumé preview card ---------- */
+.hero-2col {
+  display: grid;
+  grid-template-columns: 1.05fr .95fr;
+  gap: clamp(1.8rem, 4vw, 3.6rem);
+  align-items: center;
+}
+.hero-2col .lede { max-width: 42ch; }
+.hero-aside { animation: rise .8s .2s cubic-bezier(.2,.7,.2,1) both; }
+.hero-preview {
+  position: relative;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 1.7rem 1.7rem 1.5rem;
+  box-shadow: 0 22px 50px rgba(0,0,0,.10);
+}
+.hp-ring {
+  position: absolute; top: -22px; right: -18px;
+  width: 88px; height: 88px; border-radius: 50%;
+  background: conic-gradient(var(--accent) 0 88%, var(--line) 88% 100%);
+  display: grid; place-items: center;
+  box-shadow: 0 10px 24px rgba(0,0,0,.14);
+}
+.hp-ring::before { content: ""; position: absolute; inset: 9px; background: var(--paper); border-radius: 50%; }
+.hp-ring b { position: relative; font-size: 1.5rem; font-weight: 900; line-height: 1; }
+.hp-ring small { position: relative; font-size: .55rem; color: var(--ink-soft); display: block; text-align: center; }
+.hp-name { font-size: 1.45rem; font-weight: 900; letter-spacing: -.02em; }
+.hp-role { color: var(--accent); font-weight: 600; font-size: .9rem; margin-bottom: .7rem; }
+.hp-sec { font-family: "Spline Sans Mono", monospace; font-size: .62rem; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-soft); margin: .8rem 0 .5rem; }
+.hp-line { display: block; height: 8px; border-radius: 4px; background: var(--line); margin: .36rem 0; }
+.hp-line.short { width: 55%; }
+.hp-line.med { width: 75%; }
+.hp-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.hp-chips span { font-size: .72rem; border: 1px solid var(--line); border-radius: 999px; padding: .2rem .6rem; color: var(--ink); }
+.hp-lift { display: flex; align-items: center; gap: .55rem; margin-top: 1.1rem; padding-top: .95rem; border-top: 1px solid var(--line); }
+.hp-lift-k { font-family: "Spline Sans Mono", monospace; font-size: .62rem; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft); margin-right: auto; }
+.hp-lift b { font-size: 1.35rem; font-weight: 900; line-height: 1; }
+.hp-before { color: var(--ink-soft); }
+.hp-after { color: var(--accent); }
+.hp-arrow { color: var(--ink-soft); font-weight: 700; }
+.hp-gain { color: var(--good); font-weight: 800; font-size: .82rem; }
+html[data-theme="terminal"] .hp-ring b,
+html[data-theme="terminal"] .hp-lift b { font-family: "JetBrains Mono", monospace; }
+@media (max-width: 860px) {
+  .hero-2col { grid-template-columns: 1fr; gap: 2rem; }
+  .hero-aside { display: none; }
+}
 .free-note {
   display: inline-flex;
   align-items: center;

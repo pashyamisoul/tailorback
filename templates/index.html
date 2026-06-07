@@ -90,8 +90,8 @@
   </header>
 
   <main>
-    <section class="hero">
-      <div>
+    <section class="hero hero-2col">
+      <div class="hero-copy">
         <h1>Tailor<span class="ink">Back</span></h1>
         <p class="lede">
           Feed it the job and your CV. It reshapes your <em>real</em> experience into an
@@ -100,6 +100,23 @@
         </p>
         <button type="button" class="try-sample" id="trySample">See a sample result <span class="arrow">→</span></button>
       </div>
+      <aside class="hero-aside" aria-hidden="true">
+        <div class="hero-preview">
+          <div class="hp-ring"><b>88</b><small>/100</small></div>
+          <div class="hp-name">Jordan Avery</div>
+          <div class="hp-role">Senior Product Engineer</div>
+          <div class="hp-sec">Experience</div>
+          <span class="hp-line"></span><span class="hp-line med"></span>
+          <span class="hp-line"></span><span class="hp-line short"></span>
+          <div class="hp-sec">Skills</div>
+          <div class="hp-chips"><span>React</span><span>Node.js</span><span>AWS</span><span>PostgreSQL</span><span>TypeScript</span></div>
+          <div class="hp-lift">
+            <span class="hp-lift-k">Match score</span>
+            <b class="hp-before">54</b><span class="hp-arrow">→</span><b class="hp-after">88</b>
+            <span class="hp-gain">▲ +34</span>
+          </div>
+        </div>
+      </aside>
     </section>
 
     <form id="builder" class="builder">
@@ -299,27 +316,6 @@
         <p>Most tools happily pad a résumé with skills you don't have. TailorBack reframes what you've
           genuinely done to fit the job, and lists anything the role wants but your CV doesn't evidence as
           <strong>honest gaps</strong>, so you only walk into interviews you can actually back up.</p>
-      </div>
-
-      <div class="lz-block lz-proof">
-        <div class="lz-proof-text">
-          <h2 class="lz-h">See exactly what you get</h2>
-          <p>Every run delivers a tailored résumé, a matching cover letter, an honest gap list, and a
-            before→after match score, so you can <em>see</em> the improvement, not just trust it.</p>
-          <button type="button" class="try-sample" id="landingSample">See a sample result <span class="arrow">→</span></button>
-        </div>
-        <div class="lz-proof-card">
-          <span class="lz-kicker">Match score</span>
-          <div class="lz-lift">
-            <b class="lz-before">54</b><span class="lz-arrow">→</span><b class="lz-after">88</b>
-            <span class="lz-gain">▲ +34</span>
-          </div>
-          <ul class="lz-deliverables">
-            <li>Tailored résumé (.docx &amp; PDF)</li>
-            <li>Matching cover letter</li>
-            <li>ATS match score + honest gaps</li>
-          </ul>
-        </div>
       </div>
 
       <div class="lz-block">
