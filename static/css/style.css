@@ -2640,3 +2640,11 @@ html[data-theme="terminal"] .score-pill strong { font-family: "JetBrains Mono", 
 .iv-question { font-weight: 700; font-size: .98rem; margin-bottom: .5rem; }
 .iv-why, .iv-tip { font-size: .85rem; line-height: 1.5; color: var(--ink-soft); margin-top: .3rem; }
 .iv-why strong, .iv-tip strong { color: var(--ink); }
+
+/* ============================================================
+   PHASE 13a — LinkedIn PDF import hint
+   ============================================================ */
+.cv-linkedin-hint { display: flex; align-items: flex-start; gap: .5rem; margin: .8rem 0 0; font-size: .82rem; color: var(--ink-soft); line-height: 1.5; }
+.cv-linkedin-hint svg { color: #0a66c2; flex: none; margin-top: .15rem; }
+.cv-linkedin-hint strong { color: var(--ink); font-weight: 700; }
+html[data-theme="terminal"] .cv-linkedin-hint svg { color: var(--accent); }
