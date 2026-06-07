@@ -2574,7 +2574,11 @@ html[data-theme="terminal"] summary:focus-visible { outline-color: var(--accent)
 .kw-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
 .kw { font-size: .78rem; border-radius: 999px; padding: .22rem .65rem; border: 1px solid var(--line); }
 .kw.on { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, var(--line)); background: color-mix(in srgb, var(--good) 8%, transparent); }
-.kw.off { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.kw.off { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); background: color-mix(in srgb, var(--warn) 9%, transparent); }
+/* Echo the Requirements/Gaps marks: green check for matched, amber dash for missing. */
+.kw.on::before { content: "\2713\00a0"; }
+.kw.off::before { content: "\2013\00a0"; }
+.kw.muted::before { content: none; }
 .kw.muted { color: var(--ink-soft); }
 
 .ats-score { font-size: 1.25rem; font-weight: 900; }
@@ -2663,7 +2667,7 @@ html[data-theme="terminal"] .cv-linkedin-hint svg { color: var(--accent); }
 /* ============================================================
    Terminal-mode fixes: keep missing=red, matched=green readable on dark
    ============================================================ */
-html[data-theme="terminal"] .kw.off { color: #ff7b72; border-color: #7a342e; background: rgba(248,81,73,.14); }
+html[data-theme="terminal"] .kw.off { color: #e3b341; border-color: #6b5524; background: rgba(227,179,65,.14); }
 html[data-theme="terminal"] .ats-item.warn .ats-mark { color: #ff7b72; background: rgba(248,81,73,.18); }
 html[data-theme="terminal"] .ats-score.some { color: #ff7b72; }
 html[data-theme="terminal"] .kw.on { color: var(--good); border-color: #2f6b3f; }
