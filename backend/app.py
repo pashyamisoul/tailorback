@@ -1347,6 +1347,44 @@ def rescore():
     })
 
 
+@app.route("/api/interview-prep", methods=["POST"])
+def interview_prep():
+    """Phase 11: likely interview questions for a past generation. Owner-scoped, free."""
+    current_user = _current_user()
+    if not current_user:
+        return jsonify({"status": "error", "message": "Please sign in."}), 401
+    if not any(os.environ.get(k) for k in (
+            "OPENAI_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY")):
+        return jsonify({"status": "error", "message": "Server missing an LLM API key."}), 500
+    run = GenerationRun.query.filter_by(
+        job_id=(request.get_json(silent=True) or {}).get("job_id"), user_id=current_user.id).first()
+    if not run:
+        return jsonify({"status": "error", "message": "Generation not found."}), 404
+    try:
+        resume = _json.loads(run.resume_json or "{}")
+    except ValueError:
+        resume = {}
+    try:
+        result = llm.interview_questions(
+            run.jd_text, _resume_to_text(resume), company=run.company, role=run.role)
+    except Exception:
+        app.logger.exception("Interview prep failed")
+        return jsonify({"status": "error", "message": "Could not generate questions. Try again."}), 502
+    allowed = ("technical", "behavioral", "role-specific", "gap")
+    questions = []
+    for q in (result.get("questions") or [])[:12]:
+        if not isinstance(q, dict) or not q.get("question"):
+            continue
+        cat = q.get("category") if q.get("category") in allowed else "role-specific"
+        questions.append({
+            "question": _clean_str(q.get("question"), 400),
+            "category": cat,
+            "why": _clean_str(q.get("why"), 400),
+            "tip": _clean_str(q.get("tip"), 600),
+        })
+    return jsonify({"status": "ok", "questions": questions})
+
+
 @app.route("/api/export", methods=["POST"])
 def export_documents():
     """Rebuild resume + cover-letter docx/pdf from edited content and a chosen

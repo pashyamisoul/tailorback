@@ -2617,3 +2617,26 @@ html[data-theme="terminal"] .kw-rate, html[data-theme="terminal"] .ats-score { f
 .score-delta.up { color: var(--good); }
 .score-delta.down { color: var(--accent); }
 html[data-theme="terminal"] .score-pill strong { font-family: "JetBrains Mono", monospace; }
+
+/* ============================================================
+   PHASE 11 — interview prep
+   ============================================================ */
+.result-action { display: inline-flex; align-items: center; gap: .4rem; font-family: inherit; font-weight: 700; font-size: .82rem; border: 1px solid var(--line); background: var(--paper); color: var(--ink); border-radius: 9px; padding: .45rem .8rem; cursor: pointer; }
+.result-action:hover { border-color: var(--accent); color: var(--accent); }
+.interview-card { max-width: 620px; max-height: 82vh; overflow-y: auto; }
+.interview-card h2 { font-weight: 900; letter-spacing: -.02em; margin: 0 0 .3rem; }
+.iv-sub { color: var(--ink-soft); font-size: .9rem; margin: 0 0 1.2rem; }
+.iv-loading { color: var(--ink-soft); font-size: .92rem; }
+.iv-loading.err { color: var(--accent); }
+.iv-body { display: flex; flex-direction: column; gap: .8rem; }
+.iv-q { border: 1px solid var(--line); border-radius: 12px; padding: .9rem 1rem; background: rgba(255,255,255,.4); }
+.iv-q-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: .4rem; }
+.iv-cat { font-size: .66rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; padding: .15rem .5rem; border-radius: 999px; }
+.iv-technical { color: #1f6feb; background: color-mix(in srgb, #1f6feb 12%, transparent); }
+.iv-behavioral { color: var(--good); background: color-mix(in srgb, var(--good) 12%, transparent); }
+.iv-role-specific { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.iv-gap { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.iv-n { font-family: "Spline Sans Mono", monospace; font-size: .72rem; color: var(--ink-soft); }
+.iv-question { font-weight: 700; font-size: .98rem; margin-bottom: .5rem; }
+.iv-why, .iv-tip { font-size: .85rem; line-height: 1.5; color: var(--ink-soft); margin-top: .3rem; }
+.iv-why strong, .iv-tip strong { color: var(--ink); }

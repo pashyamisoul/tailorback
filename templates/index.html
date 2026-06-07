@@ -218,6 +218,10 @@
     <section id="results" class="results hidden">
       <div class="result-head">
         <h2>Your documents are ready</h2>
+        <button type="button" class="result-action" id="openInterview" title="Get likely interview questions for this role">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Interview prep
+        </button>
         <button type="button" class="result-delete" id="deleteGenerated" title="Delete these documents from your account">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg>
           Delete
@@ -565,6 +569,15 @@
         <p class="fb-error hidden" id="fbError"></p>
         <button type="submit" class="fb-btn fb-submit" id="fbSubmit">Send feedback</button>
       </form>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="interviewModal" role="dialog" aria-modal="true" aria-labelledby="interviewTitle">
+    <div class="modal-card interview-card">
+      <button type="button" class="modal-close" data-close-modal aria-label="Close">×</button>
+      <h2 id="interviewTitle">Interview prep</h2>
+      <p class="iv-sub">Likely questions for this role, based on the job and your résumé. Grounded in your real experience, nothing invented.</p>
+      <div id="interviewBody" class="iv-body"></div>
     </div>
   </div>
 
