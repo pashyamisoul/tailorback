@@ -2389,7 +2389,9 @@ html[data-theme="terminal"] .acct-tab { font-family: "JetBrains Mono", monospace
 /* ============================================================================
    PHASE 6 — landing trust content
    ==========================================================================*/
-.landing { max-width: 980px; margin: 0 auto; padding: 1rem clamp(1.2rem,5vw,2rem) 3rem; display: flex; flex-direction: column; gap: 3rem; }
+/* Nested inside <main>, so it inherits main's max-width + side padding.
+   No own max-width / horizontal padding, or blocks would inset vs. the form. */
+.landing { padding: 1rem 0 3rem; display: flex; flex-direction: column; gap: 3rem; }
 .lz-block { }
 .lz-h { font-family: "Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-weight: 900; letter-spacing: -.03em; font-size: clamp(1.5rem, 4vw, 2.1rem); margin: 0 0 1.3rem; }
 .lz-kicker { font-family: "Spline Sans Mono", monospace; font-size: .72rem; text-transform: uppercase; letter-spacing: .18em; color: var(--accent); }
