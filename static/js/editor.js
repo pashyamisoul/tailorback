@@ -636,6 +636,9 @@
     const a = document.createElement("a");
     a.href = url; a.download = "";
     document.body.appendChild(a); a.click(); a.remove();
+    // Prompt for feedback right after a download (once per session, and never
+    // if the user has already left a review).
+    if (window.tbMaybePromptFeedback) window.tbMaybePromptFeedback();
   }
 
   async function exportNow() {

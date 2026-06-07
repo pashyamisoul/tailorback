@@ -29,6 +29,7 @@ from flask import (
     Flask,
     abort,
     jsonify,
+    make_response,
     redirect,
     render_template,
     request,
@@ -579,6 +580,7 @@ def _safe_user_payload(user):
         "country": user.country,
         "zip_code": user.zip_code,
         "current_pack": pack["name"] if pack else "Free",
+        "has_feedback": Feedback.query.filter_by(user_id=user.id).first() is not None,
         **credits,
     }
 
@@ -691,7 +693,7 @@ def index():
     _cleanup_generated()
     u = _current_user()
     credits = _credits_payload(u)
-    return render_template("index.html",
+    resp = make_response(render_template("index.html",
                            user_email=u.email if u else None,
                            credits_used=credits["credits_used"],
                            credits_remaining=credits["credits_remaining"],
@@ -699,7 +701,11 @@ def index():
                            free_credits_limit=FREE_LIMIT,
                            credit_packs=_public_credit_packs(),
                            testimonials=_published_testimonials(),
-                           billing_enabled=bool(os.environ.get("STRIPE_SECRET_KEY")))
+                           billing_enabled=bool(os.environ.get("STRIPE_SECRET_KEY"))))
+    # Never cache the authenticated landing: a stale copy could show a
+    # previous user's account details after switching accounts.
+    resp.headers["Cache-Control"] = "no-store, max-age=0"
+    return resp
 
 @app.route("/auth/google")
 def auth_google():
@@ -1446,18 +1452,21 @@ def submit_feedback():
     comment = _clean_str(data.get("comment"), 2000)
     display_name = (_clean_str(data.get("display_name"), 120) or (user.full_name or "")) if consent else ""
     role = _clean_str(data.get("role"), 120) if consent else ""
-    fb = Feedback(
-        user_id=user.id,
-        rating=rating,
-        comment=comment or None,
-        consent_to_publish=consent,
-        display_name=display_name or None,
-        role=role or None,
-    )
-    db.session.add(fb)
+    # One review per account: update the existing row if there is one.
+    fb = Feedback.query.filter_by(user_id=user.id).first()
+    updated = fb is not None
+    if not fb:
+        fb = Feedback(user_id=user.id)
+        db.session.add(fb)
+    fb.rating = rating
+    fb.comment = comment or None
+    fb.consent_to_publish = consent
+    fb.display_name = display_name or None
+    fb.role = role or None
+    fb.created_at = datetime.utcnow()
     db.session.commit()
     published = bool(consent and rating >= 4 and comment)
-    return jsonify({"status": "ok", "published": published})
+    return jsonify({"status": "ok", "published": published, "updated": updated})
 
 
 def _admin_ok():

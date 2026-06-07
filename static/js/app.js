@@ -1082,9 +1082,10 @@ document.addEventListener("click", (e) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Could not send feedback.');
       closeModal(modal);
+      window.tbHasFeedback = true;
       toast(data.published
         ? 'Thanks! With your okay, your review may appear on our homepage.'
-        : 'Thanks for your feedback!');
+        : (data.updated ? 'Thanks, your feedback was updated.' : 'Thanks for your feedback!'));
       const rf = document.getElementById('resultFeedback');
       if (rf) { rf.classList.add('is-done'); rf.textContent = '✓ Thanks for the feedback!'; }
     } catch (err) {
@@ -1093,4 +1094,28 @@ document.addEventListener("click", (e) => {
       btn.disabled = false;
     }
   });
+
+  // Expose for the editor's download trigger: prompt once per session, and
+  // never if the user already left a review (one review per account).
+  let promptedThisSession = false;
+  window.openFeedback = openFeedback;
+  window.tbMaybePromptFeedback = function () {
+    if (promptedThisSession || window.tbHasFeedback || !isSignedIn()) return;
+    promptedThisSession = true;
+    setTimeout(() => openFeedback(0), 700);
+  };
+
+  // Sync the top-right account dropdown with the LIVE session: the
+  // server-rendered copy can be stale after switching accounts, which showed
+  // a previous user's email. Also read whether this user has already reviewed.
+  if (isSignedIn()) {
+    fetch('/api/account').then(r => (r.ok ? r.json() : null)).then(d => {
+      if (!d || !d.user) return;
+      window.tbHasFeedback = !!d.user.has_feedback;
+      const email = d.user.email || '';
+      const initial = (email[0] || 'A').toUpperCase();
+      document.querySelectorAll('.account-email').forEach(el => { el.textContent = email; });
+      document.querySelectorAll('.account .avatar').forEach(el => { el.textContent = initial; });
+    }).catch(() => {});
+  }
 })();
