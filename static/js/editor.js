@@ -1,5 +1,5 @@
 /* ============================================================================
- * TailorBack Studio — live document editor
+ * TailorBack Studio: live document editor
  *   - Renders the generated resume + cover letter as an editable "paper" preview
  *   - Inline editing (contenteditable) bound back to a JS model
  *   - Template / accent / font / density gallery
@@ -183,7 +183,7 @@
           <button type="button" data-density="comfortable" class="${ST.style.density === "comfortable" ? "active" : ""}">Comfortable</button>
           <button type="button" data-density="compact" class="${ST.style.density === "compact" ? "active" : ""}">Compact</button>
         </div>
-        <p class="side-hint">Compact fits more on a page — use it to keep a long resume to one page.</p>
+        <p class="side-hint">Compact fits more on a page. Use it to keep a long resume to one page.</p>
       </div>
       <p class="side-note">Edits and style apply to your download. Click any text in the page to edit it. Use ↑ ↓ to reorder bullets and roles.</p>`;
 
@@ -398,7 +398,7 @@
     return `
     <div class="doc-edu" data-edu="${i}">
       ${ed("education." + i + ".degree", e.degree, "edu-degree")}
-      <span class="edu-inst">— ${ed("education." + i + ".institution", e.institution, "")}</span>
+      <span class="edu-inst">, ${ed("education." + i + ".institution", e.institution, "")}</span>
       <span class="edu-dates">${ed("education." + i + ".dates", e.dates, "")}</span>
       <button class="mini-x" data-act="del-edu" data-i="${i}" title="Remove">×</button>
     </div>`;

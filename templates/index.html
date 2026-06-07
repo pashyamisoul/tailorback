@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TailorBack — ATS Resume &amp; Cover Letter Builder</title>
+  <title>TailorBack · ATS Resume &amp; Cover Letter Builder</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Spline+Sans+Mono:wght@400;500&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
@@ -90,16 +90,33 @@
   </header>
 
   <main>
-    <section class="hero">
-      <div>
+    <section class="hero hero-2col">
+      <div class="hero-copy">
         <h1>Tailor<span class="ink">Back</span></h1>
         <p class="lede">
           Feed it the job and your CV. It reshapes your <em>real</em> experience into an
-          ATS-clean resume and a matching cover letter — and tells you honestly where
+          ATS-clean resume and a matching cover letter, and tells you honestly where
           you fall short, instead of making things up.
         </p>
         <button type="button" class="try-sample" id="trySample">See a sample result <span class="arrow">→</span></button>
       </div>
+      <aside class="hero-aside" aria-hidden="true">
+        <div class="hero-preview">
+          <div class="hp-ring"><b>88</b><small>/100</small></div>
+          <div class="hp-name">Jordan Avery</div>
+          <div class="hp-role">Senior Product Engineer</div>
+          <div class="hp-sec">Experience</div>
+          <span class="hp-line"></span><span class="hp-line med"></span>
+          <span class="hp-line"></span><span class="hp-line short"></span>
+          <div class="hp-sec">Skills</div>
+          <div class="hp-chips"><span>React</span><span>Node.js</span><span>AWS</span><span>PostgreSQL</span><span>TypeScript</span></div>
+          <div class="hp-lift">
+            <span class="hp-lift-k">Match score</span>
+            <b class="hp-before">54</b><span class="hp-arrow">→</span><b class="hp-after">88</b>
+            <span class="hp-gain">▲ +34</span>
+          </div>
+        </div>
+      </aside>
     </section>
 
     <form id="builder" class="builder">
@@ -121,7 +138,7 @@
             placeholder="https://… LinkedIn, Indeed, or a company careers page" />
           <p class="hint">
             Company career portals (Greenhouse, Lever, Ashby) read reliably.
-            LinkedIn &amp; Indeed often block automated reading — if so, you'll be
+            LinkedIn &amp; Indeed often block automated reading. If so, you'll be
             asked to paste instead.
           </p>
         </div>
@@ -140,7 +157,7 @@
             <input type="file" name="cv_file" accept=".pdf,.docx" hidden />
             <span class="dz-icon">↑</span>
             <span class="dz-main">Drop your CV here or click to browse</span>
-            <span class="dz-sub">.pdf or .docx — max 8 MB</span>
+            <span class="dz-sub">.pdf or .docx · max 8 MB</span>
           </label>
           <div class="file-state hidden" id="fileState">
             <span id="dzFile"></span>
@@ -156,7 +173,7 @@
 
       <p class="free-note">
         <span class="fn-star">✦</span>
-        <span>Your first <strong>{{ free_credits_limit }}</strong> generations are free — after that, tailoring runs on TailorBack&nbsp;Pro credits.</span>
+        <span>Your first <strong>{{ free_credits_limit }}</strong> generations are free. After that, tailoring runs on TailorBack&nbsp;Pro credits.</span>
       </p>
 
       {% if user_email %}
@@ -264,6 +281,69 @@
           <p class="gap-note">The job asks for these; your CV doesn't evidence them.
             We left them out rather than inventing them.</p>
           <ul id="gaps"></ul>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ===================== LANDING TRUST CONTENT ===================== -->
+    <section class="landing" aria-label="How TailorBack works and why to trust it">
+
+      <div class="lz-honesty">
+        <span class="lz-kicker">The honest difference</span>
+        <h2>We tailor your <span class="ink">real</span> experience. We never make things up.</h2>
+        <p>Most tools happily pad a résumé with skills you don't have. TailorBack reframes what you've
+          genuinely done to fit the job, and lists anything the role wants but your CV doesn't evidence as
+          <strong>honest gaps</strong>, so you only walk into interviews you can actually back up.</p>
+      </div>
+
+      <div class="lz-block">
+        <h2 class="lz-h">Questions, answered</h2>
+        <div class="lz-faq">
+          <details>
+            <summary>Will it lie or invent things on my résumé?</summary>
+            <p>No. TailorBack only uses the experience already in your CV; it reframes and reorders to match
+              the job, and reports requirements you don't meet as gaps instead of fabricating them.</p>
+          </details>
+          <details>
+            <summary>Is my data safe?</summary>
+            <p>Your generated documents are private to your signed-in account and expire automatically. We
+              don't sell your data. See our <a href="/privacy">Privacy Policy</a> for what we retain.</p>
+          </details>
+          <details>
+            <summary>Does it work with LinkedIn or Indeed job links?</summary>
+            <p>Company career portals (Greenhouse, Lever, Ashby) read reliably. LinkedIn &amp; Indeed often
+              block automated reading. If a link can't be read, you'll simply be asked to paste the text.</p>
+          </details>
+          <details>
+            <summary>What does it cost?</summary>
+            <p>Your first generations are free. After that, tailoring runs on one-time TailorBack&nbsp;Pro
+              credit packs, with no subscription or monthly expiry.</p>
+          </details>
+          <details>
+            <summary>Can applicant tracking systems (ATS) read the output?</summary>
+            <p>Yes. The résumé uses standard section names, clean single-column formatting, and exports as
+              .docx and PDF so parsers can read it.</p>
+          </details>
+        </div>
+      </div>
+
+      <div class="lz-block">
+        <h2 class="lz-h">What job-seekers say</h2>
+        <p class="lz-ph-note">Placeholder testimonials; swap in real ones before launch.</p>
+        <div class="lz-quotes">
+          <figure class="lz-quote">
+            <blockquote>"[Add a real quote about how the honest tailoring helped land an interview.]"</blockquote>
+            <figcaption>[Reviewer name], [Role]</figcaption>
+          </figure>
+          <figure class="lz-quote">
+            <blockquote>"[Add a real quote about the match score / editor.]"</blockquote>
+            <figcaption>[Reviewer name], [Role]</figcaption>
+          </figure>
+          <figure class="lz-quote">
+            <blockquote>"[Add a real quote about ease of use / speed.]"</blockquote>
+            <figcaption>[Reviewer name], [Role]</figcaption>
+          </figure>
         </div>
       </div>
 
