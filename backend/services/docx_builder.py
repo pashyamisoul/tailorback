@@ -216,7 +216,7 @@ def build_resume(resume, out_path, style=None):
             p.paragraph_format.tab_stops.add_tab_stop(Inches(6.8), WD_TAB_ALIGNMENT.RIGHT)
             p.add_run(ed.get("degree","")).bold = True
             if ed.get("institution"):
-                ir = p.add_run(f" — {ed['institution']}"); ir.font.color.rgb = GREY
+                ir = p.add_run(f", {ed['institution']}"); ir.font.color.rgb = GREY
             if ed.get("dates"):
                 dr = p.add_run(f"\t{ed['dates']}"); dr.italic = True
                 dr.font.size = Pt(9); dr.font.color.rgb = GREY

@@ -184,7 +184,7 @@ document.getElementById('deleteGenerated')?.addEventListener('click', async () =
     toast(err.message || 'Could not delete the documents.', true);
   }
 });
-// "See a sample result" — render a built-in example so visitors feel the value
+// "See a sample result": render a built-in example so visitors feel the value
 // before signing up or uploading their own data (client-side, no credit used).
 const SAMPLE_RESULT = {
   status: 'ok', sample: true, job_id: null,
@@ -214,12 +214,12 @@ const SAMPLE_RESULT = {
   },
   cover_letter: { greeting: 'Dear Hiring Manager,', body_paragraphs: [
     'I am excited to apply for the IT Support Engineer role at Northwind. My five years supporting macOS and Windows environments map directly to your needs.',
-    'In my current role I cut average ticket resolution time by 35% and automated identity workflows in Okta — experience I would bring to your team.' ], closing: 'Sincerely,' },
+    'In my current role I cut average ticket resolution time by 35% and automated identity workflows in Okta, experience I would bring to your team.' ], closing: 'Sincerely,' },
   gaps: ['PowerShell scripting (job lists it; not evidenced on the resume)'],
   match: { covered: ['macOS/Windows support', 'Okta / SSO / MFA', 'Endpoint management (Intune)'], missing: ['PowerShell scripting'] },
   analysis: {
     overall_score: 82,
-    verdict: 'Strong, well-matched resume after tailoring — a couple of niche keywords still missing.',
+    verdict: 'Strong, well-matched resume after tailoring, with a couple of niche keywords still missing.',
     dimensions: [
       { name: 'Job Match', score: 85, note: '11 of 13 job requirements are clearly evidenced.' },
       { name: 'Keyword Coverage', score: 80, note: '8 of 10 job keywords appear in the resume.' },
@@ -232,7 +232,7 @@ const SAMPLE_RESULT = {
   }
 };
 document.querySelectorAll('.try-sample').forEach(btn => btn.addEventListener('click', () => {
-  toast('Sample preview — sign up to tailor your own résumé.');
+  toast('Sample preview. Sign up to tailor your own résumé.');
   renderResults(SAMPLE_RESULT);
 }));
 
@@ -453,7 +453,7 @@ async function openHistory() {
     list.innerHTML = generations.length ? generations.map(run => {
       const job = escapeHtml(run.job_id || '');
       const title = run.company
-        ? escapeHtml(run.company) + (run.role ? ' — ' + escapeHtml(run.role) : '')
+        ? escapeHtml(run.company) + (run.role ? ' · ' + escapeHtml(run.role) : '')
         : escapeHtml(run.resume_name || 'Tailored documents');
       const status = run.status || 'not_applied';
       const meta = new Date(run.created_at).toLocaleDateString()
@@ -480,7 +480,7 @@ async function openHistory() {
           <div class="ar-links">${dl || '<span class="ar-nodl">No downloads (expired)</span>'}</div>
         </div>
       </article>`;
-    }).join('') : '<p class="lib-empty">No applications yet — tailor a resume to start tracking.</p>';
+    }).join('') : '<p class="lib-empty">No applications yet. Tailor a resume to start tracking.</p>';
   } catch (err) {
     summary.innerHTML = `<p>${err.message || 'Could not load account history.'}</p>`;
   }
@@ -665,11 +665,11 @@ function updateLoaderStage(stage) {
   if (stage === 'generating_openai') {
     setLoaderLine(2, 'Generating with OpenAI…');
   } else if (stage === 'switching_to_gemini') {
-    setLoaderLine(2, 'OpenAI unavailable — switching to Gemini…');
+    setLoaderLine(2, 'OpenAI unavailable, switching to Gemini…');
   } else if (stage === 'trying_gemini') {
     setLoaderLine(2, 'Trying Gemini…');
   } else if (stage === 'switching_to_claude') {
-    setLoaderLine(2, 'Gemini unavailable — switching to Claude Sonnet…');
+    setLoaderLine(2, 'Gemini unavailable, switching to Claude Sonnet…');
   } else if (stage === 'generating_claude') {
     setLoaderLine(2, 'Generating with Claude Sonnet…');
   } else if (stage === 'building_documents') {
@@ -726,7 +726,7 @@ form.addEventListener('submit', async e => {
       return;
     }
 
-    // Otherwise it's a Server-Sent Event stream — read it live.
+    // Otherwise it's a Server-Sent Event stream; read it live.
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -826,7 +826,7 @@ function renderResults(data) {
       seenDims.add(d.name);
       const row = document.createElement('div');
       row.className = 'dim-row';
-      // d.name / d.note are model output — escape to avoid HTML injection.
+      // d.name / d.note are model output; escape to avoid HTML injection.
       const score = Math.max(0, Math.min(100, Number(d.score) || 0));
       const help = DIM_HELP[d.name] || d.note || '';
       row.innerHTML =
