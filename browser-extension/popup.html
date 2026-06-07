@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<style>
+  body { width: 300px; margin: 0; font-family: system-ui, sans-serif; background: #f4efe6; color: #1a1714; }
+  .wrap { padding: 16px; }
+  h1 { font-size: 1.05rem; margin: 0 0 4px; }
+  h1 b { color: #c8462e; }
+  p { font-size: .82rem; color: #4a423a; margin: 0 0 12px; line-height: 1.45; }
+  button { width: 100%; font: inherit; font-weight: 700; font-size: .9rem; border: 0; border-radius: 9px; padding: .65rem; background: #1a1714; color: #f4efe6; cursor: pointer; }
+  button:hover { background: #c8462e; }
+  .status { font-size: .8rem; margin-top: 10px; min-height: 1.1em; }
+  .ok { color: #3c6e47; } .err { color: #c8462e; }
+  .app { font-size: .75rem; margin-top: 10px; }
+  .app input { width: 100%; box-sizing: border-box; font: inherit; font-size: .78rem; padding: .35rem .5rem; border: 1px solid #d8cdb9; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Tailor<b>Back</b> grabber</h1>
+  <p>Grab the job description from this page, copy it, and open TailorBack to paste it in.</p>
+  <button id="grab">Grab job description</button>
+  <div class="status" id="status"></div>
+  <div class="app">TailorBack URL:<br><input id="appUrl" value="http://127.0.0.1:5000/" /></div>
+</div>
+<script src="popup.js"></script>
+</body>
+</html>

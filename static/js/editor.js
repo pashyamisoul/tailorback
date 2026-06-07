@@ -76,6 +76,43 @@
     ST.dirty = true;
     ST.exported = false;
     setSaveState("Unsaved changes");
+    scheduleRescore();
+  }
+
+  // ---- Phase 12: live re-scoring ------------------------------------------
+  let _rescoreTimer = null;
+  function scheduleRescore() {
+    if (!ST.jobId) return;            // sample / no stored job: skip live scoring
+    clearTimeout(_rescoreTimer);
+    _rescoreTimer = setTimeout(runRescore, 1100);
+  }
+  async function runRescore() {
+    if (!ST.jobId) return;
+    try {
+      const res = await fetch("/api/rescore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: ST.jobId, resume: ST.resume }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.status !== "ok") return;
+      setScore(data.overall_score);
+      if (Array.isArray(data.missing_keywords)) {
+        ST.analysis = ST.analysis || {};
+        ST.analysis.missing_keywords = data.missing_keywords;
+        renderMissingKeywords();
+      }
+    } catch (e) { /* silent: scoring is best-effort */ }
+  }
+  function setScore(score) {
+    const pill = document.getElementById("scorePill");
+    if (!pill || score == null) return;
+    if (ST._baseScore == null) ST._baseScore = score;
+    const delta = score - ST._baseScore;
+    pill.hidden = false;
+    pill.innerHTML = 'Match <strong>' + score + '</strong>' +
+      (delta ? ' <span class="score-delta ' + (delta > 0 ? 'up' : 'down') + '">' +
+        (delta > 0 ? '▲+' + delta : '▼' + delta) + '</span>' : '');
   }
   function setSaveState(text, ok) {
     const el = document.getElementById("saveState");
@@ -90,6 +127,7 @@
     ST.resume = data.resume || {};
     ST.cover = data.cover_letter || {};
     ST.job = data.job || {};
+    ST.analysis = data.analysis || {};
     ST.style = Object.assign(
       { template: "editorial", accent: "c8462e", font: "Calibri", density: "comfortable" },
       data.style || {});
@@ -102,9 +140,11 @@
       cover_docx_url: data.cover_docx_url,
       cover_pdf_url: data.cover_pdf_url,
     };
+    ST._baseScore = null;
     buildShell();
     renderStage();
     setSaveState("");
+    runRescore();   // initial live match score (no-op for the sample)
   };
 
   // ---- shell (tabs, toolbar, sidebar) -------------------------------------
@@ -118,6 +158,7 @@
           <button class="doc-tab" data-doc="cover" role="tab">Cover letter</button>
         </div>
         <div class="studio-bar-right">
+          <span class="score-pill" id="scorePill" hidden title="Live match score, updates as you edit"></span>
           <span class="save-state" id="saveState" role="status"></span>
           <div class="sdl-menu" id="sdlMenu">
             <button type="button" class="sdl-btn" id="sdlBtn">Download <span class="sdl-caret">▾</span></button>
@@ -186,6 +227,12 @@
         </div>
         <p class="side-hint">Compact fits more on a page. Use it to keep a long resume to one page.</p>
       </div>
+      <div class="side-group" id="wqGroup">
+        <h4>Writing &amp; keywords</h4>
+        <button type="button" class="wq-btn" id="wqCheck">Check writing</button>
+        <div class="wq-issues" id="wqIssues"></div>
+        <div class="wq-kw-wrap" id="wqKwWrap"></div>
+      </div>
       <p class="side-note">Edits and style apply to your download. Click any text in the page to edit it. Use ↑ ↓ to reorder bullets and roles.</p>`;
 
     side.querySelector("#tplGrid").addEventListener("click", e => {
@@ -210,6 +257,89 @@
       side.querySelectorAll("#densityToggle button").forEach(x => x.classList.toggle("active", x === b));
       applyStageStyle(); markDirty();
     });
+    bindWritingTools();
+  }
+
+  // ---- Phase 9: writing check + keyword-insert ----------------------------
+  function bindWritingTools() {
+    const checkBtn = document.getElementById("wqCheck");
+    const issuesBox = document.getElementById("wqIssues");
+    if (checkBtn && issuesBox) {
+      checkBtn.addEventListener("click", async () => {
+        checkBtn.disabled = true;
+        issuesBox.innerHTML = '<p class="wq-status">Checking…</p>';
+        try {
+          const res = await fetch("/api/writing-check", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: buildResumeText(ST.resume || {}) }),
+          });
+          const data = await res.json();
+          if (!res.ok || data.status !== "ok") throw new Error(data.message || "Check failed.");
+          if (!data.issues.length) {
+            issuesBox.innerHTML = '<p class="wq-status ok">No writing issues found.</p>';
+            return;
+          }
+          issuesBox.innerHTML = data.issues.map(it =>
+            '<div class="wq-issue sev-' + esc(it.severity) + '">' +
+              '<div class="wq-issue-h">' + esc(it.problem) + '</div>' +
+              (it.excerpt ? '<div class="wq-excerpt">"' + esc(it.excerpt) + '"</div>' : '') +
+              '<div class="wq-fix">' + esc(it.suggestion) + '</div>' +
+            '</div>').join("");
+        } catch (e) {
+          issuesBox.innerHTML = '<p class="wq-status err">' + esc(e.message || "Could not check.") + '</p>';
+        } finally {
+          checkBtn.disabled = false;
+        }
+      });
+    }
+
+    renderMissingKeywords();
+  }
+
+  // Missing keywords -> click to weave one into the summary, truthfully.
+  function renderMissingKeywords() {
+    const kwWrap = document.getElementById("wqKwWrap");
+    if (!kwWrap) return;
+    const missing = ((ST.analysis && ST.analysis.missing_keywords) || []).slice(0, 12);
+    if (!missing.length) {
+      kwWrap.innerHTML = '<h5 class="wq-kw-title">Missing keywords</h5><p class="wq-kw-help">None left, great keyword coverage.</p>';
+      return;
+    }
+    {
+      kwWrap.innerHTML = '<h5 class="wq-kw-title">Missing keywords</h5>' +
+        '<p class="wq-kw-help">Click one to weave it into your summary, only if your experience supports it.</p>' +
+        '<div class="wq-kw">' + missing.map(k =>
+          '<button type="button" class="wq-kw-chip" data-kw="' + esc(k) + '">' + esc(k) + '</button>').join("") + '</div>';
+      kwWrap.querySelector(".wq-kw").addEventListener("click", async (e) => {
+        const b = e.target.closest("[data-kw]"); if (!b) return;
+        const kw = b.dataset.kw;
+        b.disabled = true; b.classList.add("loading");
+        try {
+          const res = await fetch("/api/refine", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              kind: "summary",
+              content: ST.resume.summary || "",
+              instruction: "Naturally incorporate the keyword \"" + kw + "\" ONLY if the candidate's existing experience genuinely supports it. If it is not supported by the current content, return the summary unchanged. Never fabricate.",
+              context: { role: ST.job.role || ST.job.title || null, company: ST.job.company || null },
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok || data.status !== "ok") throw new Error(data.message || "Could not update.");
+          const changed = (data.content || "") !== (ST.resume.summary || "");
+          ST.resume.summary = data.content || ST.resume.summary;
+          markDirty(); renderStage();
+          notify(changed ? '"' + kw + '" woven into your summary.' : '"' + kw + '" was not added (your experience does not evidence it).', !changed);
+          if (changed) b.classList.add("done"); else b.classList.add("skipped");
+        } catch (err) {
+          notify(err.message || "Could not update.", true);
+        } finally {
+          b.disabled = false; b.classList.remove("loading");
+        }
+      });
+    }
   }
 
   function setAccent(hex) {

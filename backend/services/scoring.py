@@ -10,12 +10,74 @@ STOPWORDS = {
     "we", "with", "will", "you", "your",
 }
 
+# Generic English / resume-filler words that are NOT job-specific keywords.
+# Used to keep the "missing keywords" list meaningful (drop words like
+# "around", "attending", "attentive", "accountable" that aren't real skills).
+COMMON_WORDS = {
+    "ability", "able", "about", "above", "accessible", "accordingly", "account",
+    "accountable", "accurate", "accurately", "achieve", "achieved", "achievement",
+    "achievements", "across", "actively", "activities", "activity", "adaptable",
+    "additional", "additionally", "adept", "affiliated", "after", "again", "against",
+    "all", "along", "already", "also", "although", "always", "among", "amount",
+    "analytical", "another", "any", "anyone", "applicant", "applicants", "application",
+    "applications", "apply", "appropriate", "approximately", "are", "area", "areas",
+    "around", "aspects", "aspirations", "assets", "assist", "assistance", "attendance",
+    "attending", "attentive", "available", "based", "basic", "because", "become",
+    "been", "before", "being", "below", "benefit", "benefits", "best", "better",
+    "between", "beyond", "both", "build", "building", "business", "but", "can",
+    "candidate", "candidates", "capable", "career", "change", "clear", "closely",
+    "collaborate", "collaborative", "come", "comfortable", "committed", "common",
+    "company", "competitive", "complete", "comprehensive", "confident", "consider",
+    "consistent", "consistently", "contribute", "could", "create", "culture",
+    "current", "currently", "daily", "day", "days", "deliver", "demonstrate",
+    "demonstrated", "department", "described", "description", "desirable", "detail",
+    "detailed", "details", "develop", "different", "diverse", "down", "drive",
+    "driven", "during", "duties", "each", "eager", "effective", "effectively",
+    "efficient", "efficiently", "either", "employee", "employees", "employer",
+    "employment", "enable", "ensure", "ensuring", "environment", "equal", "essential",
+    "etc", "even", "every", "everyone", "everything", "excellent", "experience",
+    "experienced", "expected", "extensive", "fast", "first", "flexible", "focus",
+    "focused", "following", "for", "friendly", "from", "full", "fully", "further",
+    "general", "genuine", "get", "give", "given", "goals", "good", "great", "group",
+    "grow", "growing", "growth", "had", "hands", "has", "have", "having", "help",
+    "here", "high", "highly", "his", "hold", "hours", "how", "however", "ideal",
+    "ideally", "important", "include", "includes", "including", "individual",
+    "information", "innovative", "into", "join", "keen", "key", "knowledge", "large",
+    "least", "level", "like", "look", "looking", "made", "maintain", "make", "making",
+    "many", "may", "meet", "meeting", "member", "members", "minimum", "month",
+    "months", "more", "most", "motivated", "much", "multiple", "must", "name",
+    "necessary", "need", "needs", "new", "next", "not", "now", "offer", "offers",
+    "office", "one", "ongoing", "only", "opportunities", "opportunity", "order",
+    "organisation", "organised", "organization", "organized", "other", "others",
+    "our", "out", "over", "overview", "own", "part", "particular", "passion",
+    "passionate", "people", "per", "performance", "person", "personal", "place",
+    "plus", "position", "positive", "possible", "potential", "preferred", "previous",
+    "proactive", "process", "professional", "proficient", "provide", "providing",
+    "purpose", "qualifications", "qualified", "quality", "range", "rapidly", "rate",
+    "really", "reliable", "remote", "required", "requirement", "requirements",
+    "requires", "responsibilities", "responsibility", "responsible", "right", "role",
+    "roles", "salary", "same", "seeking", "self", "set", "several", "shift", "should",
+    "similar", "since", "skill", "skilled", "skills", "small", "some", "someone",
+    "specific", "staff", "standard", "start", "strong", "successful", "such",
+    "suitable", "support", "sure", "take", "task", "tasks", "team", "teams", "than",
+    "that", "the", "their", "them", "then", "there", "these", "they", "thing",
+    "things", "this", "those", "through", "throughout", "time", "together", "tools",
+    "top", "toward", "towards", "training", "trustworthy", "type", "under",
+    "understand", "understanding", "until", "upon", "use", "used", "using", "valid",
+    "various", "very", "want", "way", "ways", "week", "weeks", "well", "what", "when",
+    "where", "whether", "which", "while", "who", "whole", "will", "willing", "with",
+    "within", "without", "work", "working", "world", "would", "year", "years", "you",
+    "your",
+}
+
 
 def _tokens(text):
-    return [
-        t for t in re.findall(r"[a-zA-Z][a-zA-Z0-9+#.-]{2,}", text.lower())
-        if t not in STOPWORDS
-    ]
+    out = []
+    for raw in re.findall(r"[a-zA-Z][a-zA-Z0-9+#.-]{2,}", text.lower()):
+        t = raw.strip(".-")  # drop trailing punctuation: "engineer." -> "engineer"
+        if len(t) >= 3 and t not in STOPWORDS:
+            out.append(t)
+    return out
 
 
 def _sentences(text):
@@ -25,7 +87,14 @@ def _sentences(text):
 
 def _keyword_set(text):
     toks = _tokens(text)
-    keep = {t for t in toks if len(t) >= 4 or t.isupper()}
+    # Keep distinctive terms: long-enough words or acronyms, minus generic
+    # English / resume-filler words so "missing keywords" stays meaningful.
+    keep = {
+        t for t in toks
+        if (len(t) >= 4 or t.isupper())
+        and t not in COMMON_WORDS
+        and not (t.isalpha() and len(t) < 4)
+    }
     # Preserve obvious multi-word technical phrases from slash/comma-heavy JDs.
     phrases = re.findall(r"\b[A-Z][A-Za-z0-9+#.-]*(?:\s+[A-Z][A-Za-z0-9+#.-]*){1,2}\b", text)
     keep.update(p.lower() for p in phrases if len(p) <= 40)
@@ -93,11 +162,15 @@ def score_resume(cv_text, jd_text, model_analysis=None):
          "note": f"{metric_count} of {bullet_count} resume lines include a concrete number or metric."},
     ]
 
+    # Prefer the model's missing keywords (it picks real hard skills, not generic
+    # words); fall back to the deterministic list only when the model didn't supply one.
+    model_missing = [k for k in (model_analysis.get("missing_keywords") or []) if k]
     return {
         **model_analysis,
         "overall_score": overall,
         "dimensions": dimensions,
-        "missing_keywords": missing,
+        "present_keywords": present_keywords[:16],
+        "missing_keywords": model_missing or missing,
         "verdict": model_analysis.get("verdict") or
                    "This score is calculated deterministically from keyword coverage, requirement evidence, structure, and quantified impact.",
     }

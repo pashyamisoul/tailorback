@@ -1,0 +1,39 @@
+{% extends "legal_base.html" %}
+{% block title %}Accessibility{% endblock %}
+{% block heading %}Accessibility{% endblock %}
+{% block content %}
+
+<p>TailorBack is built to be usable by as many people as possible, including
+those who rely on keyboards, screen readers, or other assistive technology. We
+aim to meet the WCAG 2.1 AA guidelines and we keep improving as the product grows.</p>
+
+<h2>1. What we do</h2>
+<ul>
+  <li><strong>Keyboard friendly.</strong> You can reach and operate the main flows
+      with a keyboard alone, including a "skip to content" link, visible focus
+      outlines, and dialogs that trap focus, close with Escape, and return focus
+      to where you were.</li>
+  <li><strong>Readable by design.</strong> Pages use semantic headings and
+      landmarks, labelled form fields and buttons, and clear status messages.</li>
+  <li><strong>Comfortable visuals.</strong> We work toward sufficient colour
+      contrast in both the light and terminal themes, and we honour your
+      "reduce motion" system setting by toning down animations.</li>
+  <li><strong>Responsive.</strong> The layout adapts to phones, tablets, and
+      desktops, and to larger text sizes.</li>
+</ul>
+
+<h2>2. Known limitations</h2>
+<p>Some areas are still being improved, for example the live document editor and
+generated PDF previews. If you hit a barrier, please tell us and we will
+prioritise a fix.</p>
+
+<h2>3. Tell us about a problem</h2>
+<p>If something is hard to use or read, contact us through the
+<a href="/contact">contact form</a> or at [support email]. Please include the page
+and what you were trying to do, so we can reproduce and fix it quickly.</p>
+
+<h2>4. Standards</h2>
+<p>This statement reflects our current efforts toward WCAG 2.1 AA. It is reviewed
+as the product changes; the "Last updated" date above shows the latest revision.</p>
+
+{% endblock %}

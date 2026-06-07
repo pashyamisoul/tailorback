@@ -215,6 +215,16 @@ class ProviderBudget(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
+class ContactMessage(db.Model):
+    """A message submitted through the public Contact form."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(160), nullable=False)
+    email = db.Column(db.String(255), nullable=False)
+    mobile = db.Column(db.String(40), nullable=True)
+    message = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
 ALLOWED_APP_STATUSES = ("not_applied", "applied", "interviewing", "offer", "rejected")
 LLM_PROVIDERS = ("openai", "gemini", "claude")
 
@@ -611,12 +621,50 @@ def _make_email_verification_token():
     return uuid.uuid4().hex + uuid.uuid4().hex
 
 
+def _smtp_send(to_email, subject, body):
+    """Send a plain-text email via SMTP using env config. Raises on failure."""
+    import smtplib
+    from email.message import EmailMessage
+    host = os.environ["SMTP_HOST"]
+    port = int(os.environ.get("SMTP_PORT", "587"))
+    user = os.environ.get("SMTP_USER")
+    password = os.environ.get("SMTP_PASSWORD")
+    sender = os.environ.get("SMTP_FROM") or user or "no-reply@tailorback.app"
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = sender
+    msg["To"] = to_email
+    msg.set_content(body)
+    if os.environ.get("SMTP_USE_SSL") == "1":
+        with smtplib.SMTP_SSL(host, port, timeout=20) as s:
+            if user:
+                s.login(user, password)
+            s.send_message(msg)
+    else:
+        with smtplib.SMTP(host, port, timeout=20) as s:
+            s.starttls()
+            if user:
+                s.login(user, password)
+            s.send_message(msg)
+
+
 def _send_activation_email(user):
     activation_url = url_for("activate_email", token=user.email_verification_token, _external=True)
-    if os.environ.get("FLASK_ENV") == "production":
-        app.logger.warning("Email provider is not configured; activation email was not sent for %s", user.email)
+    body = (
+        "Welcome to TailorBack!\n\n"
+        "Activate your account by opening this link:\n"
+        f"{activation_url}\n\n"
+        "If you did not sign up, you can ignore this email."
+    )
+    if os.environ.get("SMTP_HOST"):
+        try:
+            _smtp_send(user.email, "Activate your TailorBack account", body)
+            app.logger.info("Activation email sent to %s", user.email)
+        except Exception:
+            app.logger.exception("Failed to send activation email to %s", user.email)
     else:
-        app.logger.warning("TailorBack activation link for %s: %s", user.email, activation_url)
+        # No mail provider configured: log the link so dev/self-host can still activate.
+        app.logger.warning("SMTP not configured; activation link for %s: %s", user.email, activation_url)
     return activation_url
 
 
@@ -1002,13 +1050,6 @@ def generate():
         result = holder["result"]
         provider, model_name = _model_from_stages(stages)
         generation_seconds = round(time.perf_counter() - generation_started_at, 2)
-        # Count this successful generation against the user's free quota.
-        try:
-            current_user.generations_used += 1
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
-        credits = _credits_payload(current_user)
         analysis = scoring.score_resume(cv_text, jd_text, result.get("analysis", {}))
         job_id = uuid.uuid4().hex[:10]
         resume = result.get("resume", {})
@@ -1073,6 +1114,17 @@ def generate():
         )
         db.session.add(run)
         db.session.commit()
+
+        # Charge the credit ONLY now that the result is fully built and saved.
+        # Doing it here (not earlier) means a refresh, disconnect, or failure
+        # mid-generation never costs a credit with nothing to show: a credit is
+        # spent if and only if a reopenable generation exists in the user's history.
+        try:
+            current_user.generations_used += 1
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+        credits = _credits_payload(current_user)
 
         def _url(path):
             return f"/download/{os.path.basename(path)}" if path else None
@@ -1293,6 +1345,96 @@ def refine_section():
     else:
         out = _sanitize_cover(refined)
     return jsonify({"status": "ok", "kind": kind, "content": out})
+
+
+@app.route("/api/writing-check", methods=["POST"])
+def writing_check():
+    """Phase 9: grammar / writing-quality suggestions for the resume. Free."""
+    current_user = _current_user()
+    if not current_user:
+        return jsonify({"status": "error", "message": "Please sign in."}), 401
+    if not any(os.environ.get(k) for k in (
+            "OPENAI_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY")):
+        return jsonify({"status": "error", "message": "Server missing an LLM API key."}), 500
+    text = _clean_str((request.get_json(silent=True) or {}).get("text"), 12000)
+    if not text:
+        return jsonify({"status": "error", "message": "Nothing to check."}), 400
+    try:
+        result = llm.writing_check(text)
+    except Exception:
+        app.logger.exception("Writing check failed")
+        return jsonify({"status": "error", "message": "Could not check the writing. Try again."}), 502
+    issues = []
+    for it in (result.get("issues") or [])[:12]:
+        if not isinstance(it, dict):
+            continue
+        sev = it.get("severity") if it.get("severity") in ("high", "medium", "low") else "medium"
+        issues.append({
+            "excerpt": _clean_str(it.get("excerpt"), 240),
+            "problem": _clean_str(it.get("problem"), 300),
+            "suggestion": _clean_str(it.get("suggestion"), 400),
+            "severity": sev,
+        })
+    return jsonify({"status": "ok", "issues": issues})
+
+
+@app.route("/api/rescore", methods=["POST"])
+def rescore():
+    """Phase 12: re-score the edited resume against the original job (deterministic).
+    Owner-scoped by job_id; free, no LLM call."""
+    current_user = _current_user()
+    if not current_user:
+        return jsonify({"status": "error", "message": "Please sign in."}), 401
+    data = request.get_json(silent=True) or {}
+    run = GenerationRun.query.filter_by(job_id=data.get("job_id"), user_id=current_user.id).first()
+    if not run:
+        return jsonify({"status": "error", "message": "Generation not found."}), 404
+    resume = data.get("resume") if isinstance(data.get("resume"), dict) else {}
+    analysis = scoring.score_resume(_resume_to_text(resume), run.jd_text)
+    return jsonify({
+        "status": "ok",
+        "overall_score": analysis.get("overall_score"),
+        "dimensions": analysis.get("dimensions"),
+        "missing_keywords": analysis.get("missing_keywords"),
+    })
+
+
+@app.route("/api/interview-prep", methods=["POST"])
+def interview_prep():
+    """Phase 11: likely interview questions for a past generation. Owner-scoped, free."""
+    current_user = _current_user()
+    if not current_user:
+        return jsonify({"status": "error", "message": "Please sign in."}), 401
+    if not any(os.environ.get(k) for k in (
+            "OPENAI_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY")):
+        return jsonify({"status": "error", "message": "Server missing an LLM API key."}), 500
+    run = GenerationRun.query.filter_by(
+        job_id=(request.get_json(silent=True) or {}).get("job_id"), user_id=current_user.id).first()
+    if not run:
+        return jsonify({"status": "error", "message": "Generation not found."}), 404
+    try:
+        resume = _json.loads(run.resume_json or "{}")
+    except ValueError:
+        resume = {}
+    try:
+        result = llm.interview_questions(
+            run.jd_text, _resume_to_text(resume), company=run.company, role=run.role)
+    except Exception:
+        app.logger.exception("Interview prep failed")
+        return jsonify({"status": "error", "message": "Could not generate questions. Try again."}), 502
+    allowed = ("technical", "behavioral", "role-specific", "gap")
+    questions = []
+    for q in (result.get("questions") or [])[:12]:
+        if not isinstance(q, dict) or not q.get("question"):
+            continue
+        cat = q.get("category") if q.get("category") in allowed else "role-specific"
+        questions.append({
+            "question": _clean_str(q.get("question"), 400),
+            "category": cat,
+            "why": _clean_str(q.get("why"), 400),
+            "tip": _clean_str(q.get("tip"), 600),
+        })
+    return jsonify({"status": "ok", "questions": questions})
 
 
 @app.route("/api/export", methods=["POST"])
@@ -1620,6 +1762,10 @@ def admin_portal():
             "published": bool(fb.consent_to_publish and fb.rating >= 4 and (fb.comment or "").strip()),
             "created_at": fb.created_at,
         })
+    contact_rows = [{
+        "id": cm.id, "name": cm.name, "email": cm.email,
+        "mobile": cm.mobile or "", "message": cm.message, "created_at": cm.created_at,
+    } for cm in ContactMessage.query.order_by(ContactMessage.created_at.desc()).limit(100).all()]
     total_credits_remaining = sum(row["credits_remaining"] for row in user_rows)
     verified_users = sum(1 for row in user_rows if row["email_verified"])
     paid_credit_grants = sum(max(0, row["credits"]) for row in grant_rows)
@@ -1641,6 +1787,7 @@ def admin_portal():
         runs=run_rows,
         grants=grant_rows,
         feedback=feedback_rows,
+        messages=contact_rows,
         api_usage=_api_usage_stats(),
         billing_sync={
             "openai": provider_billing.openai_admin_configured(),
@@ -1740,6 +1887,33 @@ def privacy_page():
     )
 
 
+@app.route("/accessibility")
+def accessibility_page():
+    return render_template("accessibility.html", updated=LEGAL_UPDATED)
+
+
+@app.route("/contact")
+def contact_page():
+    return render_template("contact.html")
+
+
+@app.route("/api/contact", methods=["POST"])
+def contact_submit():
+    """Public contact form. Stores the message; admins read it in the dashboard."""
+    data = request.get_json(silent=True) or {}
+    name = _clean_str(data.get("name"), 160)
+    email = _clean_str(data.get("email"), 255)
+    mobile = _clean_str(data.get("mobile"), 40)
+    message = _clean_str(data.get("message"), 4000)
+    if not name or not message:
+        return jsonify({"status": "error", "message": "Please enter your name and a message."}), 400
+    if not _re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        return jsonify({"status": "error", "message": "Please enter a valid email address."}), 400
+    db.session.add(ContactMessage(name=name, email=email, mobile=mobile or None, message=message))
+    db.session.commit()
+    return jsonify({"status": "ok", "message": "Thanks! We'll get back to you soon."})
+
+
 @app.route("/favicon.ico")
 def favicon():
     svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
@@ -1748,6 +1922,44 @@ def favicon():
 <circle cx="48" cy="43" r="4" fill="#c8462e"/>
 </svg>"""
     return Response(svg, mimetype="image/svg+xml")
+
+
+# ---------------------------------------------------------------------------
+# Phase 14: error handlers + safe security headers
+# ---------------------------------------------------------------------------
+def _wants_json():
+    return request.path.startswith("/api/") or request.path.startswith("/stripe/")
+
+
+@app.errorhandler(404)
+def _handle_404(e):
+    if _wants_json():
+        return jsonify({"status": "error", "message": "Not found."}), 404
+    return render_template("error.html", code="404", title="Page not found",
+                           message="That page doesn't exist or may have moved."), 404
+
+
+@app.errorhandler(413)
+def _handle_413(e):
+    return jsonify({"status": "error",
+                    "message": "That file is too large. The maximum upload size is 8 MB."}), 413
+
+
+@app.errorhandler(500)
+def _handle_500(e):
+    if _wants_json():
+        return jsonify({"status": "error", "message": "Something went wrong. Please try again."}), 500
+    return render_template("error.html", code="500", title="Something went wrong",
+                           message="An unexpected error occurred on our end. Please try again."), 500
+
+
+@app.after_request
+def _security_headers(resp):
+    # Safe, framing-compatible headers. CSP and X-Frame-Options are intentionally
+    # left to the production reverse proxy so they can't break local previews.
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    return resp
 
 
 if __name__ == "__main__":

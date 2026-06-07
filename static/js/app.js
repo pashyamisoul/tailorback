@@ -804,7 +804,11 @@ function renderAtsReport(data) {
   panel.style.display = '';
 
   // --- keyword match rate ---
-  const matched = data.match?.covered || [];
+  // Prefer short matched keywords over the model's full requirement sentences,
+  // so the chips stay readable.
+  const matched = (data.analysis?.present_keywords && data.analysis.present_keywords.length)
+    ? data.analysis.present_keywords
+    : (data.match?.covered || []);
   const missingKw = (data.analysis?.missing_keywords && data.analysis.missing_keywords.length)
     ? data.analysis.missing_keywords
     : (data.match?.missing || []);
@@ -1215,4 +1219,66 @@ document.addEventListener("click", (e) => {
       document.querySelectorAll('.account .avatar').forEach(el => { el.textContent = initial; });
     }).catch(() => {});
   }
+})();
+
+// ---- Phase 11: interview prep ----
+document.getElementById('openInterview')?.addEventListener('click', async () => {
+  if (!currentJobId) { toast('Generate a résumé first to get interview prep.'); return; }
+  const modal = document.getElementById('interviewModal');
+  const body = document.getElementById('interviewBody');
+  body.innerHTML = '<p class="iv-loading">Preparing questions…</p>';
+  openModal(modal);
+  try {
+    const res = await fetch('/api/interview-prep', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_id: currentJobId }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.status !== 'ok') throw new Error(data.message || 'Could not prepare questions.');
+    if (!data.questions.length) { body.innerHTML = '<p class="iv-loading">No questions came back. Try again.</p>'; return; }
+    const catLabel = { technical: 'Technical', behavioral: 'Behavioral', 'role-specific': 'Role-specific', gap: 'Gap / risk' };
+    body.innerHTML = data.questions.map((q, i) =>
+      '<div class="iv-q">' +
+        '<div class="iv-q-top"><span class="iv-cat iv-' + q.category + '">' + (catLabel[q.category] || q.category) + '</span><span class="iv-n">Q' + (i + 1) + '</span></div>' +
+        '<div class="iv-question">' + escapeHtml(q.question) + '</div>' +
+        (q.why ? '<div class="iv-why"><strong>Why they ask:</strong> ' + escapeHtml(q.why) + '</div>' : '') +
+        (q.tip ? '<div class="iv-tip"><strong>How to answer:</strong> ' + escapeHtml(q.tip) + '</div>' : '') +
+      '</div>').join('');
+  } catch (e) {
+    body.innerHTML = '<p class="iv-loading err">' + escapeHtml(e.message || 'Could not prepare questions.') + '</p>';
+  }
+});
+// ---- Contact: footer link opens a pop-up modal (instead of navigating) ----
+(function () {
+  const modal = document.getElementById('contactModal');
+  const link = document.getElementById('footerContact');
+  if (!modal || !link) return;
+  link.addEventListener('click', (e) => { e.preventDefault(); openModal(modal); });
+  const form = document.getElementById('contactModalForm');
+  form && form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const note = document.getElementById('cmNote');
+    const btn = document.getElementById('cmSubmit');
+    note.textContent = ''; note.className = 'cf-note';
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: document.getElementById('cmName').value.trim(),
+          email: document.getElementById('cmEmail').value.trim(),
+          mobile: document.getElementById('cmMobile').value.trim(),
+          message: document.getElementById('cmMessage').value.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.status !== 'ok') throw new Error(data.message || 'Could not send your message.');
+      note.textContent = data.message; note.className = 'cf-note ok';
+      form.reset();
+    } catch (err) {
+      note.textContent = err.message || 'Could not send your message.'; note.className = 'cf-note err';
+    } finally {
+      btn.disabled = false;
+    }
+  });
 })();
