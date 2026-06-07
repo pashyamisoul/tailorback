@@ -1735,6 +1735,8 @@ html.paper-boot .grain { animation: grainBloom .85s ease both; }
 html[data-theme="terminal"]{
   --paper:#0d1117; --paper-2:#161b22; --ink:#c9d1d9; --ink-soft:#8b949e;
   --line:#30363d; --accent:#39d353; --accent-deep:#2ea043;
+  /* brighter good/warn so chips, marks and scores read on the dark background */
+  --good:#3fb950; --warn:#d29922;
 }
 html[data-theme="terminal"] body{
   background:var(--paper); color:var(--ink);
@@ -2648,3 +2650,11 @@ html[data-theme="terminal"] .score-pill strong { font-family: "JetBrains Mono", 
 .cv-linkedin-hint svg { color: #0a66c2; flex: none; margin-top: .15rem; }
 .cv-linkedin-hint strong { color: var(--ink); font-weight: 700; }
 html[data-theme="terminal"] .cv-linkedin-hint svg { color: var(--accent); }
+
+/* ============================================================
+   Terminal-mode fixes: keep missing=red, matched=green readable on dark
+   ============================================================ */
+html[data-theme="terminal"] .kw.off { color: #ff7b72; border-color: #7a342e; background: rgba(248,81,73,.14); }
+html[data-theme="terminal"] .ats-item.warn .ats-mark { color: #ff7b72; background: rgba(248,81,73,.18); }
+html[data-theme="terminal"] .ats-score.some { color: #ff7b72; }
+html[data-theme="terminal"] .kw.on { color: var(--good); border-color: #2f6b3f; }
