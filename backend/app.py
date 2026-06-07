@@ -1295,6 +1295,37 @@ def refine_section():
     return jsonify({"status": "ok", "kind": kind, "content": out})
 
 
+@app.route("/api/writing-check", methods=["POST"])
+def writing_check():
+    """Phase 9: grammar / writing-quality suggestions for the resume. Free."""
+    current_user = _current_user()
+    if not current_user:
+        return jsonify({"status": "error", "message": "Please sign in."}), 401
+    if not any(os.environ.get(k) for k in (
+            "OPENAI_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY")):
+        return jsonify({"status": "error", "message": "Server missing an LLM API key."}), 500
+    text = _clean_str((request.get_json(silent=True) or {}).get("text"), 12000)
+    if not text:
+        return jsonify({"status": "error", "message": "Nothing to check."}), 400
+    try:
+        result = llm.writing_check(text)
+    except Exception:
+        app.logger.exception("Writing check failed")
+        return jsonify({"status": "error", "message": "Could not check the writing. Try again."}), 502
+    issues = []
+    for it in (result.get("issues") or [])[:12]:
+        if not isinstance(it, dict):
+            continue
+        sev = it.get("severity") if it.get("severity") in ("high", "medium", "low") else "medium"
+        issues.append({
+            "excerpt": _clean_str(it.get("excerpt"), 240),
+            "problem": _clean_str(it.get("problem"), 300),
+            "suggestion": _clean_str(it.get("suggestion"), 400),
+            "severity": sev,
+        })
+    return jsonify({"status": "ok", "issues": issues})
+
+
 @app.route("/api/export", methods=["POST"])
 def export_documents():
     """Rebuild resume + cover-letter docx/pdf from edited content and a chosen

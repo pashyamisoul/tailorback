@@ -465,3 +465,50 @@ def refine_section(kind, content, instruction="", tone="", length="", context=No
     parts.append("CURRENT CONTENT:\n" + json.dumps(content, indent=2, ensure_ascii=False))
     parts.append("Rewrite it now and return ONLY the JSON object.")
     return _json_call(system, "\n\n".join(parts))
+
+
+# ---------------------------------------------------------------------------
+# Phase 9: writing-quality check (grammar/clarity, never invents facts)
+# ---------------------------------------------------------------------------
+def writing_check(resume_text):
+    """Return writing-quality issues for a resume. Suggestions only; no new facts."""
+    system = (
+        "You are a meticulous resume editor. Review the RESUME TEXT for writing-quality "
+        "issues ONLY: grammar, spelling, punctuation, verb-tense consistency, passive or "
+        "weak phrasing, wordiness, and vague wording. Do NOT invent facts and do NOT "
+        "suggest adding skills, metrics, or experience the candidate has not stated. "
+        "Do NOT use em dashes (use commas, periods, colons, or hyphens).\n\n"
+        "Respond with ONLY JSON, no markdown fences: "
+        "{\"issues\": [{\"excerpt\": str, \"problem\": str, \"suggestion\": str, "
+        "\"severity\": \"high\"|\"medium\"|\"low\"}]}. "
+        "If the writing is already clean, return an empty list. At most 12 issues, "
+        "most important first. 'excerpt' must be a short quote from the text."
+    )
+    user = "RESUME TEXT:\n\"\"\"\n" + (resume_text or "") + "\n\"\"\"\n\nReturn the JSON now."
+    return _json_call(system, user)
+
+
+# ---------------------------------------------------------------------------
+# Phase 11: interview preparation (questions grounded in the JD + resume)
+# ---------------------------------------------------------------------------
+def interview_questions(jd_text, resume_text, company=None, role=None):
+    """Likely interview questions tailored to the role and the candidate."""
+    system = (
+        "You are an experienced hiring manager preparing a candidate for an interview. "
+        "Using the JOB DESCRIPTION and the candidate's RESUME, produce likely interview "
+        "questions tailored to this specific role and candidate. Ground every question in "
+        "the actual job requirements and the candidate's real experience or gaps. Do NOT "
+        "invent facts about the candidate. Do NOT use em dashes.\n\n"
+        "Respond with ONLY JSON, no markdown fences: {\"questions\": [{\"question\": str, "
+        "\"category\": \"technical\"|\"behavioral\"|\"role-specific\"|\"gap\", "
+        "\"why\": str, \"tip\": str}]}. Provide 6 to 10 questions spread across categories. "
+        "'why' = why an interviewer would ask it; 'tip' = how to answer it well."
+    )
+    parts = []
+    label = " at ".join([x for x in [role, company] if x])
+    if label:
+        parts.append("ROLE: " + label)
+    parts.append("JOB DESCRIPTION:\n\"\"\"\n" + (jd_text or "") + "\n\"\"\"")
+    parts.append("CANDIDATE RESUME:\n\"\"\"\n" + (resume_text or "") + "\n\"\"\"")
+    parts.append("Return the JSON now.")
+    return _json_call(system, "\n\n".join(parts))

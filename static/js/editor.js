@@ -90,6 +90,7 @@
     ST.resume = data.resume || {};
     ST.cover = data.cover_letter || {};
     ST.job = data.job || {};
+    ST.analysis = data.analysis || {};
     ST.style = Object.assign(
       { template: "editorial", accent: "c8462e", font: "Calibri", density: "comfortable" },
       data.style || {});
@@ -186,6 +187,12 @@
         </div>
         <p class="side-hint">Compact fits more on a page. Use it to keep a long resume to one page.</p>
       </div>
+      <div class="side-group" id="wqGroup">
+        <h4>Writing &amp; keywords</h4>
+        <button type="button" class="wq-btn" id="wqCheck">Check writing</button>
+        <div class="wq-issues" id="wqIssues"></div>
+        <div class="wq-kw-wrap" id="wqKwWrap"></div>
+      </div>
       <p class="side-note">Edits and style apply to your download. Click any text in the page to edit it. Use ↑ ↓ to reorder bullets and roles.</p>`;
 
     side.querySelector("#tplGrid").addEventListener("click", e => {
@@ -210,6 +217,80 @@
       side.querySelectorAll("#densityToggle button").forEach(x => x.classList.toggle("active", x === b));
       applyStageStyle(); markDirty();
     });
+    bindWritingTools();
+  }
+
+  // ---- Phase 9: writing check + keyword-insert ----------------------------
+  function bindWritingTools() {
+    const checkBtn = document.getElementById("wqCheck");
+    const issuesBox = document.getElementById("wqIssues");
+    if (checkBtn && issuesBox) {
+      checkBtn.addEventListener("click", async () => {
+        checkBtn.disabled = true;
+        issuesBox.innerHTML = '<p class="wq-status">Checking…</p>';
+        try {
+          const res = await fetch("/api/writing-check", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: buildResumeText(ST.resume || {}) }),
+          });
+          const data = await res.json();
+          if (!res.ok || data.status !== "ok") throw new Error(data.message || "Check failed.");
+          if (!data.issues.length) {
+            issuesBox.innerHTML = '<p class="wq-status ok">No writing issues found.</p>';
+            return;
+          }
+          issuesBox.innerHTML = data.issues.map(it =>
+            '<div class="wq-issue sev-' + esc(it.severity) + '">' +
+              '<div class="wq-issue-h">' + esc(it.problem) + '</div>' +
+              (it.excerpt ? '<div class="wq-excerpt">"' + esc(it.excerpt) + '"</div>' : '') +
+              '<div class="wq-fix">' + esc(it.suggestion) + '</div>' +
+            '</div>').join("");
+        } catch (e) {
+          issuesBox.innerHTML = '<p class="wq-status err">' + esc(e.message || "Could not check.") + '</p>';
+        } finally {
+          checkBtn.disabled = false;
+        }
+      });
+    }
+
+    // Missing keywords -> click to weave one into the summary, truthfully.
+    const kwWrap = document.getElementById("wqKwWrap");
+    const missing = ((ST.analysis && ST.analysis.missing_keywords) || []).slice(0, 12);
+    if (kwWrap && missing.length) {
+      kwWrap.innerHTML = '<h5 class="wq-kw-title">Missing keywords</h5>' +
+        '<p class="wq-kw-help">Click one to weave it into your summary, only if your experience supports it.</p>' +
+        '<div class="wq-kw">' + missing.map(k =>
+          '<button type="button" class="wq-kw-chip" data-kw="' + esc(k) + '">' + esc(k) + '</button>').join("") + '</div>';
+      kwWrap.querySelector(".wq-kw").addEventListener("click", async (e) => {
+        const b = e.target.closest("[data-kw]"); if (!b) return;
+        const kw = b.dataset.kw;
+        b.disabled = true; b.classList.add("loading");
+        try {
+          const res = await fetch("/api/refine", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              kind: "summary",
+              content: ST.resume.summary || "",
+              instruction: "Naturally incorporate the keyword \"" + kw + "\" ONLY if the candidate's existing experience genuinely supports it. If it is not supported by the current content, return the summary unchanged. Never fabricate.",
+              context: { role: ST.job.role || ST.job.title || null, company: ST.job.company || null },
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok || data.status !== "ok") throw new Error(data.message || "Could not update.");
+          const changed = (data.content || "") !== (ST.resume.summary || "");
+          ST.resume.summary = data.content || ST.resume.summary;
+          markDirty(); renderStage();
+          notify(changed ? '"' + kw + '" woven into your summary.' : '"' + kw + '" was not added (your experience does not evidence it).', !changed);
+          if (changed) b.classList.add("done"); else b.classList.add("skipped");
+        } catch (err) {
+          notify(err.message || "Could not update.", true);
+        } finally {
+          b.disabled = false; b.classList.remove("loading");
+        }
+      });
+    }
   }
 
   function setAccent(hex) {

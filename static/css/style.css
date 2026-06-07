@@ -2580,3 +2580,30 @@ html[data-theme="terminal"] summary:focus-visible { outline-color: var(--accent)
 html[data-theme="terminal"] .kw-rate, html[data-theme="terminal"] .ats-score { font-family: "JetBrains Mono", monospace; }
 
 @media (max-width: 720px) { .ats-grid { grid-template-columns: 1fr; } }
+
+/* ============================================================
+   PHASE 9b — writing check + keyword-insert (studio sidebar)
+   ============================================================ */
+.wq-btn { width: 100%; font-family: inherit; font-weight: 700; font-size: .85rem; border: 1px solid var(--line); background: var(--paper); color: var(--ink); border-radius: 9px; padding: .55rem .8rem; cursor: pointer; }
+.wq-btn:hover { border-color: var(--accent); color: var(--accent); }
+.wq-btn:disabled { opacity: .6; cursor: default; }
+.wq-status { font-size: .82rem; color: var(--ink-soft); margin: .6rem 0 0; }
+.wq-status.ok { color: var(--good); }
+.wq-status.err { color: var(--accent); }
+.wq-issues { display: flex; flex-direction: column; gap: .5rem; margin-top: .6rem; }
+.wq-issue { border: 1px solid var(--line); border-left: 3px solid var(--ink-soft); border-radius: 8px; padding: .5rem .6rem; background: rgba(255,255,255,.4); }
+.wq-issue.sev-high { border-left-color: var(--accent); }
+.wq-issue.sev-medium { border-left-color: var(--warn); }
+.wq-issue.sev-low { border-left-color: var(--ink-soft); }
+.wq-issue-h { font-weight: 700; font-size: .82rem; }
+.wq-excerpt { font-size: .78rem; color: var(--ink-soft); font-style: italic; margin: .25rem 0; }
+.wq-fix { font-size: .8rem; color: var(--ink); }
+.wq-kw-wrap { margin-top: 1rem; }
+.wq-kw-title { margin: 0 0 .2rem; font-size: .8rem; }
+.wq-kw-help { font-size: .74rem; color: var(--ink-soft); margin: 0 0 .5rem; line-height: 1.4; }
+.wq-kw { display: flex; flex-wrap: wrap; gap: .35rem; }
+.wq-kw-chip { font-family: inherit; font-size: .76rem; border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line)); color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); border-radius: 999px; padding: .2rem .6rem; cursor: pointer; }
+.wq-kw-chip:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.wq-kw-chip.loading { opacity: .55; cursor: default; }
+.wq-kw-chip.done { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, var(--line)); background: color-mix(in srgb, var(--good) 10%, transparent); }
+.wq-kw-chip.skipped { color: var(--ink-soft); border-color: var(--line); background: var(--paper-2); text-decoration: line-through; }
