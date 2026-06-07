@@ -421,11 +421,21 @@ html[data-theme="terminal"] .go .gicon { display: none; }
 }
 .site-footer .footer-copy { font-weight: 500; color: var(--ink-soft); }
 .site-footer a {
+  position: relative;
   color: var(--ink-soft);
   text-decoration: none;
   font-weight: 700;
 }
 .site-footer a:hover { color: var(--accent); }
+/* A "|" divider between consecutive footer links (centered in the gap). */
+.site-footer a + a::before {
+  content: "|";
+  position: absolute;
+  left: -0.55rem;
+  color: var(--ink-soft);
+  font-weight: 400;
+  pointer-events: none;
+}
 
 /* ---------- pro menu ---------- */
 .pro-menu {
