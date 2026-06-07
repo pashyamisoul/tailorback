@@ -611,12 +611,50 @@ def _make_email_verification_token():
     return uuid.uuid4().hex + uuid.uuid4().hex
 
 
+def _smtp_send(to_email, subject, body):
+    """Send a plain-text email via SMTP using env config. Raises on failure."""
+    import smtplib
+    from email.message import EmailMessage
+    host = os.environ["SMTP_HOST"]
+    port = int(os.environ.get("SMTP_PORT", "587"))
+    user = os.environ.get("SMTP_USER")
+    password = os.environ.get("SMTP_PASSWORD")
+    sender = os.environ.get("SMTP_FROM") or user or "no-reply@tailorback.app"
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = sender
+    msg["To"] = to_email
+    msg.set_content(body)
+    if os.environ.get("SMTP_USE_SSL") == "1":
+        with smtplib.SMTP_SSL(host, port, timeout=20) as s:
+            if user:
+                s.login(user, password)
+            s.send_message(msg)
+    else:
+        with smtplib.SMTP(host, port, timeout=20) as s:
+            s.starttls()
+            if user:
+                s.login(user, password)
+            s.send_message(msg)
+
+
 def _send_activation_email(user):
     activation_url = url_for("activate_email", token=user.email_verification_token, _external=True)
-    if os.environ.get("FLASK_ENV") == "production":
-        app.logger.warning("Email provider is not configured; activation email was not sent for %s", user.email)
+    body = (
+        "Welcome to TailorBack!\n\n"
+        "Activate your account by opening this link:\n"
+        f"{activation_url}\n\n"
+        "If you did not sign up, you can ignore this email."
+    )
+    if os.environ.get("SMTP_HOST"):
+        try:
+            _smtp_send(user.email, "Activate your TailorBack account", body)
+            app.logger.info("Activation email sent to %s", user.email)
+        except Exception:
+            app.logger.exception("Failed to send activation email to %s", user.email)
     else:
-        app.logger.warning("TailorBack activation link for %s: %s", user.email, activation_url)
+        # No mail provider configured: log the link so dev/self-host can still activate.
+        app.logger.warning("SMTP not configured; activation link for %s: %s", user.email, activation_url)
     return activation_url
 
 
@@ -1838,6 +1876,44 @@ def favicon():
 <circle cx="48" cy="43" r="4" fill="#c8462e"/>
 </svg>"""
     return Response(svg, mimetype="image/svg+xml")
+
+
+# ---------------------------------------------------------------------------
+# Phase 14: error handlers + safe security headers
+# ---------------------------------------------------------------------------
+def _wants_json():
+    return request.path.startswith("/api/") or request.path.startswith("/stripe/")
+
+
+@app.errorhandler(404)
+def _handle_404(e):
+    if _wants_json():
+        return jsonify({"status": "error", "message": "Not found."}), 404
+    return render_template("error.html", code="404", title="Page not found",
+                           message="That page doesn't exist or may have moved."), 404
+
+
+@app.errorhandler(413)
+def _handle_413(e):
+    return jsonify({"status": "error",
+                    "message": "That file is too large. The maximum upload size is 8 MB."}), 413
+
+
+@app.errorhandler(500)
+def _handle_500(e):
+    if _wants_json():
+        return jsonify({"status": "error", "message": "Something went wrong. Please try again."}), 500
+    return render_template("error.html", code="500", title="Something went wrong",
+                           message="An unexpected error occurred on our end. Please try again."), 500
+
+
+@app.after_request
+def _security_headers(resp):
+    # Safe, framing-compatible headers. CSP and X-Frame-Options are intentionally
+    # left to the production reverse proxy so they can't break local previews.
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    return resp
 
 
 if __name__ == "__main__":

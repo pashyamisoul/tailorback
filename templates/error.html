@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="editorial">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ title }} · TailorBack</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <style>
+    .err-wrap { min-height: 70vh; display: grid; place-items: center; text-align: center; padding: 3rem 1.5rem; }
+    .err-code { font-family: "Spline Sans Mono", monospace; font-size: .8rem; letter-spacing: .2em; text-transform: uppercase; color: var(--accent); }
+    .err-wrap h1 { font-weight: 900; letter-spacing: -.03em; font-size: clamp(1.8rem, 5vw, 2.8rem); margin: .6rem 0 .5rem; }
+    .err-wrap p { color: var(--ink-soft); max-width: 44ch; margin: 0 auto 1.6rem; line-height: 1.6; }
+    .err-home { display: inline-flex; align-items: center; gap: .4rem; font-weight: 800; text-decoration: none; background: var(--ink); color: var(--paper); padding: .7rem 1.3rem; border-radius: 10px; }
+    .err-home:hover { background: var(--accent); }
+    .err-logo { font-weight: 900; letter-spacing: -.02em; margin-bottom: 2rem; font-size: 1.2rem; }
+    .err-logo .ink { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="grain"></div>
+  <div class="err-wrap">
+    <div>
+      <div class="err-logo">Tailor<span class="ink">Back</span></div>
+      <div class="err-code">Error {{ code }}</div>
+      <h1>{{ title }}</h1>
+      <p>{{ message }}</p>
+      <a class="err-home" href="/">Back to TailorBack <span aria-hidden="true">→</span></a>
+    </div>
+  </div>
+</body>
+</html>
