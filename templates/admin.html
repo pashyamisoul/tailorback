@@ -6,6 +6,12 @@
   <title>TailorBack Admin</title>
   <link rel="stylesheet" href="/static/css/style.css" />
   <style>
+    .admin-brand { display: flex; flex-direction: column; gap: .35rem; }
+    .admin-brand-row { display: flex; align-items: center; gap: .7rem; }
+    .admin-wordmark { font-family: "Inter", system-ui, sans-serif; font-weight: 900; font-size: clamp(1.9rem, 4vw, 2.8rem); letter-spacing: -.03em; line-height: 1; color: var(--ink); }
+    .admin-wordmark .ac { color: var(--accent); }
+    .admin-chip { font-family: "Spline Sans Mono", monospace; font-size: .64rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 6px; padding: .26rem .5rem; background: color-mix(in srgb, var(--accent) 8%, transparent); }
+    .admin-sub { color: var(--ink-soft); font-size: .9rem; font-weight: 500; }
     .adt-bar { position: sticky; top: 0; z-index: 20; background: var(--paper); border-bottom: 1px solid var(--line); max-width: 1240px; margin: 0 auto; padding: 0 1.5rem; display: flex; gap: .2rem; flex-wrap: wrap; }
     .adt-bar button { border: 0; background: none; font: inherit; font-weight: 700; font-size: .9rem; color: var(--ink-soft); padding: .9rem .9rem; cursor: pointer; border-bottom: 2px solid transparent; }
     .adt-bar button.on { color: var(--ink); border-color: var(--accent); }
@@ -39,9 +45,12 @@
 </head>
 <body class="admin-body">
   <header class="admin-top">
-    <div>
-      <span class="admin-kicker">TailorBack Admin</span>
-      <h1>Operations dashboard</h1>
+    <div class="admin-brand">
+      <div class="admin-brand-row">
+        <span class="admin-wordmark">Tailor<span class="ac">Back</span></span>
+        <span class="admin-chip">Admin</span>
+      </div>
+      <span class="admin-sub">Internal console</span>
     </div>
     <a href="/admin/logout">Sign out</a>
   </header>
