@@ -804,7 +804,11 @@ function renderAtsReport(data) {
   panel.style.display = '';
 
   // --- keyword match rate ---
-  const matched = data.match?.covered || [];
+  // Prefer short matched keywords over the model's full requirement sentences,
+  // so the chips stay readable.
+  const matched = (data.analysis?.present_keywords && data.analysis.present_keywords.length)
+    ? data.analysis.present_keywords
+    : (data.match?.covered || []);
   const missingKw = (data.analysis?.missing_keywords && data.analysis.missing_keywords.length)
     ? data.analysis.missing_keywords
     : (data.match?.missing || []);

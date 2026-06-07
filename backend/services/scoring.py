@@ -169,6 +169,7 @@ def score_resume(cv_text, jd_text, model_analysis=None):
         **model_analysis,
         "overall_score": overall,
         "dimensions": dimensions,
+        "present_keywords": present_keywords[:16],
         "missing_keywords": model_missing or missing,
         "verdict": model_analysis.get("verdict") or
                    "This score is calculated deterministically from keyword coverage, requirement evidence, structure, and quantified impact.",
