@@ -284,6 +284,20 @@
         </div>
       </div>
 
+      <div class="result-feedback" id="resultFeedback">
+        <div>
+          <strong>How did this generation go?</strong>
+          <span>Rate your result, it helps us improve TailorBack.</span>
+        </div>
+        <div class="fb-stars" id="fbResultStars" role="radiogroup" aria-label="Rate 1 to 5 stars">
+          <button type="button" class="fb-star" data-val="1" aria-label="1 star">★</button>
+          <button type="button" class="fb-star" data-val="2" aria-label="2 stars">★</button>
+          <button type="button" class="fb-star" data-val="3" aria-label="3 stars">★</button>
+          <button type="button" class="fb-star" data-val="4" aria-label="4 stars">★</button>
+          <button type="button" class="fb-star" data-val="5" aria-label="5 stars">★</button>
+        </div>
+      </div>
+
     </section>
 
     <!-- ===================== LANDING TRUST CONTENT ===================== -->
@@ -330,22 +344,49 @@
 
       <div class="lz-block">
         <h2 class="lz-h">What job-seekers say</h2>
-        <p class="lz-ph-note">Placeholder testimonials; swap in real ones before launch.</p>
         <div class="lz-quotes">
-          <figure class="lz-quote">
-            <blockquote>"[Add a real quote about how the honest tailoring helped land an interview.]"</blockquote>
-            <figcaption>[Reviewer name], [Role]</figcaption>
-          </figure>
-          <figure class="lz-quote">
-            <blockquote>"[Add a real quote about the match score / editor.]"</blockquote>
-            <figcaption>[Reviewer name], [Role]</figcaption>
-          </figure>
-          <figure class="lz-quote">
-            <blockquote>"[Add a real quote about ease of use / speed.]"</blockquote>
-            <figcaption>[Reviewer name], [Role]</figcaption>
-          </figure>
+          {% if testimonials %}
+            {% for t in testimonials %}
+            <figure class="lz-quote">
+              <div class="lz-stars" aria-label="{{ t.rating }} out of 5">{% for _ in range(t.rating) %}★{% endfor %}</div>
+              <blockquote>"{{ t.text }}"</blockquote>
+              <figcaption>{{ t.name }}{% if t.role %}, {{ t.role }}{% endif %}</figcaption>
+            </figure>
+            {% endfor %}
+          {% else %}
+            <figure class="lz-quote">
+              <blockquote>"[Add a real quote about how the honest tailoring helped land an interview.]"</blockquote>
+              <figcaption>[Reviewer name], [Role]</figcaption>
+            </figure>
+            <figure class="lz-quote">
+              <blockquote>"[Add a real quote about the match score / editor.]"</blockquote>
+              <figcaption>[Reviewer name], [Role]</figcaption>
+            </figure>
+            <figure class="lz-quote">
+              <blockquote>"[Add a real quote about ease of use / speed.]"</blockquote>
+              <figcaption>[Reviewer name], [Role]</figcaption>
+            </figure>
+          {% endif %}
         </div>
       </div>
+
+      <section class="fb-band" aria-label="Leave feedback">
+        <div class="fb-text">
+          <span class="lz-kicker">Your feedback</span>
+          <h2>How's TailorBack working for you?</h2>
+          <p>Rate your experience and tell us what to improve. With your okay, standout reviews become testimonials on this page.</p>
+        </div>
+        <div class="fb-action">
+          <div class="fb-stars" id="fbBandStars" role="radiogroup" aria-label="Rate 1 to 5 stars">
+            <button type="button" class="fb-star" data-val="1" aria-label="1 star">★</button>
+            <button type="button" class="fb-star" data-val="2" aria-label="2 stars">★</button>
+            <button type="button" class="fb-star" data-val="3" aria-label="3 stars">★</button>
+            <button type="button" class="fb-star" data-val="4" aria-label="4 stars">★</button>
+            <button type="button" class="fb-star" data-val="5" aria-label="5 stars">★</button>
+          </div>
+          <button type="button" class="fb-btn" id="openFeedback">Leave feedback</button>
+        </div>
+      </section>
 
     </section>
   </main>
@@ -456,6 +497,46 @@
     <div class="loader">
       <div class="bars"><i></i><i></i><i></i><i></i></div>
       <p id="loaderText">Reading the job…</p>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="feedbackModal" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle">
+    <div class="modal-card feedback-card">
+      <button type="button" class="modal-close" data-close-modal aria-label="Close">×</button>
+      <h2 id="feedbackTitle">Leave feedback</h2>
+      <p class="fb-modal-sub">Your rating helps us improve. Reviews you approve may appear on our homepage.</p>
+      <form id="feedbackForm">
+        <label class="fb-field">
+          <span>Your rating</span>
+          <div class="fb-stars fb-stars-lg" id="fbModalStars" role="radiogroup" aria-label="Rate 1 to 5 stars">
+            <button type="button" class="fb-star" data-val="1" aria-label="1 star">★</button>
+            <button type="button" class="fb-star" data-val="2" aria-label="2 stars">★</button>
+            <button type="button" class="fb-star" data-val="3" aria-label="3 stars">★</button>
+            <button type="button" class="fb-star" data-val="4" aria-label="4 stars">★</button>
+            <button type="button" class="fb-star" data-val="5" aria-label="5 stars">★</button>
+          </div>
+        </label>
+        <label class="fb-field">
+          <span>What worked, or what should we improve?</span>
+          <textarea id="fbComment" rows="4" maxlength="2000" placeholder="Optional, but appreciated…"></textarea>
+        </label>
+        <label class="fb-consent">
+          <input type="checkbox" id="fbConsent" />
+          <span>You can publish this as a testimonial on the homepage.</span>
+        </label>
+        <div class="fb-publish-fields hidden" id="fbPublishFields">
+          <label class="fb-field">
+            <span>Display name (shown publicly)</span>
+            <input type="text" id="fbName" maxlength="120" placeholder="e.g. Jordan A." />
+          </label>
+          <label class="fb-field">
+            <span>Role / title (optional)</span>
+            <input type="text" id="fbRole" maxlength="120" placeholder="e.g. Product Engineer" />
+          </label>
+        </div>
+        <p class="fb-error hidden" id="fbError"></p>
+        <button type="submit" class="fb-btn fb-submit" id="fbSubmit">Send feedback</button>
+      </form>
     </div>
   </div>
 

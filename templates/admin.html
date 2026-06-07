@@ -44,6 +44,11 @@
         <strong>{% if stats.avg_generation_seconds %}{{ stats.avg_generation_seconds }}s{% else %}-{% endif %}</strong>
         <small>new runs only</small>
       </article>
+      <article>
+        <span>Feedback</span>
+        <strong>{% if stats.avg_rating %}{{ stats.avg_rating }}&#9733;{% else %}-{% endif %}</strong>
+        <small>{{ stats.feedback_count }} reviews</small>
+      </article>
     </section>
 
     <section class="admin-panel">
@@ -121,6 +126,43 @@
             </tr>
             {% else %}
             <tr><td colspan="6">No credit grants yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-section-head">
+        <div>
+          <h2>Feedback and reviews</h2>
+          <p>User ratings and comments. "Published" reviews (consented, rated 4+) appear as landing testimonials.</p>
+        </div>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>User</th>
+              <th>Rating</th>
+              <th>Comment</th>
+              <th>Publish</th>
+              <th>Shown as</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for fb in feedback %}
+            <tr>
+              <td>{{ fb.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+              <td>{{ fb.user_email }}</td>
+              <td>{{ fb.rating }}&#9733;</td>
+              <td>{{ fb.comment or "-" }}</td>
+              <td>{% if fb.published %}live{% elif fb.consent %}consented{% else %}private{% endif %}</td>
+              <td>{% if fb.display_name %}{{ fb.display_name }}{% if fb.role %}, {{ fb.role }}{% endif %}{% else %}-{% endif %}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6">No feedback yet.</td></tr>
             {% endfor %}
           </tbody>
         </table>

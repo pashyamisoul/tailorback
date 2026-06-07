@@ -2446,3 +2446,73 @@ html[data-theme="terminal"] .acct-tab { font-family: "JetBrains Mono", monospace
 }
 html[data-theme="terminal"] .lz-kicker, html[data-theme="terminal"] .lz-num,
 html[data-theme="terminal"] .lz-lift b { font-family: "JetBrains Mono", monospace; }
+
+/* ============================================================
+   PHASE 7 — feedback & reviews
+   ============================================================ */
+/* stars on landing testimonials */
+.lz-stars { color: var(--accent); letter-spacing: .12em; font-size: .95rem; margin-bottom: .5rem; }
+
+/* feedback band above the footer (Variant A) */
+.fb-band {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1.5rem; flex-wrap: wrap;
+  border: 1px solid var(--line); border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--paper));
+  padding: 1.8rem clamp(1.4rem, 4vw, 2.2rem);
+}
+.fb-text h2 { font-weight: 900; letter-spacing: -.02em; font-size: 1.35rem; margin: .35rem 0 .4rem; }
+.fb-text p { color: var(--ink-soft); font-size: .92rem; line-height: 1.5; max-width: 46ch; margin: 0; }
+.fb-action { display: flex; flex-direction: column; align-items: flex-start; gap: .7rem; }
+
+/* star rating widget (shared: band, results, modal) */
+.fb-stars { display: flex; gap: .2rem; }
+.fb-star {
+  border: 0; background: none; padding: 0 .05rem; cursor: pointer;
+  font-size: 1.5rem; line-height: 1; color: var(--line);
+  transition: color .12s, transform .12s;
+}
+.fb-star:hover { transform: scale(1.12); }
+.fb-star.on { color: var(--accent); }
+.fb-stars-lg .fb-star { font-size: 2rem; }
+
+.fb-btn {
+  font-family: inherit; font-weight: 800; font-size: .9rem; border: 0; border-radius: 10px;
+  padding: .7rem 1.3rem; background: var(--ink); color: var(--paper); cursor: pointer;
+  transition: background .15s;
+}
+.fb-btn:hover { background: var(--accent); }
+
+/* post-generation prompt on the results screen */
+.result-feedback {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  margin-top: 1.6rem; padding: 1.1rem 1.3rem;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: rgba(255,255,255,.35);
+}
+.result-feedback strong { display: block; font-size: 1rem; }
+.result-feedback span { color: var(--ink-soft); font-size: .88rem; }
+.result-feedback.is-done { justify-content: center; color: var(--good); font-weight: 700; }
+
+/* feedback modal */
+.feedback-card { max-width: 460px; }
+.feedback-card h2 { font-weight: 900; letter-spacing: -.02em; margin: 0 0 .3rem; }
+.fb-modal-sub { color: var(--ink-soft); font-size: .9rem; margin: 0 0 1.2rem; }
+.fb-field { display: block; margin-bottom: 1rem; }
+.fb-field > span { display: block; font-weight: 700; font-size: .85rem; margin-bottom: .4rem; }
+.fb-field textarea, .fb-field input[type="text"] {
+  width: 100%; box-sizing: border-box; font-family: inherit; font-size: .92rem;
+  border: 1px solid var(--line); border-radius: 10px; padding: .6rem .7rem;
+  background: var(--paper); color: var(--ink); resize: vertical;
+}
+.fb-field textarea:focus, .fb-field input[type="text"]:focus { outline: none; border-color: var(--accent); }
+.fb-consent { display: flex; align-items: flex-start; gap: .55rem; font-size: .88rem; color: var(--ink-soft); margin-bottom: 1rem; cursor: pointer; }
+.fb-consent input { margin-top: .15rem; }
+.fb-error { color: var(--accent); font-size: .85rem; font-weight: 600; margin: 0 0 .8rem; }
+.fb-submit { width: 100%; padding: .8rem; font-size: .95rem; }
+
+@media (max-width: 640px) {
+  .fb-band { flex-direction: column; align-items: flex-start; }
+  .fb-action { align-items: stretch; width: 100%; }
+  .fb-action .fb-btn { width: 100%; }
+}

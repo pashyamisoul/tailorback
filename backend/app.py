@@ -188,6 +188,17 @@ class GenerationRun(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
+class Feedback(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), index=True, nullable=False)
+    rating = db.Column(db.Integer, nullable=False)            # 1-5
+    comment = db.Column(db.Text, nullable=True)
+    consent_to_publish = db.Column(db.Boolean, default=False, nullable=False)
+    display_name = db.Column(db.String(120), nullable=True)
+    role = db.Column(db.String(120), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
 ALLOWED_APP_STATUSES = ("not_applied", "applied", "interviewing", "offer", "rejected")
 
 
@@ -650,6 +661,31 @@ def _inject_globals():
     return {"current_year": datetime.utcnow().year}
 
 
+def _published_testimonials(limit=3):
+    """Auto-published reviews for the landing testimonials: consented + rating >= 4.
+
+    Returns the most recent ones with a non-empty comment. Falls back to an
+    empty list (the template then shows its placeholder quotes)."""
+    rows = (Feedback.query
+            .filter(Feedback.consent_to_publish.is_(True),
+                    Feedback.rating >= 4,
+                    Feedback.comment.isnot(None))
+            .order_by(Feedback.created_at.desc())
+            .limit(limit).all())
+    out = []
+    for r in rows:
+        text = (r.comment or "").strip()
+        if not text:
+            continue
+        out.append({
+            "text": text,
+            "name": (r.display_name or "").strip() or "Verified user",
+            "role": (r.role or "").strip(),
+            "rating": int(r.rating or 0),
+        })
+    return out
+
+
 @app.route("/")
 def index():
     _cleanup_generated()
@@ -662,6 +698,7 @@ def index():
                            credits_limit=credits["credits_limit"],
                            free_credits_limit=FREE_LIMIT,
                            credit_packs=_public_credit_packs(),
+                           testimonials=_published_testimonials(),
                            billing_enabled=bool(os.environ.get("STRIPE_SECRET_KEY")))
 
 @app.route("/auth/google")
@@ -1391,6 +1428,38 @@ def update_generation_status(job_id):
     return jsonify({"status": "ok", "job_status": run.status, "notes": run.notes or ""})
 
 
+@app.route("/api/feedback", methods=["POST"])
+def submit_feedback():
+    """Store a signed-in user's rating + optional review. Consented reviews
+    rated >= 4 are auto-published as landing testimonials."""
+    user = _current_user()
+    if not user:
+        return jsonify({"status": "error", "message": "Please sign in to leave feedback."}), 401
+    data = request.get_json(silent=True) or {}
+    try:
+        rating = int(data.get("rating") or 0)
+    except (TypeError, ValueError):
+        rating = 0
+    if rating < 1 or rating > 5:
+        return jsonify({"status": "error", "message": "Please choose a rating from 1 to 5."}), 400
+    consent = bool(data.get("consent_to_publish"))
+    comment = _clean_str(data.get("comment"), 2000)
+    display_name = (_clean_str(data.get("display_name"), 120) or (user.full_name or "")) if consent else ""
+    role = _clean_str(data.get("role"), 120) if consent else ""
+    fb = Feedback(
+        user_id=user.id,
+        rating=rating,
+        comment=comment or None,
+        consent_to_publish=consent,
+        display_name=display_name or None,
+        role=role or None,
+    )
+    db.session.add(fb)
+    db.session.commit()
+    published = bool(consent and rating >= 4 and comment)
+    return jsonify({"status": "ok", "published": published})
+
+
 def _admin_ok():
     return bool(session.get("admin_ok"))
 
@@ -1446,6 +1515,20 @@ def admin_portal():
             "stripe_session_id": grant.stripe_session_id,
             "created_at": grant.created_at,
         })
+    feedback_rows = []
+    for fb in Feedback.query.order_by(Feedback.created_at.desc()).limit(80).all():
+        fu = db.session.get(User, fb.user_id)
+        feedback_rows.append({
+            "id": fb.id,
+            "user_email": fu.email if fu else "deleted-user",
+            "rating": fb.rating,
+            "comment": fb.comment or "",
+            "consent": bool(fb.consent_to_publish),
+            "display_name": fb.display_name or "",
+            "role": fb.role or "",
+            "published": bool(fb.consent_to_publish and fb.rating >= 4 and (fb.comment or "").strip()),
+            "created_at": fb.created_at,
+        })
     total_credits_remaining = sum(row["credits_remaining"] for row in user_rows)
     verified_users = sum(1 for row in user_rows if row["email_verified"])
     paid_credit_grants = sum(max(0, row["credits"]) for row in grant_rows)
@@ -1458,12 +1541,15 @@ def admin_portal():
         "credits_remaining": total_credits_remaining,
         "credits_granted": paid_credit_grants,
         "avg_generation_seconds": round(sum(avg_seconds_values) / len(avg_seconds_values), 1) if avg_seconds_values else None,
+        "feedback_count": len(feedback_rows),
+        "avg_rating": round(sum(r["rating"] for r in feedback_rows) / len(feedback_rows), 1) if feedback_rows else None,
     }
     return render_template(
         "admin.html",
         users=user_rows,
         runs=run_rows,
         grants=grant_rows,
+        feedback=feedback_rows,
         stats=stats,
     )
 

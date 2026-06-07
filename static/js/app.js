@@ -1003,3 +1003,94 @@ document.addEventListener("click", (e) => {
     menu.hidden = true;
   }
 });
+
+// ---- Phase 7: feedback & reviews ----
+(function () {
+  const modal = document.getElementById('feedbackModal');
+  if (!modal) return;
+  const isSignedIn = () => !!document.querySelector('.account');
+  const errEl = document.getElementById('fbError');
+  let chosen = 0; // rating bound to the modal
+
+  function hideErr() { errEl.classList.add('hidden'); errEl.textContent = ''; }
+  function showErr(m) { errEl.textContent = m; errEl.classList.remove('hidden'); }
+
+  function paint(group, val) {
+    group.querySelectorAll('.fb-star').forEach(s => {
+      s.classList.toggle('on', Number(s.dataset.val) <= val);
+    });
+  }
+  // Wire a star group: hover preview, click to pick. onPick(value) fires on click.
+  function wireStars(group, onPick) {
+    if (!group) return null;
+    let current = 0;
+    group.querySelectorAll('.fb-star').forEach(s => {
+      s.addEventListener('mouseenter', () => paint(group, Number(s.dataset.val)));
+      s.addEventListener('click', () => {
+        current = Number(s.dataset.val);
+        paint(group, current);
+        onPick(current);
+      });
+    });
+    group.addEventListener('mouseleave', () => paint(group, current));
+    group.setCurrent = (v) => { current = v; paint(group, v); };
+    return group;
+  }
+
+  const modalStars = wireStars(document.getElementById('fbModalStars'), v => { chosen = v; hideErr(); });
+
+  function openFeedback(initialRating) {
+    if (!isSignedIn()) { openAuth('signin'); return; }
+    chosen = initialRating || 0;
+    modalStars.setCurrent(chosen);
+    document.getElementById('fbComment').value = '';
+    document.getElementById('fbConsent').checked = false;
+    document.getElementById('fbPublishFields').classList.add('hidden');
+    document.getElementById('fbName').value = '';
+    document.getElementById('fbRole').value = '';
+    hideErr();
+    openModal(modal);
+  }
+
+  wireStars(document.getElementById('fbBandStars'), v => openFeedback(v));
+  wireStars(document.getElementById('fbResultStars'), v => openFeedback(v));
+  document.getElementById('openFeedback')?.addEventListener('click', () => openFeedback(0));
+
+  document.getElementById('fbConsent')?.addEventListener('change', e => {
+    document.getElementById('fbPublishFields').classList.toggle('hidden', !e.target.checked);
+  });
+
+  document.getElementById('feedbackForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (chosen < 1) { showErr('Please choose a rating from 1 to 5.'); return; }
+    const consent = document.getElementById('fbConsent').checked;
+    const payload = {
+      rating: chosen,
+      comment: document.getElementById('fbComment').value.trim(),
+      consent_to_publish: consent,
+      display_name: consent ? document.getElementById('fbName').value.trim() : '',
+      role: consent ? document.getElementById('fbRole').value.trim() : '',
+    };
+    const btn = document.getElementById('fbSubmit');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Could not send feedback.');
+      closeModal(modal);
+      toast(data.published
+        ? 'Thanks! With your okay, your review may appear on our homepage.'
+        : 'Thanks for your feedback!');
+      const rf = document.getElementById('resultFeedback');
+      if (rf) { rf.classList.add('is-done'); rf.textContent = '✓ Thanks for the feedback!'; }
+    } catch (err) {
+      showErr(err.message || 'Could not send feedback.');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
