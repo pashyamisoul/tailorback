@@ -1662,11 +1662,16 @@ def admin_set_budgets():
         if not b:
             b = ProviderBudget(provider=p)
             db.session.add(b)
-        b.starting_balance = _num(request.form.get(f"{p}_balance"))
+        new_balance = _num(request.form.get(f"{p}_balance"))
         b.refill_threshold = _num(request.form.get(f"{p}_threshold"))
-        # Reset the spend countdown when the admin tops up (or on first config).
-        if request.form.get(f"{p}_reset") == "1" or b.balance_since is None:
+        # Each save snapshots "balance as of now": reset the spend countdown
+        # whenever a balance is entered (the admin enters their current balance).
+        if new_balance is not None:
+            b.starting_balance = new_balance
             b.balance_since = datetime.utcnow()
+        else:
+            b.starting_balance = None
+            b.balance_since = None
         b.updated_at = datetime.utcnow()
     db.session.commit()
     return redirect(url_for("admin_portal", saved="budgets"))

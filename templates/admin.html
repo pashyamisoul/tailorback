@@ -6,7 +6,7 @@
   <title>TailorBack Admin</title>
   <link rel="stylesheet" href="/static/css/style.css" />
   <style>
-    .adt-bar { position: sticky; top: 0; z-index: 20; background: var(--paper); border-bottom: 1px solid var(--line); padding: 0 clamp(1rem,4vw,2.5rem); display: flex; gap: .2rem; flex-wrap: wrap; }
+    .adt-bar { position: sticky; top: 0; z-index: 20; background: var(--paper); border-bottom: 1px solid var(--line); max-width: 1240px; margin: 0 auto; padding: 0 1.5rem; display: flex; gap: .2rem; flex-wrap: wrap; }
     .adt-bar button { border: 0; background: none; font: inherit; font-weight: 700; font-size: .9rem; color: var(--ink-soft); padding: .9rem .9rem; cursor: pointer; border-bottom: 2px solid transparent; }
     .adt-bar button.on { color: var(--ink); border-color: var(--accent); }
     .adt-bar button:hover:not(.on) { color: var(--ink); }
@@ -33,6 +33,7 @@
     .budget-form th, .budget-form td { text-align: left; padding: .55rem .5rem; border-bottom: 1px solid var(--line); }
     .budget-form input[type="number"] { width: 90px; padding: .35rem .5rem; border: 1px solid var(--line); border-radius: 7px; font: inherit; }
     .budget-form button { margin-top: .9rem; }
+    .budget-form .fhelp { font-size: .72rem; color: var(--ink-soft); margin-top: .25rem; }
     .muted-note { color: var(--ink-soft); font-size: .82rem; margin-top: .6rem; }
   </style>
 </head>
@@ -98,7 +99,7 @@
           <div class="row"><span>Balance</span><span><b>${{ "%.2f"|format(p.balance) }}</b></span></div>
           <div class="est">{% if p.days_left is not none %}~{{ p.days_left }} days at current rate{% else %}no recent spend{% endif %}</div>
           {% else %}
-          <div class="est">No balance set &mdash; add one below to track refills.</div>
+          <div class="est">No balance set. Add one below to track refills.</div>
           {% endif %}
           <div class="row"><span>Tokens</span><span><b>{{ p.tokens }}</b></span></div>
         </div>
@@ -106,24 +107,24 @@
       </div>
 
       <div class="admin-panel budget-form">
-        <div class="admin-section-head"><div><h2>Provider budgets</h2><p>Set your topped-up balance and a refill threshold per provider. Spend counts down from your last top-up.</p></div></div>
+        <div class="admin-section-head"><div><h2>Track refills</h2>
+          <p>Enter what each provider's balance is <strong>right now</strong>. We subtract estimated spend from that point and warn you when it dips below your alert level. Leave blank to not track a provider. <strong>Saving re-snapshots the balance as of now</strong> (do it each time you top up).</p></div></div>
         <form method="post" action="/admin/budgets">
           <table>
-            <thead><tr><th>Provider</th><th>Starting balance (USD)</th><th>Refill threshold (USD)</th><th>I just topped up</th></tr></thead>
+            <thead><tr><th>Provider</th><th>Balance now (USD)</th><th>Warn me below (USD)</th></tr></thead>
             <tbody>
               {% for p in api_usage.providers %}
               <tr>
                 <td><strong>{{ pretty[p.provider] }}</strong> <span class="prole" style="color:var(--ink-soft)">{{ roles[p.provider] }}</span></td>
-                <td><input type="number" step="0.01" min="0" name="{{ p.provider }}_balance" value="{% if p.starting_balance is not none %}{{ p.starting_balance }}{% endif %}" placeholder="e.g. 25" /></td>
-                <td><input type="number" step="0.01" min="0" name="{{ p.provider }}_threshold" value="{% if p.refill_threshold is not none %}{{ p.refill_threshold }}{% endif %}" placeholder="e.g. 5" /></td>
-                <td><label><input type="checkbox" name="{{ p.provider }}_reset" value="1" /> reset countdown</label></td>
+                <td><input type="number" step="0.01" min="0" name="{{ p.provider }}_balance" value="{% if p.starting_balance is not none %}{{ p.starting_balance }}{% endif %}" placeholder="e.g. 25.00" /><div class="fhelp">what you have today</div></td>
+                <td><input type="number" step="0.01" min="0" name="{{ p.provider }}_threshold" value="{% if p.refill_threshold is not none %}{{ p.refill_threshold }}{% endif %}" placeholder="e.g. 5.00" /><div class="fhelp">alert when it drops here</div></td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
-          <button type="submit">Save budgets</button>
+          <button type="submit">Save</button>
         </form>
-        <p class="muted-note">Spend is <strong>estimated</strong> from token counts &times; list prices, not billed amounts. Usage counts and the per-provider split are exact.</p>
+        <p class="muted-note">Spend is <strong>estimated</strong> from token counts &times; list prices, not billed amounts. The usage counts and per-provider split above are exact.</p>
       </div>
     </section>
 
