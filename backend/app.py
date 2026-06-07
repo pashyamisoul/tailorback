@@ -215,6 +215,16 @@ class ProviderBudget(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
+class ContactMessage(db.Model):
+    """A message submitted through the public Contact form."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(160), nullable=False)
+    email = db.Column(db.String(255), nullable=False)
+    mobile = db.Column(db.String(40), nullable=True)
+    message = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
 ALLOWED_APP_STATUSES = ("not_applied", "applied", "interviewing", "offer", "rejected")
 LLM_PROVIDERS = ("openai", "gemini", "claude")
 
@@ -1748,6 +1758,10 @@ def admin_portal():
             "published": bool(fb.consent_to_publish and fb.rating >= 4 and (fb.comment or "").strip()),
             "created_at": fb.created_at,
         })
+    contact_rows = [{
+        "id": cm.id, "name": cm.name, "email": cm.email,
+        "mobile": cm.mobile or "", "message": cm.message, "created_at": cm.created_at,
+    } for cm in ContactMessage.query.order_by(ContactMessage.created_at.desc()).limit(100).all()]
     total_credits_remaining = sum(row["credits_remaining"] for row in user_rows)
     verified_users = sum(1 for row in user_rows if row["email_verified"])
     paid_credit_grants = sum(max(0, row["credits"]) for row in grant_rows)
@@ -1769,6 +1783,7 @@ def admin_portal():
         runs=run_rows,
         grants=grant_rows,
         feedback=feedback_rows,
+        messages=contact_rows,
         api_usage=_api_usage_stats(),
         billing_sync={
             "openai": provider_billing.openai_admin_configured(),
@@ -1866,6 +1881,28 @@ def privacy_page():
         updated=LEGAL_UPDATED,
         retention_days=GENERATED_RETENTION_DAYS,
     )
+
+
+@app.route("/contact")
+def contact_page():
+    return render_template("contact.html")
+
+
+@app.route("/api/contact", methods=["POST"])
+def contact_submit():
+    """Public contact form. Stores the message; admins read it in the dashboard."""
+    data = request.get_json(silent=True) or {}
+    name = _clean_str(data.get("name"), 160)
+    email = _clean_str(data.get("email"), 255)
+    mobile = _clean_str(data.get("mobile"), 40)
+    message = _clean_str(data.get("message"), 4000)
+    if not name or not message:
+        return jsonify({"status": "error", "message": "Please enter your name and a message."}), 400
+    if not _re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        return jsonify({"status": "error", "message": "Please enter a valid email address."}), 400
+    db.session.add(ContactMessage(name=name, email=email, mobile=mobile or None, message=message))
+    db.session.commit()
+    return jsonify({"status": "ok", "message": "Thanks! We'll get back to you soon."})
 
 
 @app.route("/favicon.ico")

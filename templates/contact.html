@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="editorial">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>try { var t = localStorage.getItem('tb-theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) {}</script>
+  <title>Contact us · TailorBack</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <style>
+    .contact-wrap { max-width: 620px; margin: 0 auto; padding: 0 clamp(1.2rem, 5vw, 2rem) 3rem; }
+    .contact-kicker { font-family: "Spline Sans Mono", monospace; color: var(--accent); text-transform: uppercase; letter-spacing: .14em; font-size: .75rem; margin: 0; }
+    .contact-title { font-weight: 900; letter-spacing: -.03em; font-size: clamp(1.8rem, 5vw, 2.6rem); margin: .4rem 0 .4rem; }
+    .contact-lede { color: var(--ink-soft); margin: 0 0 1.6rem; line-height: 1.6; }
+    .cf-field { display: block; margin-bottom: 1rem; }
+    .cf-field > span { display: block; font-weight: 700; font-size: .85rem; margin-bottom: .4rem; }
+    .cf-field > span .opt { color: var(--ink-soft); font-weight: 500; }
+    .cf-field input, .cf-field textarea { width: 100%; box-sizing: border-box; font-family: inherit; font-size: .95rem; border: 1px solid var(--line); border-radius: 10px; padding: .7rem .8rem; background: var(--paper); color: var(--ink); }
+    .cf-field input:focus, .cf-field textarea:focus { outline: none; border-color: var(--accent); }
+    .cf-field textarea { resize: vertical; min-height: 130px; }
+    .cf-submit { font-family: inherit; font-weight: 800; font-size: .95rem; border: 0; border-radius: 10px; padding: .8rem 1.4rem; background: var(--ink); color: var(--paper); cursor: pointer; }
+    .cf-submit:hover { background: var(--accent); }
+    .cf-submit:disabled { opacity: .6; cursor: default; }
+    .cf-note { font-size: .85rem; margin-top: 1rem; min-height: 1.2em; }
+    .cf-note.ok { color: var(--good); font-weight: 600; }
+    .cf-note.err { color: var(--accent); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="grain"></div>
+
+  <header class="masthead">
+    <a class="mark" href="/" style="text-decoration:none">T<span>.</span></a>
+    <div class="site-nav" aria-label="Primary"></div>
+    <nav>
+      <a class="site-nav-link" href="/">← Back to TailorBack</a>
+    </nav>
+  </header>
+
+  <main class="legal">
+    <div class="contact-wrap">
+      <div class="contact-logo" style="font-size:1.5rem;margin-bottom:.5rem">Tailor<span class="ink">Back</span></div>
+      <h1 class="contact-title">Contact us</h1>
+      <p class="contact-lede">Questions, feedback, or a problem with your account? Send us a message and we'll get back to you.</p>
+
+      <form id="contactForm" novalidate>
+        <label class="cf-field">
+          <span>Name</span>
+          <input type="text" id="cfName" maxlength="160" autocomplete="name" required />
+        </label>
+        <label class="cf-field">
+          <span>Email address</span>
+          <input type="email" id="cfEmail" maxlength="255" autocomplete="email" required />
+        </label>
+        <label class="cf-field">
+          <span>Mobile <span class="opt">(optional)</span></span>
+          <input type="tel" id="cfMobile" maxlength="40" autocomplete="tel" />
+        </label>
+        <label class="cf-field">
+          <span>Message</span>
+          <textarea id="cfMessage" maxlength="4000" required></textarea>
+        </label>
+        <button type="submit" class="cf-submit" id="cfSubmit">Send message</button>
+        <p class="cf-note" id="cfNote" role="status"></p>
+      </form>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <span class="footer-copy">© {{ current_year }} TailorBack. All rights reserved.</span>
+    <a href="/terms">Terms &amp; Conditions</a>
+    <a href="/privacy">Privacy Policy</a>
+    <a href="/contact">Contact us</a>
+  </footer>
+
+  <script>
+    document.getElementById('contactForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const note = document.getElementById('cfNote');
+      const btn = document.getElementById('cfSubmit');
+      const payload = {
+        name: document.getElementById('cfName').value.trim(),
+        email: document.getElementById('cfEmail').value.trim(),
+        mobile: document.getElementById('cfMobile').value.trim(),
+        message: document.getElementById('cfMessage').value.trim(),
+      };
+      note.textContent = ''; note.className = 'cf-note';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/contact', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok || data.status !== 'ok') throw new Error(data.message || 'Could not send your message.');
+        note.textContent = data.message; note.className = 'cf-note ok';
+        document.getElementById('contactForm').reset();
+      } catch (err) {
+        note.textContent = err.message || 'Could not send your message.'; note.className = 'cf-note err';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -585,10 +585,32 @@
     </div>
   </div>
 
+  <div class="modal hidden" id="contactModal" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
+    <div class="modal-card contact-modal-card">
+      <button type="button" class="modal-close" data-close-modal aria-label="Close">×</button>
+      <div class="contact-logo">Tailor<span class="ink">Back</span></div>
+      <h2 id="contactTitle">Contact us</h2>
+      <p class="cm-sub">Questions, feedback, or a problem with your account? Send us a message and we'll get back to you.</p>
+      <form id="contactModalForm">
+        <label class="cf-field"><span>Name</span>
+          <input type="text" id="cmName" maxlength="160" autocomplete="name" required /></label>
+        <label class="cf-field"><span>Email address</span>
+          <input type="email" id="cmEmail" maxlength="255" autocomplete="email" required /></label>
+        <label class="cf-field"><span>Mobile <span class="opt">(optional)</span></span>
+          <input type="tel" id="cmMobile" maxlength="40" autocomplete="tel" /></label>
+        <label class="cf-field"><span>Message</span>
+          <textarea id="cmMessage" maxlength="4000" rows="5" required></textarea></label>
+        <p class="cf-note" id="cmNote" role="status"></p>
+        <button type="submit" class="cf-submit" id="cmSubmit">Send message</button>
+      </form>
+    </div>
+  </div>
+
   <footer class="site-footer">
     <span class="footer-copy">© {{ current_year }} TailorBack. All rights reserved.</span>
-    <a href="/terms">Terms</a>
-    <a href="/privacy">Privacy</a>
+    <a href="/terms">Terms &amp; Conditions</a>
+    <a href="/privacy">Privacy Policy</a>
+    <a href="/contact" id="footerContact">Contact us</a>
   </footer>
 
   <script src="/static/js/app.js"></script>

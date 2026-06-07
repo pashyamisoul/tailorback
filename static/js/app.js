@@ -1244,3 +1244,37 @@ document.getElementById('openInterview')?.addEventListener('click', async () => 
     body.innerHTML = '<p class="iv-loading err">' + escapeHtml(e.message || 'Could not prepare questions.') + '</p>';
   }
 });
+// ---- Contact: footer link opens a pop-up modal (instead of navigating) ----
+(function () {
+  const modal = document.getElementById('contactModal');
+  const link = document.getElementById('footerContact');
+  if (!modal || !link) return;
+  link.addEventListener('click', (e) => { e.preventDefault(); openModal(modal); });
+  const form = document.getElementById('contactModalForm');
+  form && form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const note = document.getElementById('cmNote');
+    const btn = document.getElementById('cmSubmit');
+    note.textContent = ''; note.className = 'cf-note';
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: document.getElementById('cmName').value.trim(),
+          email: document.getElementById('cmEmail').value.trim(),
+          mobile: document.getElementById('cmMobile').value.trim(),
+          message: document.getElementById('cmMessage').value.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.status !== 'ok') throw new Error(data.message || 'Could not send your message.');
+      note.textContent = data.message; note.className = 'cf-note ok';
+      form.reset();
+    } catch (err) {
+      note.textContent = err.message || 'Could not send your message.'; note.className = 'cf-note err';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
