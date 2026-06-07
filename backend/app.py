@@ -1887,6 +1887,11 @@ def privacy_page():
     )
 
 
+@app.route("/accessibility")
+def accessibility_page():
+    return render_template("accessibility.html", updated=LEGAL_UPDATED)
+
+
 @app.route("/contact")
 def contact_page():
     return render_template("contact.html")
