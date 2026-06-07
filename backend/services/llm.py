@@ -24,6 +24,45 @@ ENDPOINT = (
 )
 OPENAI_RESPONSES_ENDPOINT = "https://api.openai.com/v1/responses"
 
+# Approximate list prices in USD per 1,000,000 tokens (input / output). These
+# drive the admin cost estimate; override per deployment via env if needed.
+PRICING = {
+    "openai": {"input": float(os.environ.get("OPENAI_PRICE_IN", "0.40")),
+               "output": float(os.environ.get("OPENAI_PRICE_OUT", "1.60"))},
+    "gemini": {"input": float(os.environ.get("GEMINI_PRICE_IN", "0.10")),
+               "output": float(os.environ.get("GEMINI_PRICE_OUT", "0.40"))},
+    "claude": {"input": float(os.environ.get("CLAUDE_PRICE_IN", "3.00")),
+               "output": float(os.environ.get("CLAUDE_PRICE_OUT", "15.00"))},
+}
+
+
+def estimate_cost(provider, prompt_tokens, completion_tokens):
+    """Estimated USD cost for one call, from PRICING. Returns a float (0.0 if unknown)."""
+    p = PRICING.get((provider or "").lower())
+    if not p:
+        return 0.0
+    pt = float(prompt_tokens or 0)
+    ct = float(completion_tokens or 0)
+    return round((pt * p["input"] + ct * p["output"]) / 1_000_000.0, 6)
+
+
+def _record_usage(sink, provider, model, prompt_tokens, completion_tokens, total_tokens=None):
+    """Populate an optional usage-sink dict with token + cost info for one call."""
+    if sink is None:
+        return
+    pt = int(prompt_tokens or 0)
+    ct = int(completion_tokens or 0)
+    tt = int(total_tokens) if total_tokens else (pt + ct)
+    sink.clear()
+    sink.update({
+        "provider": provider,
+        "model": model,
+        "prompt_tokens": pt,
+        "completion_tokens": ct,
+        "total_tokens": tt,
+        "est_cost_usd": estimate_cost(provider, pt, ct),
+    })
+
 
 def _key() -> str:
     k = os.environ.get("GEMINI_API_KEY")
@@ -45,26 +84,26 @@ def _claude_key() -> str:
     return k
 
 
-def _json_call(system: str, user: str, max_retries: int = 2, on_status=None) -> dict:
+def _json_call(system: str, user: str, max_retries: int = 2, on_status=None, usage_sink=None) -> dict:
     def _say(stage):
         if on_status:
             on_status(stage)
 
     if os.environ.get("OPENAI_API_KEY"):
         try:
-            return _openai_call(system, user, on_status=on_status)
+            return _openai_call(system, user, on_status=on_status, usage_sink=usage_sink)
         except Exception:
             _say("switching_to_gemini")
 
     if os.environ.get("GEMINI_API_KEY"):
         try:
-            return _gemini_call(system, user, max_retries=max_retries, on_status=on_status)
+            return _gemini_call(system, user, max_retries=max_retries, on_status=on_status, usage_sink=usage_sink)
         except Exception:
             if not os.environ.get("ANTHROPIC_API_KEY"):
                 raise
             _say("switching_to_claude")
 
-    return _claude_call(system, user, on_status=on_status)
+    return _claude_call(system, user, on_status=on_status, usage_sink=usage_sink)
 
 
 def _parse_json_text(raw: str) -> dict:
@@ -90,7 +129,7 @@ def _extract_openai_text(data: dict) -> str:
     raise RuntimeError(f"Unexpected OpenAI response: {json.dumps(data)[:300]}")
 
 
-def _openai_call(system: str, user: str, max_retries: int = 2, on_status=None) -> dict:
+def _openai_call(system: str, user: str, max_retries: int = 2, on_status=None, usage_sink=None) -> dict:
     if on_status:
         on_status("generating_openai")
     body = {
@@ -120,11 +159,15 @@ def _openai_call(system: str, user: str, max_retries: int = 2, on_status=None) -
             time.sleep(2 * (attempt + 1))
             continue
         resp.raise_for_status()
-        return _parse_json_text(_extract_openai_text(resp.json()))
+        j = resp.json()
+        u = j.get("usage") or {}
+        _record_usage(usage_sink, "openai", OPENAI_MODEL,
+                      u.get("input_tokens"), u.get("output_tokens"), u.get("total_tokens"))
+        return _parse_json_text(_extract_openai_text(j))
     raise RuntimeError("OpenAI is unavailable right now.")
 
 
-def _gemini_call(system: str, user: str, max_retries: int = 2, on_status=None) -> dict:
+def _gemini_call(system: str, user: str, max_retries: int = 2, on_status=None, usage_sink=None) -> dict:
     def _say(stage):
         if on_status:
             on_status(stage)
@@ -156,11 +199,14 @@ def _gemini_call(system: str, user: str, max_retries: int = 2, on_status=None) -
             text = data["candidates"][0]["content"]["parts"][0]["text"]
         except (KeyError, IndexError, ValueError):
             break  # malformed Gemini response -> fall back to Claude∏
+        um = data.get("usageMetadata") or {}
+        _record_usage(usage_sink, "gemini", GEMINI_MODEL,
+                      um.get("promptTokenCount"), um.get("candidatesTokenCount"), um.get("totalTokenCount"))
         return _parse_json_text(text)
     raise RuntimeError("Gemini is unavailable right now.")
 
 
-def _claude_call(system: str, user: str, max_retries: int = 3, on_status=None) -> dict:
+def _claude_call(system: str, user: str, max_retries: int = 3, on_status=None, usage_sink=None) -> dict:
     if on_status:
         on_status("generating_claude")
     """Fallback engine: Claude Opus 4.8. Same JSON-in/JSON-out contract."""
@@ -191,6 +237,9 @@ def _claude_call(system: str, user: str, max_retries: int = 3, on_status=None) -
             text = data["content"][0]["text"]
         except (KeyError, IndexError):
             raise RuntimeError(f"Unexpected Claude response: {json.dumps(data)[:300]}")
+        u = data.get("usage") or {}
+        _record_usage(usage_sink, "claude", CLAUDE_MODEL,
+                      u.get("input_tokens"), u.get("output_tokens"))
         return _parse_json_text(text)
     raise RuntimeError(
         "Both Gemini and Claude are unavailable right now. Please try again shortly.")
@@ -282,7 +331,7 @@ def analyse_resume(cv_text, requirements):
     )
     return _json_call(system, user)
 
-def generate_all(cv_text, jd_text, on_status=None):
+def generate_all(cv_text, jd_text, on_status=None, usage_sink=None):
     """ONE LLM call that does everything: tailored resume + cover letter +
     gaps + match + critique of the uploaded resume. Replaces 4 separate calls."""
     system = (
@@ -347,7 +396,7 @@ def generate_all(cv_text, jd_text, on_status=None):
         "CANDIDATE'S CURRENT RESUME:\n\"\"\"\n" + cv_text + "\n\"\"\"\n\n"
         "Produce the full JSON now."
     )
-    return _json_call(system, user, on_status=on_status)
+    return _json_call(system, user, on_status=on_status, usage_sink=usage_sink)
 
 
 # ---------------------------------------------------------------------------

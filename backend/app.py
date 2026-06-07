@@ -43,7 +43,7 @@ from flask_sqlalchemy import SQLAlchemy
 from authlib.integrations.flask_client import OAuth
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from services import cv_parser, jd_source, llm, docx_builder, scoring
+from services import cv_parser, jd_source, llm, docx_builder, scoring, provider_billing
 
 load_dotenv()
 
@@ -180,6 +180,10 @@ class GenerationRun(db.Model):
     model_provider = db.Column(db.String(32), nullable=True)
     model_name = db.Column(db.String(128), nullable=True)
     generation_seconds = db.Column(db.Float, nullable=True)
+    prompt_tokens = db.Column(db.Integer, nullable=True)
+    completion_tokens = db.Column(db.Integer, nullable=True)
+    total_tokens = db.Column(db.Integer, nullable=True)
+    est_cost_usd = db.Column(db.Float, nullable=True)
     style_json = db.Column(db.Text, nullable=True)
     # Application tracker fields
     company = db.Column(db.String(255), nullable=True)
@@ -200,7 +204,19 @@ class Feedback(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
+class ProviderBudget(db.Model):
+    """Admin-set starting balance + refill threshold per LLM provider, so the
+    dashboard can count spend down and flag when to refill."""
+    id = db.Column(db.Integer, primary_key=True)
+    provider = db.Column(db.String(32), unique=True, nullable=False)  # openai|gemini|claude
+    starting_balance = db.Column(db.Float, nullable=True)   # USD you topped up to
+    refill_threshold = db.Column(db.Float, nullable=True)   # alert when balance dips below this
+    balance_since = db.Column(db.DateTime, nullable=True)   # spend counted from this reset point
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
 ALLOWED_APP_STATUSES = ("not_applied", "applied", "interviewing", "offer", "rejected")
+LLM_PROVIDERS = ("openai", "gemini", "claude")
 
 
 def _ensure_schema():
@@ -226,6 +242,10 @@ def _ensure_schema():
             "model_provider": "VARCHAR(32)",
             "model_name": "VARCHAR(128)",
             "generation_seconds": "FLOAT",
+            "prompt_tokens": "INTEGER",
+            "completion_tokens": "INTEGER",
+            "total_tokens": "INTEGER",
+            "est_cost_usd": "FLOAT",
             "style_json": "TEXT",
             "company": "VARCHAR(255)",
             "role": "VARCHAR(255)",
@@ -312,6 +332,8 @@ def _generation_payload(run, include_inputs=False):
         "model_provider": run.model_provider or "unknown",
         "model_name": run.model_name or run.model_status or "Unknown",
         "generation_seconds": run.generation_seconds,
+        "total_tokens": run.total_tokens,
+        "est_cost_usd": run.est_cost_usd,
         "company": run.company,
         "role": run.role,
         "status": run.status or "not_applied",
@@ -951,10 +973,11 @@ def generate():
             q.put({"type": "status", "stage": stage})
 
         holder = {}
+        usage = {}
 
         def worker():
             try:
-                holder["result"] = llm.generate_all(cv_text, jd_text, on_status=on_status)
+                holder["result"] = llm.generate_all(cv_text, jd_text, on_status=on_status, usage_sink=usage)
             except Exception as e:
                 app.logger.exception("Generation failed")
                 holder["error"] = "Generation failed. Please try again shortly."
@@ -1040,6 +1063,10 @@ def generate():
             model_provider=provider,
             model_name=model_name,
             generation_seconds=generation_seconds,
+            prompt_tokens=usage.get("prompt_tokens"),
+            completion_tokens=usage.get("completion_tokens"),
+            total_tokens=usage.get("total_tokens"),
+            est_cost_usd=usage.get("est_cost_usd"),
             company=(_job.get("company") or None),
             role=(_job.get("role") or None),
             status="not_applied",
@@ -1469,6 +1496,61 @@ def submit_feedback():
     return jsonify({"status": "ok", "published": published, "updated": updated})
 
 
+def _api_usage_stats():
+    """Per-provider usage, estimated spend, balance left, and refill status."""
+    from datetime import timedelta
+    from sqlalchemy import func
+
+    def _sum(col, *filters):
+        q = db.session.query(func.coalesce(func.sum(col), 0))
+        for f in filters:
+            q = q.filter(f)
+        return q.scalar() or 0
+
+    budgets = {b.provider: b for b in ProviderBudget.query.all()}
+    total_runs = GenerationRun.query.count()
+    week_ago = datetime.utcnow() - timedelta(days=7)
+    providers = []
+    for p in LLM_PROVIDERS:
+        is_p = GenerationRun.model_provider == p
+        runs = GenerationRun.query.filter(is_p).count()
+        tokens = int(_sum(GenerationRun.total_tokens, is_p))
+        spend = float(_sum(GenerationRun.est_cost_usd, is_p))
+        b = budgets.get(p)
+        since = b.balance_since if b else None
+        spend_since = float(_sum(GenerationRun.est_cost_usd, is_p, GenerationRun.created_at >= since)) if since else spend
+        starting = b.starting_balance if b else None
+        threshold = b.refill_threshold if b else None
+        balance = round(starting - spend_since, 2) if starting is not None else None
+        wk_spend = float(_sum(GenerationRun.est_cost_usd, is_p, GenerationRun.created_at >= week_ago))
+        daily = wk_spend / 7.0
+        days_left = round(balance / daily, 1) if (balance is not None and daily > 0) else None
+        status = "ok"
+        if balance is not None and threshold is not None and balance <= threshold:
+            status = "low"
+        elif days_left is not None and days_left < 5:
+            status = "low"
+        providers.append({
+            "provider": p,
+            "runs": runs,
+            "pct": round(runs / total_runs * 100) if total_runs else 0,
+            "tokens": tokens,
+            "spend": round(spend, 2),
+            "balance": balance,
+            "starting_balance": starting,
+            "refill_threshold": threshold,
+            "days_left": days_left,
+            "status": status,
+            "configured": b is not None and starting is not None,
+        })
+    return {
+        "providers": providers,
+        "total_spend": round(float(_sum(GenerationRun.est_cost_usd)), 2),
+        "total_tokens": int(_sum(GenerationRun.total_tokens)),
+        "refill_needed": [p["provider"] for p in providers if p["status"] == "low"],
+    }
+
+
 def _admin_ok():
     return bool(session.get("admin_ok"))
 
@@ -1559,8 +1641,52 @@ def admin_portal():
         runs=run_rows,
         grants=grant_rows,
         feedback=feedback_rows,
+        api_usage=_api_usage_stats(),
+        billing_sync={
+            "openai": provider_billing.openai_admin_configured(),
+            "anthropic": provider_billing.anthropic_admin_configured(),
+        },
         stats=stats,
     )
+
+
+@app.route("/admin/api/sync")
+def admin_api_sync():
+    """Pull official billed cost from providers that expose it (admin keys required)."""
+    if not _admin_ok():
+        abort(403)
+    return jsonify(provider_billing.sync_all(days=30))
+
+
+@app.route("/admin/budgets", methods=["POST"])
+def admin_set_budgets():
+    if not _admin_ok():
+        abort(403)
+
+    def _num(x):
+        try:
+            return float(x) if x not in (None, "") else None
+        except (TypeError, ValueError):
+            return None
+
+    for p in LLM_PROVIDERS:
+        b = ProviderBudget.query.filter_by(provider=p).first()
+        if not b:
+            b = ProviderBudget(provider=p)
+            db.session.add(b)
+        new_balance = _num(request.form.get(f"{p}_balance"))
+        b.refill_threshold = _num(request.form.get(f"{p}_threshold"))
+        # Each save snapshots "balance as of now": reset the spend countdown
+        # whenever a balance is entered (the admin enters their current balance).
+        if new_balance is not None:
+            b.starting_balance = new_balance
+            b.balance_since = datetime.utcnow()
+        else:
+            b.starting_balance = None
+            b.balance_since = None
+        b.updated_at = datetime.utcnow()
+    db.session.commit()
+    return redirect(url_for("admin_portal", saved="budgets"))
 
 
 @app.route("/admin/logout")
