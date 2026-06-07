@@ -411,7 +411,7 @@ html[data-theme="terminal"] .go .gicon { display: none; }
   color: var(--ink-soft);
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0;
   font-size: .84rem;
 }
 .site-footer span {
@@ -426,11 +426,10 @@ html[data-theme="terminal"] .go .gicon { display: none; }
   font-weight: 700;
 }
 .site-footer a:hover { color: var(--accent); }
-/* A "|" divider between consecutive footer links. The flex gap (1rem) sits
-   before the divider; margin-right matches it so spacing is symmetric. */
+/* A "|" divider between consecutive footer links, with tight, symmetric spacing. */
 .site-footer a + a::before {
   content: "|";
-  margin-right: 1rem;
+  margin: 0 0.45rem;
   color: var(--ink-soft);
   font-weight: 400;
 }
