@@ -1295,6 +1295,96 @@ def refine_section():
     return jsonify({"status": "ok", "kind": kind, "content": out})
 
 
+@app.route("/api/writing-check", methods=["POST"])
+def writing_check():
+    """Phase 9: grammar / writing-quality suggestions for the resume. Free."""
+    current_user = _current_user()
+    if not current_user:
+        return jsonify({"status": "error", "message": "Please sign in."}), 401
+    if not any(os.environ.get(k) for k in (
+            "OPENAI_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY")):
+        return jsonify({"status": "error", "message": "Server missing an LLM API key."}), 500
+    text = _clean_str((request.get_json(silent=True) or {}).get("text"), 12000)
+    if not text:
+        return jsonify({"status": "error", "message": "Nothing to check."}), 400
+    try:
+        result = llm.writing_check(text)
+    except Exception:
+        app.logger.exception("Writing check failed")
+        return jsonify({"status": "error", "message": "Could not check the writing. Try again."}), 502
+    issues = []
+    for it in (result.get("issues") or [])[:12]:
+        if not isinstance(it, dict):
+            continue
+        sev = it.get("severity") if it.get("severity") in ("high", "medium", "low") else "medium"
+        issues.append({
+            "excerpt": _clean_str(it.get("excerpt"), 240),
+            "problem": _clean_str(it.get("problem"), 300),
+            "suggestion": _clean_str(it.get("suggestion"), 400),
+            "severity": sev,
+        })
+    return jsonify({"status": "ok", "issues": issues})
+
+
+@app.route("/api/rescore", methods=["POST"])
+def rescore():
+    """Phase 12: re-score the edited resume against the original job (deterministic).
+    Owner-scoped by job_id; free, no LLM call."""
+    current_user = _current_user()
+    if not current_user:
+        return jsonify({"status": "error", "message": "Please sign in."}), 401
+    data = request.get_json(silent=True) or {}
+    run = GenerationRun.query.filter_by(job_id=data.get("job_id"), user_id=current_user.id).first()
+    if not run:
+        return jsonify({"status": "error", "message": "Generation not found."}), 404
+    resume = data.get("resume") if isinstance(data.get("resume"), dict) else {}
+    analysis = scoring.score_resume(_resume_to_text(resume), run.jd_text)
+    return jsonify({
+        "status": "ok",
+        "overall_score": analysis.get("overall_score"),
+        "dimensions": analysis.get("dimensions"),
+        "missing_keywords": analysis.get("missing_keywords"),
+    })
+
+
+@app.route("/api/interview-prep", methods=["POST"])
+def interview_prep():
+    """Phase 11: likely interview questions for a past generation. Owner-scoped, free."""
+    current_user = _current_user()
+    if not current_user:
+        return jsonify({"status": "error", "message": "Please sign in."}), 401
+    if not any(os.environ.get(k) for k in (
+            "OPENAI_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY")):
+        return jsonify({"status": "error", "message": "Server missing an LLM API key."}), 500
+    run = GenerationRun.query.filter_by(
+        job_id=(request.get_json(silent=True) or {}).get("job_id"), user_id=current_user.id).first()
+    if not run:
+        return jsonify({"status": "error", "message": "Generation not found."}), 404
+    try:
+        resume = _json.loads(run.resume_json or "{}")
+    except ValueError:
+        resume = {}
+    try:
+        result = llm.interview_questions(
+            run.jd_text, _resume_to_text(resume), company=run.company, role=run.role)
+    except Exception:
+        app.logger.exception("Interview prep failed")
+        return jsonify({"status": "error", "message": "Could not generate questions. Try again."}), 502
+    allowed = ("technical", "behavioral", "role-specific", "gap")
+    questions = []
+    for q in (result.get("questions") or [])[:12]:
+        if not isinstance(q, dict) or not q.get("question"):
+            continue
+        cat = q.get("category") if q.get("category") in allowed else "role-specific"
+        questions.append({
+            "question": _clean_str(q.get("question"), 400),
+            "category": cat,
+            "why": _clean_str(q.get("why"), 400),
+            "tip": _clean_str(q.get("tip"), 600),
+        })
+    return jsonify({"status": "ok", "questions": questions})
+
+
 @app.route("/api/export", methods=["POST"])
 def export_documents():
     """Rebuild resume + cover-letter docx/pdf from edited content and a chosen

@@ -1216,3 +1216,31 @@ document.addEventListener("click", (e) => {
     }).catch(() => {});
   }
 })();
+
+// ---- Phase 11: interview prep ----
+document.getElementById('openInterview')?.addEventListener('click', async () => {
+  if (!currentJobId) { toast('Generate a résumé first to get interview prep.'); return; }
+  const modal = document.getElementById('interviewModal');
+  const body = document.getElementById('interviewBody');
+  body.innerHTML = '<p class="iv-loading">Preparing questions…</p>';
+  openModal(modal);
+  try {
+    const res = await fetch('/api/interview-prep', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_id: currentJobId }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.status !== 'ok') throw new Error(data.message || 'Could not prepare questions.');
+    if (!data.questions.length) { body.innerHTML = '<p class="iv-loading">No questions came back. Try again.</p>'; return; }
+    const catLabel = { technical: 'Technical', behavioral: 'Behavioral', 'role-specific': 'Role-specific', gap: 'Gap / risk' };
+    body.innerHTML = data.questions.map((q, i) =>
+      '<div class="iv-q">' +
+        '<div class="iv-q-top"><span class="iv-cat iv-' + q.category + '">' + (catLabel[q.category] || q.category) + '</span><span class="iv-n">Q' + (i + 1) + '</span></div>' +
+        '<div class="iv-question">' + escapeHtml(q.question) + '</div>' +
+        (q.why ? '<div class="iv-why"><strong>Why they ask:</strong> ' + escapeHtml(q.why) + '</div>' : '') +
+        (q.tip ? '<div class="iv-tip"><strong>How to answer:</strong> ' + escapeHtml(q.tip) + '</div>' : '') +
+      '</div>').join('');
+  } catch (e) {
+    body.innerHTML = '<p class="iv-loading err">' + escapeHtml(e.message || 'Could not prepare questions.') + '</p>';
+  }
+});
