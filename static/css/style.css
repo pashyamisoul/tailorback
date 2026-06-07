@@ -653,8 +653,17 @@ html[data-theme="terminal"] .go .gicon { display: none; }
   width: min(100%, 920px);
   background: var(--paper);
   border: 1px solid var(--line);
+  border-radius: 18px;
   box-shadow: 0 22px 70px rgba(0,0,0,.2);
   padding: clamp(1.2rem, 4vw, 2rem);
+}
+/* Opening motion: backdrop fades, card rises + scales in. Applies to every modal. */
+.modal:not(.hidden) { animation: modalFade .18s ease both; }
+.modal:not(.hidden) .modal-card { animation: modalPop .3s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes modalFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modalPop { from { transform: translateY(16px) scale(.97); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .modal:not(.hidden), .modal:not(.hidden) .modal-card { animation: none; }
 }
 .modal-close {
   position: absolute;
@@ -2580,3 +2589,24 @@ html[data-theme="terminal"] summary:focus-visible { outline-color: var(--accent)
 html[data-theme="terminal"] .kw-rate, html[data-theme="terminal"] .ats-score { font-family: "JetBrains Mono", monospace; }
 
 @media (max-width: 720px) { .ats-grid { grid-template-columns: 1fr; } }
+
+/* ============================================================
+   Contact modal (pop-up) + shared contact-form styles
+   ============================================================ */
+.contact-modal-card { max-width: 560px; }
+.contact-logo { font-family: "Inter", system-ui, sans-serif; font-weight: 900; letter-spacing: -.02em; font-size: 1.35rem; line-height: 1; }
+.contact-logo .ink { color: var(--accent); }
+.contact-modal-card h2 { font-weight: 900; letter-spacing: -.02em; margin: .5rem 0 .3rem; }
+.cm-sub { color: var(--ink-soft); font-size: .9rem; margin: 0 0 1.2rem; line-height: 1.5; }
+.cf-field { display: block; margin-bottom: 1rem; }
+.cf-field > span { display: block; font-weight: 700; font-size: .85rem; margin-bottom: .4rem; }
+.cf-field > span .opt { color: var(--ink-soft); font-weight: 500; }
+.cf-field input, .cf-field textarea { width: 100%; box-sizing: border-box; font-family: inherit; font-size: .95rem; border: 1px solid var(--line); border-radius: 10px; padding: .7rem .8rem; background: var(--paper); color: var(--ink); }
+.cf-field input:focus, .cf-field textarea:focus { outline: none; border-color: var(--accent); }
+.cf-field textarea { resize: vertical; min-height: 120px; }
+.cf-submit { font-family: inherit; font-weight: 800; font-size: .95rem; border: 0; border-radius: 10px; padding: .8rem 1.4rem; background: var(--ink); color: var(--paper); cursor: pointer; }
+.cf-submit:hover { background: var(--accent); }
+.cf-submit:disabled { opacity: .6; cursor: default; }
+.cf-note { font-size: .85rem; margin: 0 0 .9rem; min-height: 1.1em; }
+.cf-note.ok { color: var(--good); font-weight: 600; }
+.cf-note.err { color: var(--accent); font-weight: 600; }
