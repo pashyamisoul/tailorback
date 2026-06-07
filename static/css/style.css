@@ -2607,3 +2607,13 @@ html[data-theme="terminal"] .kw-rate, html[data-theme="terminal"] .ats-score { f
 .wq-kw-chip.loading { opacity: .55; cursor: default; }
 .wq-kw-chip.done { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, var(--line)); background: color-mix(in srgb, var(--good) 10%, transparent); }
 .wq-kw-chip.skipped { color: var(--ink-soft); border-color: var(--line); background: var(--paper-2); text-decoration: line-through; }
+
+/* ============================================================
+   PHASE 12 — live match-score pill (studio bar)
+   ============================================================ */
+.score-pill { font-size: .82rem; font-weight: 600; color: var(--ink-soft); background: var(--paper-2); border: 1px solid var(--line); border-radius: 999px; padding: .25rem .7rem; white-space: nowrap; }
+.score-pill strong { color: var(--ink); font-weight: 900; }
+.score-delta { font-weight: 800; margin-left: .15rem; }
+.score-delta.up { color: var(--good); }
+.score-delta.down { color: var(--accent); }
+html[data-theme="terminal"] .score-pill strong { font-family: "JetBrains Mono", monospace; }

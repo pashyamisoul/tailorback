@@ -1326,6 +1326,27 @@ def writing_check():
     return jsonify({"status": "ok", "issues": issues})
 
 
+@app.route("/api/rescore", methods=["POST"])
+def rescore():
+    """Phase 12: re-score the edited resume against the original job (deterministic).
+    Owner-scoped by job_id; free, no LLM call."""
+    current_user = _current_user()
+    if not current_user:
+        return jsonify({"status": "error", "message": "Please sign in."}), 401
+    data = request.get_json(silent=True) or {}
+    run = GenerationRun.query.filter_by(job_id=data.get("job_id"), user_id=current_user.id).first()
+    if not run:
+        return jsonify({"status": "error", "message": "Generation not found."}), 404
+    resume = data.get("resume") if isinstance(data.get("resume"), dict) else {}
+    analysis = scoring.score_resume(_resume_to_text(resume), run.jd_text)
+    return jsonify({
+        "status": "ok",
+        "overall_score": analysis.get("overall_score"),
+        "dimensions": analysis.get("dimensions"),
+        "missing_keywords": analysis.get("missing_keywords"),
+    })
+
+
 @app.route("/api/export", methods=["POST"])
 def export_documents():
     """Rebuild resume + cover-letter docx/pdf from edited content and a chosen

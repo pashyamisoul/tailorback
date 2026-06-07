@@ -76,6 +76,43 @@
     ST.dirty = true;
     ST.exported = false;
     setSaveState("Unsaved changes");
+    scheduleRescore();
+  }
+
+  // ---- Phase 12: live re-scoring ------------------------------------------
+  let _rescoreTimer = null;
+  function scheduleRescore() {
+    if (!ST.jobId) return;            // sample / no stored job: skip live scoring
+    clearTimeout(_rescoreTimer);
+    _rescoreTimer = setTimeout(runRescore, 1100);
+  }
+  async function runRescore() {
+    if (!ST.jobId) return;
+    try {
+      const res = await fetch("/api/rescore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: ST.jobId, resume: ST.resume }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.status !== "ok") return;
+      setScore(data.overall_score);
+      if (Array.isArray(data.missing_keywords)) {
+        ST.analysis = ST.analysis || {};
+        ST.analysis.missing_keywords = data.missing_keywords;
+        renderMissingKeywords();
+      }
+    } catch (e) { /* silent: scoring is best-effort */ }
+  }
+  function setScore(score) {
+    const pill = document.getElementById("scorePill");
+    if (!pill || score == null) return;
+    if (ST._baseScore == null) ST._baseScore = score;
+    const delta = score - ST._baseScore;
+    pill.hidden = false;
+    pill.innerHTML = 'Match <strong>' + score + '</strong>' +
+      (delta ? ' <span class="score-delta ' + (delta > 0 ? 'up' : 'down') + '">' +
+        (delta > 0 ? '▲+' + delta : '▼' + delta) + '</span>' : '');
   }
   function setSaveState(text, ok) {
     const el = document.getElementById("saveState");
@@ -103,9 +140,11 @@
       cover_docx_url: data.cover_docx_url,
       cover_pdf_url: data.cover_pdf_url,
     };
+    ST._baseScore = null;
     buildShell();
     renderStage();
     setSaveState("");
+    runRescore();   // initial live match score (no-op for the sample)
   };
 
   // ---- shell (tabs, toolbar, sidebar) -------------------------------------
@@ -119,6 +158,7 @@
           <button class="doc-tab" data-doc="cover" role="tab">Cover letter</button>
         </div>
         <div class="studio-bar-right">
+          <span class="score-pill" id="scorePill" hidden title="Live match score, updates as you edit"></span>
           <span class="save-state" id="saveState" role="status"></span>
           <div class="sdl-menu" id="sdlMenu">
             <button type="button" class="sdl-btn" id="sdlBtn">Download <span class="sdl-caret">▾</span></button>
@@ -254,10 +294,19 @@
       });
     }
 
-    // Missing keywords -> click to weave one into the summary, truthfully.
+    renderMissingKeywords();
+  }
+
+  // Missing keywords -> click to weave one into the summary, truthfully.
+  function renderMissingKeywords() {
     const kwWrap = document.getElementById("wqKwWrap");
+    if (!kwWrap) return;
     const missing = ((ST.analysis && ST.analysis.missing_keywords) || []).slice(0, 12);
-    if (kwWrap && missing.length) {
+    if (!missing.length) {
+      kwWrap.innerHTML = '<h5 class="wq-kw-title">Missing keywords</h5><p class="wq-kw-help">None left, great keyword coverage.</p>';
+      return;
+    }
+    {
       kwWrap.innerHTML = '<h5 class="wq-kw-title">Missing keywords</h5>' +
         '<p class="wq-kw-help">Click one to weave it into your summary, only if your experience supports it.</p>' +
         '<div class="wq-kw">' + missing.map(k =>
