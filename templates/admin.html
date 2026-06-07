@@ -126,6 +126,29 @@
         </form>
         <p class="muted-note">Spend is <strong>estimated</strong> from token counts &times; list prices, not billed amounts. The usage counts and per-provider split above are exact.</p>
       </div>
+
+      <div class="admin-panel" id="billingSync">
+        <div class="admin-section-head"><div><h2>Official provider billing</h2>
+          <p>Cross-check the estimate above against each provider's billed total (last 30 days). Needs an admin API key set in the environment. Gemini has no billing API, so it stays estimate-only.</p></div></div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Provider</th><th>Admin key</th><th>Billed (30d)</th></tr></thead>
+            <tbody>
+              <tr data-prov="openai"><td><strong>OpenAI</strong></td>
+                <td>{% if billing_sync.openai %}<span class="api-stat ok">configured</span>{% else %}<span class="api-stat unset">set OPENAI_ADMIN_KEY</span>{% endif %}</td>
+                <td class="sync-amt">{% if billing_sync.openai %}<span class="est">click Sync now</span>{% else %}<span class="est">key required</span>{% endif %}</td></tr>
+              <tr data-prov="anthropic"><td><strong>Anthropic</strong></td>
+                <td>{% if billing_sync.anthropic %}<span class="api-stat ok">configured</span>{% else %}<span class="api-stat unset">set ANTHROPIC_ADMIN_KEY</span>{% endif %}</td>
+                <td class="sync-amt">{% if billing_sync.anthropic %}<span class="est">click Sync now</span>{% else %}<span class="est">key required</span>{% endif %}</td></tr>
+              <tr data-prov="gemini"><td><strong>Gemini</strong></td>
+                <td><span class="api-stat unset">no billing API</span></td>
+                <td class="sync-amt"><span class="est">estimate only</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <button type="button" id="syncBtn" style="margin-top:.9rem">Sync now</button>
+        <span id="syncStatus" class="muted-note" style="margin-left:.7rem"></span>
+      </div>
     </section>
 
     <!-- USERS -->
@@ -262,6 +285,36 @@
       // open the tab from the URL hash, if present
       var hash = (location.hash || "").replace("#", "");
       if (hash) { var t = bar.querySelector('button[data-tab="' + hash + '"]'); if (t) t.click(); }
+
+      // Official billing sync
+      var syncBtn = document.getElementById("syncBtn");
+      if (syncBtn) {
+        syncBtn.addEventListener("click", async function () {
+          var st = document.getElementById("syncStatus");
+          syncBtn.disabled = true; st.textContent = "Syncing…";
+          try {
+            var r = await fetch("/admin/api/sync");
+            var d = await r.json();
+            ["openai", "anthropic", "gemini"].forEach(function (p) {
+              var cell = document.querySelector('tr[data-prov="' + p + '"] .sync-amt');
+              if (!cell || !d[p]) return;
+              if (d[p].available) {
+                cell.innerHTML = "<strong>$" + Number(d[p].cost_usd).toFixed(2) + "</strong>";
+              } else {
+                var reason = d[p].reason === "no_admin_key" ? "no admin key"
+                  : d[p].reason === "no_billing_api" ? "estimate only"
+                  : "error: " + d[p].reason;
+                cell.innerHTML = '<span class="est">' + reason + "</span>";
+              }
+            });
+            st.textContent = "Synced.";
+          } catch (e) {
+            st.textContent = "Sync failed.";
+          } finally {
+            syncBtn.disabled = false;
+          }
+        });
+      }
     })();
   </script>
 </body>

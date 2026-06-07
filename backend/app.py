@@ -43,7 +43,7 @@ from flask_sqlalchemy import SQLAlchemy
 from authlib.integrations.flask_client import OAuth
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from services import cv_parser, jd_source, llm, docx_builder, scoring
+from services import cv_parser, jd_source, llm, docx_builder, scoring, provider_billing
 
 load_dotenv()
 
@@ -1642,8 +1642,20 @@ def admin_portal():
         grants=grant_rows,
         feedback=feedback_rows,
         api_usage=_api_usage_stats(),
+        billing_sync={
+            "openai": provider_billing.openai_admin_configured(),
+            "anthropic": provider_billing.anthropic_admin_configured(),
+        },
         stats=stats,
     )
+
+
+@app.route("/admin/api/sync")
+def admin_api_sync():
+    """Pull official billed cost from providers that expose it (admin keys required)."""
+    if not _admin_ok():
+        abort(403)
+    return jsonify(provider_billing.sync_all(days=30))
 
 
 @app.route("/admin/budgets", methods=["POST"])
