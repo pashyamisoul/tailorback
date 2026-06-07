@@ -1050,13 +1050,6 @@ def generate():
         result = holder["result"]
         provider, model_name = _model_from_stages(stages)
         generation_seconds = round(time.perf_counter() - generation_started_at, 2)
-        # Count this successful generation against the user's free quota.
-        try:
-            current_user.generations_used += 1
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
-        credits = _credits_payload(current_user)
         analysis = scoring.score_resume(cv_text, jd_text, result.get("analysis", {}))
         job_id = uuid.uuid4().hex[:10]
         resume = result.get("resume", {})
@@ -1121,6 +1114,17 @@ def generate():
         )
         db.session.add(run)
         db.session.commit()
+
+        # Charge the credit ONLY now that the result is fully built and saved.
+        # Doing it here (not earlier) means a refresh, disconnect, or failure
+        # mid-generation never costs a credit with nothing to show: a credit is
+        # spent if and only if a reopenable generation exists in the user's history.
+        try:
+            current_user.generations_used += 1
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+        credits = _credits_payload(current_user)
 
         def _url(path):
             return f"/download/{os.path.basename(path)}" if path else None
