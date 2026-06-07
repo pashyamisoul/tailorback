@@ -791,6 +791,72 @@ form.addEventListener('submit', async e => {
 });
 
 // ---- results ----
+// Phase 9: ATS readiness checklist + keyword match report (deterministic,
+// computed from the generated resume + analysis — no extra model calls).
+function renderAtsReport(data) {
+  const panel = document.getElementById('atsReport');
+  if (!panel) return;
+  const r = data.resume || {};
+  if (!r || (!r.summary && !(r.experience || []).length && !(r.skills || []).length)) {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = '';
+
+  // --- keyword match rate ---
+  const matched = data.match?.covered || [];
+  const missingKw = (data.analysis?.missing_keywords && data.analysis.missing_keywords.length)
+    ? data.analysis.missing_keywords
+    : (data.match?.missing || []);
+  const total = matched.length + missingKw.length;
+  const rate = total ? Math.round((matched.length / total) * 100) : 0;
+  document.getElementById('kwRate').textContent = total ? rate + '%' : '—';
+  const kwBar = document.getElementById('kwBar');
+  kwBar.style.width = (total ? rate : 0) + '%';
+  kwBar.style.background = rate >= 75 ? 'var(--good)' : rate >= 50 ? 'var(--warn)' : 'var(--accent)';
+  const paintChips = (id, items, cls, emptyText) => {
+    const box = document.getElementById(id);
+    box.innerHTML = '';
+    if (!items.length) {
+      const s = document.createElement('span'); s.className = 'kw muted'; s.textContent = emptyText; box.appendChild(s); return;
+    }
+    items.forEach(k => { const s = document.createElement('span'); s.className = 'kw ' + cls; s.textContent = k; box.appendChild(s); });
+  };
+  paintChips('kwMatched', matched, 'on', '—');
+  paintChips('kwMissing', missingKw, 'off', 'None — great coverage');
+
+  // --- ATS readiness checklist (structural, deterministic) ---
+  const exp = Array.isArray(r.experience) ? r.experience : [];
+  const allBullets = exp.reduce((acc, e) => acc.concat(e.bullets || []), []);
+  const quantified = allBullets.filter(b => /\d/.test(b || '')).length;
+  const checks = [
+    ['Contact email', !!(r.contact && r.contact.email), 'Add an email so recruiters and ATS can reach you.'],
+    ['Contact phone', !!(r.contact && r.contact.phone), 'Add a phone number for completeness.'],
+    ['Professional summary', !!(r.summary && r.summary.trim()), 'A short summary helps ATS and recruiters place you fast.'],
+    ['Skills section (5+)', (r.skills || []).length >= 5, 'List at least 5 relevant hard skills the ATS can match.'],
+    ['Work experience present', exp.length >= 1, 'Add at least one role with bullet points.'],
+    ['All roles have dates', exp.length > 0 && exp.every(e => e.dates && String(e.dates).trim()), 'Every role should show start and end dates.'],
+    ['Quantified achievements', quantified >= 1, 'Add a number or metric to at least one bullet, e.g. "cut tickets 30%".'],
+    ['Education or certifications', (r.education || []).length >= 1 || (r.certifications || []).length >= 1, 'Add your education or relevant certifications.'],
+    ['Standard single-column layout', true, 'TailorBack exports clean single-column .docx and PDF that ATS parse reliably.'],
+  ];
+  const list = document.getElementById('atsChecks');
+  list.innerHTML = '';
+  let passed = 0;
+  checks.forEach(([label, ok, hint]) => {
+    if (ok) passed++;
+    const li = document.createElement('li');
+    li.className = 'ats-item ' + (ok ? 'pass' : 'warn');
+    li.innerHTML = '<span class="ats-mark" aria-hidden="true">' + (ok ? '✓' : '!') + '</span>' +
+      '<span class="ats-label">' + escapeHtml(label) + '</span>' +
+      (ok ? '' : '<span class="ats-hint">' + escapeHtml(hint) + '</span>');
+    list.appendChild(li);
+  });
+  const scoreEl = document.getElementById('atsScore');
+  scoreEl.textContent = passed + '/' + checks.length;
+  scoreEl.className = 'ats-score ' + (passed === checks.length ? 'all' : passed >= checks.length - 2 ? 'most' : 'some');
+}
+
 function renderResults(data) {
   updateAccountCredits(data.credits_remaining, data.credits_limit);
   currentJobId = data.job_id || null;
@@ -897,6 +963,8 @@ function renderResults(data) {
   const missing = data.match?.missing?.length ? data.match.missing : data.gaps;
   (missing || []).forEach(t => { const li = document.createElement('li'); li.textContent = t; gaps.appendChild(li); });
   if (!gaps.children.length) { const li = document.createElement('li'); li.textContent = 'No major gaps detected.'; gaps.appendChild(li); }
+
+  renderAtsReport(data);
 
   const results = document.getElementById('results');
   results.classList.remove('hidden');
