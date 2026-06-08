@@ -21,37 +21,52 @@
       font-family: "JetBrains Mono", "Spline Sans Mono", ui-monospace, monospace;
     }
 
-    /* --- header: tailorback :: admin --- */
-    .admin-top { border-bottom: 1px solid var(--line); }
-    .admin-brand { display: flex; flex-direction: column; gap: .25rem; }
-    .admin-brand-row { display: flex; align-items: center; gap: .7rem; }
+    /* --- layout: left sidebar + content --- */
+    .admin-layout { display: grid; grid-template-columns: 240px 1fr; align-items: start; min-height: 100vh; }
+    .admin-side { position: sticky; top: 0; height: 100vh; overflow: auto; background: #0a0e14; border-right: 1px solid var(--line); padding: 1.4rem 1rem; display: flex; flex-direction: column; gap: 1rem; }
+
+    /* brand */
+    .admin-brand { display: flex; flex-direction: column; gap: .45rem; }
+    .admin-brand-row { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; }
     .admin-wordmark {
       font-family: "JetBrains Mono", monospace; font-weight: 800;
-      font-size: clamp(1.15rem, 2.6vw, 1.6rem); letter-spacing: 0;
-      line-height: 1; color: var(--ink); text-transform: lowercase;
+      font-size: 1.1rem; letter-spacing: 0; line-height: 1.15;
+      color: var(--ink); text-transform: lowercase;
     }
     .admin-wordmark .ac { color: var(--accent); }
     .admin-wordmark .cln { color: var(--ink-soft); }
     .admin-chip {
-      font-family: "JetBrains Mono", monospace; font-size: .62rem; font-weight: 700;
-      letter-spacing: .18em; text-transform: uppercase; color: var(--accent);
+      font-family: "JetBrains Mono", monospace; font-size: .6rem; font-weight: 700;
+      letter-spacing: .16em; text-transform: uppercase; color: var(--accent);
       border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
-      border-radius: 6px; padding: .24rem .5rem;
+      border-radius: 6px; padding: .18rem .42rem;
       background: color-mix(in srgb, var(--accent) 10%, transparent);
     }
-    .admin-sub { color: var(--ink-soft); font-size: .82rem; font-weight: 400; }
-    .admin-top a { color: var(--ink-soft); text-decoration: none; font-size: .82rem; }
-    .admin-top a:hover { color: var(--accent); }
-    .admin-top a::before { content: "["; color: var(--ink-soft); margin-right: .3rem; }
-    .admin-top a::after { content: "]"; color: var(--ink-soft); margin-left: .3rem; }
+    .admin-sub { color: var(--ink-soft); font-size: .76rem; font-weight: 400; }
 
-    /* --- tab nav --- */
-    .adt-bar { position: sticky; top: 0; z-index: 20; background: var(--paper); border-bottom: 1px solid var(--line); max-width: 1240px; margin: 0 auto; padding: 0 1.5rem; display: flex; gap: .2rem; flex-wrap: wrap; }
-    .adt-bar button { border: 0; background: none; font: inherit; font-family: "JetBrains Mono", monospace; font-weight: 500; font-size: .85rem; text-transform: lowercase; color: var(--ink-soft); padding: .9rem .8rem; cursor: pointer; border-bottom: 2px solid transparent; }
-    .adt-bar button.on { color: var(--accent); border-color: var(--accent); }
-    .adt-bar button:hover:not(.on) { color: var(--ink); }
+    /* --- vertical nav buttons --- */
+    .adt-bar { display: flex; flex-direction: column; gap: .3rem; margin: .2rem 0 0; padding: 0; }
+    .adt-bar button { width: 100%; text-align: left; border: 1px solid transparent; background: transparent; font: inherit; font-family: "JetBrains Mono", monospace; font-weight: 500; font-size: .85rem; text-transform: lowercase; color: var(--ink-soft); padding: .6rem .75rem; border-radius: 8px; cursor: pointer; }
+    .adt-bar button:hover:not(.on) { color: var(--ink); background: var(--paper-2); }
+    .adt-bar button.on { color: #0d1117; background: var(--accent); border-color: var(--accent); font-weight: 700; }
+
+    /* --- sign out, directly under the nav --- */
+    .admin-signout { color: var(--ink-soft); text-decoration: none; font-size: .82rem; padding: .55rem .75rem; }
+    .admin-signout:hover { color: var(--accent); }
+    .admin-signout::before { content: "[ "; }
+    .admin-signout::after { content: " ]"; }
+
+    /* --- content fills the right column --- */
+    .admin-shell { max-width: none; margin: 0; padding: 1.6rem 2rem 3rem; }
     .adt-sec { display: none; }
     .adt-sec.on { display: block; }
+
+    @media (max-width: 760px) {
+      .admin-layout { grid-template-columns: 1fr; }
+      .admin-side { position: static; height: auto; flex-direction: column; }
+      .adt-bar { flex-direction: row; flex-wrap: wrap; }
+      .adt-bar button { width: auto; }
+    }
 
     /* --- command prompt flourish --- */
     .adm-prompt { color: var(--ink-soft); font-size: .82rem; margin: .2rem 0 1.1rem; font-family: "JetBrains Mono", monospace; }
@@ -138,28 +153,28 @@
   </style>
 </head>
 <body class="admin-body">
-  <header class="admin-top">
-    <div class="admin-brand">
-      <div class="admin-brand-row">
-        <span class="admin-wordmark">tailor<span class="ac">back</span> <span class="cln">::</span> admin</span>
-        <span class="admin-chip">ops</span>
+  <div class="admin-layout">
+    <aside class="admin-side">
+      <div class="admin-brand">
+        <div class="admin-brand-row">
+          <span class="admin-wordmark">tailor<span class="ac">back</span> <span class="cln">::</span> admin</span>
+          <span class="admin-chip">ops</span>
+        </div>
+        <span class="admin-sub">internal ops console</span>
       </div>
-      <span class="admin-sub">internal ops console</span>
-    </div>
-    <a href="/admin/logout">sign out</a>
-  </header>
+      <nav class="adt-bar" id="adtBar" aria-label="Admin sections">
+        <button class="on" data-tab="overview">Overview</button>
+        <button data-tab="api">API &amp; usage</button>
+        <button data-tab="users">Users</button>
+        <button data-tab="generations">Generations</button>
+        <button data-tab="feedback">Feedback</button>
+        <button data-tab="messages">Messages</button>
+        <button data-tab="billing">Billing</button>
+      </nav>
+      <a class="admin-signout" href="/admin/logout">sign out</a>
+    </aside>
 
-  <nav class="adt-bar" id="adtBar" aria-label="Admin sections">
-    <button class="on" data-tab="overview">Overview</button>
-    <button data-tab="api">API &amp; usage</button>
-    <button data-tab="users">Users</button>
-    <button data-tab="generations">Generations</button>
-    <button data-tab="feedback">Feedback</button>
-    <button data-tab="messages">Messages</button>
-    <button data-tab="billing">Billing</button>
-  </nav>
-
-  <main class="admin-shell">
+    <main class="admin-shell">
     {% if request.args.get("adjusted") %}<p class="admin-success">User credit limit updated.</p>{% endif %}
     {% if request.args.get("saved") == "budgets" %}<p class="admin-success">Provider budgets saved.</p>{% endif %}
     {% if request.args.get("erased") %}<p class="admin-success">Account and all of its data were permanently deleted.</p>{% endif %}
@@ -410,7 +425,8 @@
         </table>
       </div>
     </section>
-  </main>
+    </main>
+  </div>
 
   <script>
     (function () {
