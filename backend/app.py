@@ -1864,6 +1864,34 @@ def admin_adjust_credits(user_id):
     return redirect(url_for("admin_portal", adjusted=user.id))
 
 
+@app.route("/admin/users/<int:user_id>/erase", methods=["POST"])
+def admin_erase_user(user_id):
+    """Right-to-erasure: permanently delete a user and ALL of their data.
+    Use only when a user requests deletion. Data is otherwise retained."""
+    if not _admin_ok():
+        abort(403)
+    user = db.session.get(User, user_id)
+    if not user:
+        abort(404)
+    email = user.email
+    # Remove generated files from disk, then every DB record tied to the user.
+    for doc in GeneratedDocument.query.filter_by(user_id=user.id).all():
+        try:
+            os.remove(os.path.join(GENERATED, doc.filename))
+        except OSError:
+            pass
+    GeneratedDocument.query.filter_by(user_id=user.id).delete()
+    GenerationRun.query.filter_by(user_id=user.id).delete()
+    Feedback.query.filter_by(user_id=user.id).delete()
+    CreditGrant.query.filter_by(user_id=user.id).delete()
+    # Contact messages are keyed by email, not user_id.
+    ContactMessage.query.filter_by(email=email).delete()
+    db.session.delete(user)
+    db.session.commit()
+    app.logger.warning("Admin erased all data for user %s (id %s)", email, user_id)
+    return redirect(url_for("admin_portal", erased=1))
+
+
 LEGAL_UPDATED = "June 3, 2026"
 
 

@@ -41,6 +41,9 @@
     .budget-form button { margin-top: .9rem; }
     .budget-form .fhelp { font-size: .72rem; color: var(--ink-soft); margin-top: .25rem; }
     .muted-note { color: var(--ink-soft); font-size: .82rem; margin-top: .6rem; }
+    .admin-erase-form { margin-top: .5rem; }
+    .admin-erase-btn { font: inherit; font-size: .78rem; font-weight: 700; color: #b91c1c; background: transparent; border: 1px solid color-mix(in srgb, #b91c1c 45%, var(--line)); border-radius: 8px; padding: .35rem .7rem; cursor: pointer; }
+    .admin-erase-btn:hover { background: #b91c1c; color: #fff; border-color: #b91c1c; }
   </style>
 </head>
 <body class="admin-body">
@@ -68,6 +71,7 @@
   <main class="admin-shell">
     {% if request.args.get("adjusted") %}<p class="admin-success">User credit limit updated.</p>{% endif %}
     {% if request.args.get("saved") == "budgets" %}<p class="admin-success">Provider budgets saved.</p>{% endif %}
+    {% if request.args.get("erased") %}<p class="admin-success">User and all their data were permanently erased.</p>{% endif %}
     {% if request.args.get("error") %}<p class="form-error">Credit update failed. Check the action and amount.</p>{% endif %}
     {% set pretty = {"openai": "OpenAI", "gemini": "Gemini", "claude": "Claude"} %}
     {% set roles = {"openai": "Primary", "gemini": "Fallback 1", "claude": "Fallback 2"} %}
@@ -189,6 +193,10 @@
             <input name="amount" type="number" min="0" step="1" value="0" aria-label="Credit amount" />
             <input name="note" placeholder="Reason" aria-label="Reason" />
             <button type="submit">Apply</button>
+          </form>
+          <form class="admin-erase-form" method="post" action="/admin/users/{{ user.id }}/erase"
+                onsubmit="return confirm('Permanently erase {{ user.email }} and ALL their data (generations, files, feedback, credits)? This cannot be undone. Use only for a deletion request.');">
+            <button type="submit" class="admin-erase-btn" title="Right-to-erasure: delete this user and all their data">Erase data</button>
           </form>
         </article>
         {% else %}<p>No users yet.</p>{% endfor %}
