@@ -79,7 +79,7 @@ with each provider's DPA].
 | Generation records (CV text, job text, outputs, metadata) | Retained for as long as necessary for the legitimate-interest purposes above (no fixed expiry by default) |
 | Account and credit records | While the account is active |
 | Contact messages | Until no longer needed for support |
-| All of a user's data | Deleted on a verified erasure request (admin "Erase data" action) |
+| All of a user's data | Deleted on a verified erasure request (admin "Delete account" action). Admins can also clear only a user's generated documents/history while keeping the account ("Delete data" action). |
 
 ## 8. Data-subject rights & how they are met
 - **Access / portability:** provided on request to [support email].
@@ -87,7 +87,7 @@ with each provider's DPA].
 - **Erasure:** users may request deletion via the contact form or [support
   email]; an admin permanently deletes the user and all associated data
   (generations, files, feedback, credits, contact messages) using the
-  "Erase data" action. Subject to any data we must retain by law.
+  "Delete account" action. Subject to any data we must retain by law.
 - **Restriction / objection / withdraw consent:** handled on request; published
   testimonials are removed on request.
 

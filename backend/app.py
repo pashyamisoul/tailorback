@@ -1864,17 +1864,9 @@ def admin_adjust_credits(user_id):
     return redirect(url_for("admin_portal", adjusted=user.id))
 
 
-@app.route("/admin/users/<int:user_id>/erase", methods=["POST"])
-def admin_erase_user(user_id):
-    """Right-to-erasure: permanently delete a user and ALL of their data.
-    Use only when a user requests deletion. Data is otherwise retained."""
-    if not _admin_ok():
-        abort(403)
-    user = db.session.get(User, user_id)
-    if not user:
-        abort(404)
-    email = user.email
-    # Remove generated files from disk, then every DB record tied to the user.
+def _delete_user_generation_data(user):
+    """Delete a user's generated documents + generation records (and files on
+    disk). Does NOT touch the account, credits, or feedback."""
     for doc in GeneratedDocument.query.filter_by(user_id=user.id).all():
         try:
             os.remove(os.path.join(GENERATED, doc.filename))
@@ -1882,13 +1874,41 @@ def admin_erase_user(user_id):
             pass
     GeneratedDocument.query.filter_by(user_id=user.id).delete()
     GenerationRun.query.filter_by(user_id=user.id).delete()
+
+
+@app.route("/admin/users/<int:user_id>/delete-data", methods=["POST"])
+def admin_delete_user_data(user_id):
+    """Delete only the documents/generations a user has produced. The account,
+    credits, and feedback stay; the user can keep using TailorBack."""
+    if not _admin_ok():
+        abort(403)
+    user = db.session.get(User, user_id)
+    if not user:
+        abort(404)
+    _delete_user_generation_data(user)
+    db.session.commit()
+    app.logger.warning("Admin deleted generation data for user %s (id %s)", user.email, user_id)
+    return redirect(url_for("admin_portal", datadeleted=1))
+
+
+@app.route("/admin/users/<int:user_id>/erase", methods=["POST"])
+def admin_erase_user(user_id):
+    """Right-to-erasure: permanently delete a user AND all of their data
+    (account included). Use only when a user requests full deletion."""
+    if not _admin_ok():
+        abort(403)
+    user = db.session.get(User, user_id)
+    if not user:
+        abort(404)
+    email = user.email
+    _delete_user_generation_data(user)
     Feedback.query.filter_by(user_id=user.id).delete()
     CreditGrant.query.filter_by(user_id=user.id).delete()
     # Contact messages are keyed by email, not user_id.
     ContactMessage.query.filter_by(email=email).delete()
     db.session.delete(user)
     db.session.commit()
-    app.logger.warning("Admin erased all data for user %s (id %s)", email, user_id)
+    app.logger.warning("Admin erased account + all data for user %s (id %s)", email, user_id)
     return redirect(url_for("admin_portal", erased=1))
 
 

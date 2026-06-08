@@ -41,9 +41,11 @@
     .budget-form button { margin-top: .9rem; }
     .budget-form .fhelp { font-size: .72rem; color: var(--ink-soft); margin-top: .25rem; }
     .muted-note { color: var(--ink-soft); font-size: .82rem; margin-top: .6rem; }
-    .admin-erase-form { margin-top: .5rem; }
+    .admin-erase-form { margin-top: .5rem; display: flex; gap: .4rem; flex-wrap: wrap; }
     .admin-erase-btn { font: inherit; font-size: .78rem; font-weight: 700; color: #b91c1c; background: transparent; border: 1px solid color-mix(in srgb, #b91c1c 45%, var(--line)); border-radius: 8px; padding: .35rem .7rem; cursor: pointer; }
     .admin-erase-btn:hover { background: #b91c1c; color: #fff; border-color: #b91c1c; }
+    .admin-deldata-btn { font: inherit; font-size: .78rem; font-weight: 700; color: #b45309; background: transparent; border: 1px solid color-mix(in srgb, #b45309 45%, var(--line)); border-radius: 8px; padding: .35rem .7rem; cursor: pointer; }
+    .admin-deldata-btn:hover { background: #b45309; color: #fff; border-color: #b45309; }
   </style>
 </head>
 <body class="admin-body">
@@ -71,7 +73,8 @@
   <main class="admin-shell">
     {% if request.args.get("adjusted") %}<p class="admin-success">User credit limit updated.</p>{% endif %}
     {% if request.args.get("saved") == "budgets" %}<p class="admin-success">Provider budgets saved.</p>{% endif %}
-    {% if request.args.get("erased") %}<p class="admin-success">User and all their data were permanently erased.</p>{% endif %}
+    {% if request.args.get("erased") %}<p class="admin-success">Account and all of its data were permanently deleted.</p>{% endif %}
+    {% if request.args.get("datadeleted") %}<p class="admin-success">The user's generated documents and history were deleted. Account, credits, and reviews kept.</p>{% endif %}
     {% if request.args.get("error") %}<p class="form-error">Credit update failed. Check the action and amount.</p>{% endif %}
     {% set pretty = {"openai": "OpenAI", "gemini": "Gemini", "claude": "Claude"} %}
     {% set roles = {"openai": "Primary", "gemini": "Fallback 1", "claude": "Fallback 2"} %}
@@ -194,10 +197,16 @@
             <input name="note" placeholder="Reason" aria-label="Reason" />
             <button type="submit">Apply</button>
           </form>
-          <form class="admin-erase-form" method="post" action="/admin/users/{{ user.id }}/erase"
-                onsubmit="return confirm('Permanently erase {{ user.email }} and ALL their data (generations, files, feedback, credits)? This cannot be undone. Use only for a deletion request.');">
-            <button type="submit" class="admin-erase-btn" title="Right-to-erasure: delete this user and all their data">Erase data</button>
-          </form>
+          <div class="admin-erase-form">
+            <form method="post" action="/admin/users/{{ user.id }}/delete-data" style="display:inline;"
+                  onsubmit="return confirm('Delete all documents and generations for {{ user.email }}? The account, credits, and reviews stay, only the content they have generated is removed. This cannot be undone.');">
+              <button type="submit" class="admin-deldata-btn" title="Delete only the documents/generations this user produced (keeps the account)">Delete data</button>
+            </form>
+            <form method="post" action="/admin/users/{{ user.id }}/erase" style="display:inline;"
+                  onsubmit="return confirm('Permanently delete the ENTIRE account for {{ user.email }} and ALL their data (generations, files, feedback, credits)? This cannot be undone. Use only for a full deletion request.');">
+              <button type="submit" class="admin-erase-btn" title="Right-to-erasure: delete this user account and all their data">Delete account</button>
+            </form>
+          </div>
         </article>
         {% else %}<p>No users yet.</p>{% endfor %}
       </div>
