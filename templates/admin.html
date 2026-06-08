@@ -1,65 +1,152 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="terminal">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TailorBack Admin</title>
+  <title>tailorback :: admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/css/style.css" />
   <style>
-    .admin-brand { display: flex; flex-direction: column; gap: .35rem; }
+    /* ============================================================
+       Terminal ops console (admin Option D). Renders under
+       data-theme="terminal", then re-skins the shared .admin-*
+       components (which use hard-coded light colours) to the dark
+       palette. Layout from style.css is kept; only skin changes.
+       ============================================================ */
+    .admin-body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "JetBrains Mono", "Spline Sans Mono", ui-monospace, monospace;
+    }
+
+    /* --- header: tailorback :: admin --- */
+    .admin-top { border-bottom: 1px solid var(--line); }
+    .admin-brand { display: flex; flex-direction: column; gap: .25rem; }
     .admin-brand-row { display: flex; align-items: center; gap: .7rem; }
-    .admin-wordmark { font-family: "Inter", system-ui, sans-serif; font-weight: 900; font-size: clamp(1.9rem, 4vw, 2.8rem); letter-spacing: -.03em; line-height: 1; color: var(--ink); }
+    .admin-wordmark {
+      font-family: "JetBrains Mono", monospace; font-weight: 800;
+      font-size: clamp(1.15rem, 2.6vw, 1.6rem); letter-spacing: 0;
+      line-height: 1; color: var(--ink); text-transform: lowercase;
+    }
     .admin-wordmark .ac { color: var(--accent); }
-    .admin-chip { font-family: "Spline Sans Mono", monospace; font-size: .64rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 6px; padding: .26rem .5rem; background: color-mix(in srgb, var(--accent) 8%, transparent); }
-    .admin-sub { color: var(--ink-soft); font-size: .9rem; font-weight: 500; }
+    .admin-wordmark .cln { color: var(--ink-soft); }
+    .admin-chip {
+      font-family: "JetBrains Mono", monospace; font-size: .62rem; font-weight: 700;
+      letter-spacing: .18em; text-transform: uppercase; color: var(--accent);
+      border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+      border-radius: 6px; padding: .24rem .5rem;
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
+    }
+    .admin-sub { color: var(--ink-soft); font-size: .82rem; font-weight: 400; }
+    .admin-top a { color: var(--ink-soft); text-decoration: none; font-size: .82rem; }
+    .admin-top a:hover { color: var(--accent); }
+    .admin-top a::before { content: "["; color: var(--ink-soft); margin-right: .3rem; }
+    .admin-top a::after { content: "]"; color: var(--ink-soft); margin-left: .3rem; }
+
+    /* --- tab nav --- */
     .adt-bar { position: sticky; top: 0; z-index: 20; background: var(--paper); border-bottom: 1px solid var(--line); max-width: 1240px; margin: 0 auto; padding: 0 1.5rem; display: flex; gap: .2rem; flex-wrap: wrap; }
-    .adt-bar button { border: 0; background: none; font: inherit; font-weight: 700; font-size: .9rem; color: var(--ink-soft); padding: .9rem .9rem; cursor: pointer; border-bottom: 2px solid transparent; }
-    .adt-bar button.on { color: var(--ink); border-color: var(--accent); }
+    .adt-bar button { border: 0; background: none; font: inherit; font-family: "JetBrains Mono", monospace; font-weight: 500; font-size: .85rem; text-transform: lowercase; color: var(--ink-soft); padding: .9rem .8rem; cursor: pointer; border-bottom: 2px solid transparent; }
+    .adt-bar button.on { color: var(--accent); border-color: var(--accent); }
     .adt-bar button:hover:not(.on) { color: var(--ink); }
     .adt-sec { display: none; }
     .adt-sec.on { display: block; }
-    .api-alert { display: flex; gap: .7rem; align-items: flex-start; background: color-mix(in srgb, var(--warn) 12%, var(--paper)); border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line)); border-radius: 10px; padding: .85rem 1.1rem; margin-bottom: 1.2rem; font-size: .92rem; }
+
+    /* --- command prompt flourish --- */
+    .adm-prompt { color: var(--ink-soft); font-size: .82rem; margin: .2rem 0 1.1rem; font-family: "JetBrains Mono", monospace; }
+    .adm-prompt b { color: var(--accent); }
+
+    /* --- overview KPI tiles --- */
+    .admin-metrics article { background: var(--paper-2); border: 1px solid var(--line); color: var(--ink); }
+    .admin-metrics span, .admin-metrics small { color: var(--ink-soft); }
+    .admin-metrics strong { color: var(--ink); font-family: "Inter", sans-serif; }
+
+    /* --- panels / section heads / tables --- */
+    .admin-panel, .admin-card { background: var(--paper-2); border: 1px solid var(--line); box-shadow: none; }
+    .admin-section-head h2 { color: var(--ink); }
+    .admin-section-head p { color: var(--ink-soft); }
+    .admin-table-wrap { border: 1px solid var(--line); }
+    .admin-table th { background: var(--paper-2); color: var(--ink-soft); }
+    .admin-table th, .admin-table td { border-bottom: 1px solid var(--line); }
+    .admin-table td { color: var(--ink); }
+    .admin-success { color: var(--good); }
+    .admin-shell .form-error { color: #f85149; }
+
+    /* --- API & usage alert / tiles --- */
+    .api-alert { display: flex; gap: .7rem; align-items: flex-start; background: color-mix(in srgb, var(--warn) 14%, transparent); border-left: 3px solid var(--warn); border-radius: 6px; padding: .8rem 1rem; margin-bottom: 1.2rem; font-size: .9rem; }
     .api-alert b { color: var(--warn); }
     .api-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.4rem; }
-    .api-tile { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 1.1rem 1.2rem; }
+    .api-tile { background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; padding: 1.1rem 1.2rem; }
     .api-tile .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: .5rem; }
-    .api-tile .pname { font-weight: 800; font-size: 1.05rem; }
-    .api-tile .prole { font-size: .66rem; color: var(--ink-soft); font-family: "Spline Sans Mono", monospace; text-transform: uppercase; letter-spacing: .1em; }
-    .api-tile .big { font-size: 1.8rem; font-weight: 900; margin: .15rem 0; }
+    .api-tile .pname { font-weight: 800; font-size: 1.05rem; font-family: "JetBrains Mono", monospace; }
+    .api-tile .prole { font-size: .66rem; color: var(--ink-soft); font-family: "JetBrains Mono", monospace; text-transform: uppercase; letter-spacing: .1em; }
+    .api-tile .big { font-size: 1.8rem; font-weight: 900; margin: .15rem 0; color: var(--ink); font-family: "Inter", sans-serif; }
     .api-tile .row { display: flex; justify-content: space-between; font-size: .82rem; color: var(--ink-soft); margin-top: .3rem; }
     .api-tile .row b { color: var(--ink); }
     .api-track { height: 7px; background: var(--line); border-radius: 5px; overflow: hidden; margin: .5rem 0; }
     .api-fill { height: 100%; border-radius: 5px; background: var(--accent); }
-    .api-stat { font-size: .68rem; font-weight: 800; padding: .15rem .55rem; border-radius: 999px; }
-    .api-stat.ok { color: var(--good); background: color-mix(in srgb, var(--good) 12%, transparent); }
-    .api-stat.low { color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, transparent); }
-    .api-stat.unset { color: var(--ink-soft); background: var(--paper-2); }
+    .api-stat { font-size: .66rem; font-weight: 700; padding: .14rem .5rem; border-radius: 4px; border: 1px solid currentColor; }
+    .api-stat.ok { color: var(--good); }
+    .api-stat.low { color: var(--warn); }
+    .api-stat.unset { color: var(--ink-soft); }
     .est { font-size: .72rem; color: var(--ink-soft); font-style: italic; }
+
+    /* --- budget + sync forms --- */
     .budget-form table { width: 100%; border-collapse: collapse; font-size: .88rem; }
     .budget-form th, .budget-form td { text-align: left; padding: .55rem .5rem; border-bottom: 1px solid var(--line); }
-    .budget-form input[type="number"] { width: 90px; padding: .35rem .5rem; border: 1px solid var(--line); border-radius: 7px; font: inherit; }
-    .budget-form button { margin-top: .9rem; }
+    .budget-form input[type="number"] { width: 90px; padding: .35rem .5rem; border: 1px solid var(--line); border-radius: 7px; font: inherit; background: var(--paper); color: var(--ink); }
+    .budget-form button, #syncBtn { margin-top: .9rem; background: var(--accent); color: #0d1117; border: 0; border-radius: 6px; padding: .55rem .95rem; font-weight: 800; cursor: pointer; font-family: "JetBrains Mono", monospace; }
+    .budget-form button:hover, #syncBtn:hover { background: var(--accent-deep); }
+    #syncBtn { margin-top: 0; }
     .budget-form .fhelp { font-size: .72rem; color: var(--ink-soft); margin-top: .25rem; }
     .muted-note { color: var(--ink-soft); font-size: .82rem; margin-top: .6rem; }
+
+    /* --- users tab --- */
+    .admin-user-card { background: var(--paper-2); border: 1px solid var(--line); }
+    .admin-user-main strong { color: var(--ink); }
+    .admin-user-main span, .admin-credit-summary span, .admin-credit-summary small { color: var(--ink-soft); }
+    .admin-badges b { border: 1px solid var(--line); color: var(--ink-soft); }
+    .admin-badges b.ok { border-color: color-mix(in srgb, var(--good) 45%, var(--line)); color: var(--good); }
+    .admin-badges b.warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); color: var(--warn); }
+    .admin-credit-summary { border-left: 1px solid var(--line); }
+    .admin-credit-summary strong { color: var(--accent); }
+    .admin-credit-form select, .admin-credit-form input { background: var(--paper); border: 1px solid var(--line); color: var(--ink); }
+    .admin-credit-form button { background: var(--accent); color: #0d1117; }
+    .admin-credit-form button:hover { background: var(--accent-deep); }
+
+    /* --- generations audit --- */
+    .run-card { background: var(--paper-2); border: 1px solid var(--line); }
+    .run-card summary span { color: var(--ink-soft); }
+    .run-card summary strong { color: var(--ink); }
+    .run-summary-meta span { border: 1px solid var(--line); color: var(--ink-soft); }
+    .run-meta { background: var(--paper); border: 1px solid var(--line); }
+    .run-meta a, .run-card summary::marker { color: var(--accent); }
+    .run-section { border-top: 1px solid var(--line); }
+    .run-grid pre { background: #0d1117; border: 1px solid var(--line); color: var(--ink); }
+    .admin-warning { border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line)); background: color-mix(in srgb, var(--warn) 12%, transparent); color: var(--warn); }
+
+    /* --- per-user data actions (terminal-bright variants) --- */
     .admin-erase-form { margin-top: .5rem; display: flex; gap: .4rem; flex-wrap: wrap; }
-    .admin-erase-btn { font: inherit; font-size: .78rem; font-weight: 700; color: #b91c1c; background: transparent; border: 1px solid color-mix(in srgb, #b91c1c 45%, var(--line)); border-radius: 8px; padding: .35rem .7rem; cursor: pointer; }
-    .admin-erase-btn:hover { background: #b91c1c; color: #fff; border-color: #b91c1c; }
-    .admin-deldata-btn { font: inherit; font-size: .78rem; font-weight: 700; color: #b45309; background: transparent; border: 1px solid color-mix(in srgb, #b45309 45%, var(--line)); border-radius: 8px; padding: .35rem .7rem; cursor: pointer; }
-    .admin-deldata-btn:hover { background: #b45309; color: #fff; border-color: #b45309; }
-    .admin-export-btn { font: inherit; font-size: .78rem; font-weight: 700; color: #1d4ed8; background: transparent; border: 1px solid color-mix(in srgb, #1d4ed8 45%, var(--line)); border-radius: 8px; padding: .35rem .7rem; cursor: pointer; text-decoration: none; display: inline-block; }
-    .admin-export-btn:hover { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+    .admin-export-btn, .admin-deldata-btn, .admin-erase-btn { font: inherit; font-family: "JetBrains Mono", monospace; font-size: .76rem; font-weight: 700; background: transparent; border-radius: 6px; padding: .35rem .7rem; cursor: pointer; text-decoration: none; display: inline-block; }
+    .admin-export-btn { color: #58a6ff; border: 1px solid color-mix(in srgb, #58a6ff 45%, var(--line)); }
+    .admin-export-btn:hover { background: #58a6ff; color: #0d1117; border-color: #58a6ff; }
+    .admin-deldata-btn { color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); }
+    .admin-deldata-btn:hover { background: var(--warn); color: #0d1117; border-color: var(--warn); }
+    .admin-erase-btn { color: #f85149; border: 1px solid color-mix(in srgb, #f85149 45%, var(--line)); }
+    .admin-erase-btn:hover { background: #f85149; color: #fff; border-color: #f85149; }
   </style>
 </head>
 <body class="admin-body">
   <header class="admin-top">
     <div class="admin-brand">
       <div class="admin-brand-row">
-        <span class="admin-wordmark">Tailor<span class="ac">Back</span></span>
-        <span class="admin-chip">Admin</span>
+        <span class="admin-wordmark">tailor<span class="ac">back</span> <span class="cln">::</span> admin</span>
+        <span class="admin-chip">ops</span>
       </div>
-      <span class="admin-sub">Internal console</span>
+      <span class="admin-sub">internal ops console</span>
     </div>
-    <a href="/admin/logout">Sign out</a>
+    <a href="/admin/logout">sign out</a>
   </header>
 
   <nav class="adt-bar" id="adtBar" aria-label="Admin sections">
@@ -83,6 +170,7 @@
 
     <!-- OVERVIEW -->
     <section class="adt-sec on" data-tab="overview">
+      <p class="adm-prompt"><b>$</b> tailorback status --overview</p>
       <section class="admin-metrics" aria-label="Portal overview">
         <article><span>Total users</span><strong>{{ stats.total_users }}</strong><small>{{ stats.verified_users }} verified</small></article>
         <article><span>Generations</span><strong>{{ stats.total_generations }}</strong><small>{{ stats.visible_generations }} shown</small></article>

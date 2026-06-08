@@ -1,16 +1,31 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="terminal">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TailorBack Admin</title>
+  <title>tailorback :: admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/css/style.css" />
+  <style>
+    .admin-body { background: var(--paper); color: var(--ink); font-family: "JetBrains Mono", ui-monospace, monospace; }
+    .admin-card { background: var(--paper-2); border: 1px solid var(--line); box-shadow: none; }
+    .admin-kicker { color: var(--accent); font-family: "JetBrains Mono", monospace; }
+    .admin-login h1 { color: var(--ink); font-family: "JetBrains Mono", monospace; text-transform: lowercase; }
+    .admin-login h1::before { content: "$ "; color: var(--accent); }
+    .auth-form label span { color: var(--ink-soft); }
+    .auth-form input { background: var(--paper); border: 1px solid var(--line); color: var(--ink); }
+    .auth-form .go { background: var(--accent); color: #0d1117; border: 0; font-family: "JetBrains Mono", monospace; font-weight: 800; }
+    .auth-form .go:hover { background: var(--accent-deep); }
+    .form-error { color: #f85149; }
+  </style>
 </head>
 <body class="admin-body">
   <main class="admin-login">
     <div class="admin-card">
-      <span class="admin-kicker">TailorBack Admin</span>
-      <h1>Backend portal</h1>
+      <span class="admin-kicker">tailorback :: admin</span>
+      <h1>backend portal</h1>
       {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
       <form method="post" class="auth-form">
         <label>
