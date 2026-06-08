@@ -445,7 +445,7 @@ async function openHistory() {
       <span class="cred-bar"><i style="width:${pct}%"></i></span>
       <span class="cred-sub">${user.paid_credits} paid · ${user.free_credits_limit} free</span>`;
     if (settings) {
-      settings.innerHTML = user.has_password ? `
+      const passwordCard = user.has_password ? `
         <details class="settings-card">
           <summary>
             <strong>Change password</strong>
@@ -472,7 +472,27 @@ async function openHistory() {
           <strong>Password managed by Google</strong>
           <span>This account signs in with Google, so password changes happen in your Google account.</span>
         </div>`;
+      const dangerCard = `
+        <details class="settings-card danger-card">
+          <summary>
+            <strong>Delete my account</strong>
+            <span>Permanently remove your account and all your data.</span>
+          </summary>
+          <div class="danger-body">
+            <p>This deletes your account, every tailored document and generation,
+               your reviews, and your remaining credits. It cannot be undone and
+               credits are not refundable.</p>
+            <label>
+              <span>Type <code>DELETE</code> to confirm</span>
+              <input type="text" id="deleteConfirmInput" autocomplete="off" placeholder="DELETE" />
+            </label>
+            <button type="button" id="deleteAccountBtn" class="danger-btn" disabled>Delete my account</button>
+            <p class="settings-message" id="deleteMessage"></p>
+          </div>
+        </details>`;
+      settings.innerHTML = passwordCard + dangerCard;
       bindPasswordForm();
+      bindDeleteAccount();
     }
     const STATUS_OPTIONS = [
       ['not_applied', 'Not applied'], ['applied', 'Applied'],
@@ -553,6 +573,41 @@ function bindPasswordForm() {
     } catch (err) {
       if (msg) {
         msg.textContent = err.message || 'Could not update password.';
+        msg.classList.add('warn');
+      }
+    }
+  });
+}
+
+function bindDeleteAccount() {
+  const btn = document.getElementById('deleteAccountBtn');
+  const input = document.getElementById('deleteConfirmInput');
+  const msg = document.getElementById('deleteMessage');
+  if (!btn || !input || btn.dataset.bound === 'true') return;
+  btn.dataset.bound = 'true';
+  // Only enable the button once the user types DELETE exactly.
+  input.addEventListener('input', () => {
+    btn.disabled = input.value.trim() !== 'DELETE';
+  });
+  btn.addEventListener('click', async () => {
+    if (input.value.trim() !== 'DELETE') return;
+    if (!confirm('This permanently deletes your account and all your data. This cannot be undone. Continue?')) return;
+    btn.disabled = true;
+    if (msg) { msg.textContent = 'Deleting your account…'; msg.className = 'settings-message'; }
+    try {
+      const res = await fetch('/api/account/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not delete account.');
+      // Account is gone and the session is cleared; send them home.
+      window.location.href = '/';
+    } catch (err) {
+      btn.disabled = false;
+      if (msg) {
+        msg.textContent = err.message || 'Could not delete account.';
         msg.classList.add('warn');
       }
     }

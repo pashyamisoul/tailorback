@@ -960,6 +960,23 @@ def auth_logout():
     return redirect(url_for("index"))
 
 
+@app.route("/api/account/delete", methods=["POST"])
+def account_delete():
+    """Self-service erasure: a signed-in user permanently deletes their own
+    account and all associated data. Requires an explicit confirmation flag."""
+    user = _current_user()
+    if not user:
+        return jsonify({"error": "Not signed in."}), 401
+    data = request.get_json(silent=True) or {}
+    if data.get("confirm") is not True:
+        return jsonify({"error": "Deletion not confirmed."}), 400
+    email = user.email
+    _erase_user_completely(user)
+    session.clear()
+    app.logger.warning("User self-deleted account %s", email)
+    return jsonify({"status": "ok"})
+
+
 def _resolve_jd(form):
     """Return (jd_text, error_field|None)."""
     jd_text = (form.get("jd_text") or "").strip()
@@ -1898,6 +1915,19 @@ def _delete_user_generation_data(user):
     GenerationRun.query.filter_by(user_id=user.id).delete()
 
 
+def _erase_user_completely(user):
+    """Permanently delete a user AND all associated data (account included).
+    Shared by the admin 'Delete account' action and self-service deletion."""
+    email = user.email
+    _delete_user_generation_data(user)
+    Feedback.query.filter_by(user_id=user.id).delete()
+    CreditGrant.query.filter_by(user_id=user.id).delete()
+    # Contact messages are keyed by email, not user_id.
+    ContactMessage.query.filter_by(email=email).delete()
+    db.session.delete(user)
+    db.session.commit()
+
+
 @app.route("/admin/users/<int:user_id>/delete-data", methods=["POST"])
 def admin_delete_user_data(user_id):
     """Delete only the documents/generations a user has produced. The account,
@@ -1983,13 +2013,7 @@ def admin_erase_user(user_id):
     if not user:
         abort(404)
     email = user.email
-    _delete_user_generation_data(user)
-    Feedback.query.filter_by(user_id=user.id).delete()
-    CreditGrant.query.filter_by(user_id=user.id).delete()
-    # Contact messages are keyed by email, not user_id.
-    ContactMessage.query.filter_by(email=email).delete()
-    db.session.delete(user)
-    db.session.commit()
+    _erase_user_completely(user)
     app.logger.warning("Admin erased account + all data for user %s (id %s)", email, user_id)
     return redirect(url_for("admin_portal", erased=1))
 

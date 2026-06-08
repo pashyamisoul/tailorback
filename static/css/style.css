@@ -1072,6 +1072,34 @@ html[data-theme="terminal"] .go .gicon { display: none; }
 .settings-message.ok { color: var(--good); }
 .settings-message.warn { color: var(--warn); }
 
+/* Danger zone: self-service account deletion */
+.danger-card { border-color: color-mix(in srgb, #b91c1c 35%, var(--line)); }
+.danger-card summary strong { color: #b91c1c; }
+.danger-body { margin-top: .9rem; display: grid; gap: .7rem; }
+.danger-body p { color: var(--ink-soft); font-size: .86rem; margin: 0; }
+.danger-body label { display: grid; gap: .3rem; font-weight: 700; font-size: .78rem; }
+.danger-body code { background: var(--paper-2, rgba(0,0,0,.06)); padding: 0 .3rem; border-radius: 4px; }
+.danger-body input {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  padding: .55rem .65rem;
+  font: inherit;
+  max-width: 260px;
+}
+.danger-btn {
+  justify-self: start;
+  min-height: 40px;
+  border: 1px solid #b91c1c;
+  background: transparent;
+  color: #b91c1c;
+  padding: .55rem 1rem;
+  cursor: pointer;
+  font-weight: 800;
+}
+.danger-btn:hover:not(:disabled) { background: #b91c1c; color: #fff; }
+.danger-btn:disabled { opacity: .45; cursor: not-allowed; }
+
 /* ---------- admin ---------- */
 .admin-body {
   background: #f6f4ef;
