@@ -53,8 +53,6 @@
     /* --- sign out, directly under the nav --- */
     .admin-signout { color: var(--ink-soft); text-decoration: none; font-size: .82rem; padding: .55rem .75rem; }
     .admin-signout:hover { color: var(--accent); }
-    .admin-signout::before { content: "[ "; }
-    .admin-signout::after { content: " ]"; }
 
     /* --- content fills the right column --- */
     .admin-shell { max-width: none; margin: 0; padding: 1.6rem 2rem 3rem; }
@@ -72,8 +70,11 @@
     .adm-prompt { color: var(--ink-soft); font-size: .82rem; margin: .2rem 0 1.1rem; font-family: "JetBrains Mono", monospace; }
     .adm-prompt b { color: var(--accent); }
 
-    /* --- overview KPI tiles --- */
-    .admin-metrics article { background: var(--paper-2); border: 1px solid var(--line); color: var(--ink); }
+    /* --- overview KPI tiles: even 3x2 grid filling the width --- */
+    .admin-metrics { grid-template-columns: repeat(3, 1fr); gap: 1.1rem; }
+    .admin-metrics article { background: var(--paper-2); border: 1px solid var(--line); color: var(--ink); min-height: 168px; }
+    @media (max-width: 920px) { .admin-metrics { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 560px) { .admin-metrics { grid-template-columns: 1fr; } }
     .admin-metrics span, .admin-metrics small { color: var(--ink-soft); }
     .admin-metrics strong { color: var(--ink); font-family: "Inter", sans-serif; }
 
@@ -160,7 +161,6 @@
           <span class="admin-wordmark">tailor<span class="ac">back</span> <span class="cln">::</span> admin</span>
           <span class="admin-chip">ops</span>
         </div>
-        <span class="admin-sub">internal ops console</span>
       </div>
       <nav class="adt-bar" id="adtBar" aria-label="Admin sections">
         <button class="on" data-tab="overview">Overview</button>
