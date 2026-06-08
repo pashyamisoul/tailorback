@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="editorial">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Option C — Widget grid</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+<style>
+  body{margin:0;background:var(--paper-2);color:var(--ink);font-family:"Inter",system-ui,sans-serif}
+  .mlabel{text-align:center;font-family:"Spline Sans Mono",monospace;font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:#fff;background:#111;padding:.4rem}
+  .bar{display:flex;align-items:center;justify-content:space-between;padding:1rem 2rem;background:var(--paper);border-bottom:1px solid var(--line)}
+  .brand{font-weight:900;font-size:1.15rem}.brand b{color:var(--accent)}
+  .bar nav{display:flex;gap:1rem}.bar nav a{color:var(--ink-soft);text-decoration:none;font-weight:700;font-size:.88rem}.bar nav a.on{color:var(--accent)}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;padding:1.6rem 2rem 3rem;max-width:1240px;margin:0 auto}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:1.2rem 1.3rem}
+  .card h3{margin:0 0 .8rem;font-size:.95rem;font-weight:800}
+  .span2{grid-column:span 2}.span4{grid-column:span 4}
+  .kpi span{font-size:.74rem;color:var(--ink-soft);font-weight:600}.kpi strong{display:block;font-size:1.7rem;font-weight:900;margin:.2rem 0}.up{color:var(--good);font-size:.74rem;font-weight:700}
+  /* gauge */
+  .gauge{display:flex;align-items:center;gap:1.3rem}
+  .ring{width:120px;height:120px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--warn) 0 73%,var(--line) 73% 100%);position:relative;flex:none}
+  .ring::before{content:"";position:absolute;inset:12px;background:var(--paper);border-radius:50%}
+  .ring b{position:relative;font-size:1.5rem;font-weight:900}.ring small{position:relative;display:block;text-align:center;font-size:.6rem;color:var(--ink-soft)}
+  .glist{flex:1;display:flex;flex-direction:column;gap:.6rem}
+  .grow{display:grid;grid-template-columns:1fr auto auto;gap:.6rem;align-items:center;font-size:.84rem}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:.4rem}
+  .stat{font-size:.68rem;font-weight:800;padding:.15rem .5rem;border-radius:999px}
+  .ok{color:var(--good);background:color-mix(in srgb,var(--good) 12%,transparent)}.low{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
+  .alert{grid-column:span 4;display:flex;gap:.6rem;background:color-mix(in srgb,var(--warn) 12%,var(--paper));border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line));border-radius:12px;padding:.8rem 1.1rem;font-size:.9rem;align-items:center}.alert b{color:var(--warn)}
+  .bars{display:flex;align-items:flex-end;gap:.5rem;height:90px}.bars i{flex:1;background:color-mix(in srgb,var(--accent) 70%,var(--paper));border-radius:5px 5px 0 0}
+  .rdist{display:flex;flex-direction:column;gap:.4rem;font-size:.8rem}.rt{height:8px;background:var(--line);border-radius:4px;overflow:hidden}.rf{height:100%;background:var(--good)}
+  .mono{font-family:"Spline Sans Mono",monospace}
+</style>
+</head>
+<body>
+<div class="mlabel">Admin Option C &middot; Widget / control-center grid</div>
+<div class="bar"><div class="brand">Tailor<b>Back</b> Admin</div><nav><a class="on">Dashboard</a><a>Users</a><a>Generations</a><a>Feedback</a><a>Billing</a></nav></div>
+<div class="grid">
+  <div class="card kpi"><span>Users</span><strong>128</strong><span class="up">▲ 12 this week</span></div>
+  <div class="card kpi"><span>Generations</span><strong>542</strong><span class="up">▲ 38 this week</span></div>
+  <div class="card kpi"><span>Avg rating</span><strong>4.6★</strong><span class="up">▲ 0.2</span></div>
+  <div class="card kpi"><span>Spend (30d)</span><strong>$24.60</strong><span class="up">▲ 9%</span></div>
+
+  <div class="alert"><span>⚠️</span><div><b>Refill OpenAI</b> — your primary provider has ~$6.60 left (about 4 days). Top it up to avoid falling back to Gemini/Claude.</div></div>
+
+  <div class="card span2"><h3>API usage &amp; credits</h3>
+    <div class="gauge">
+      <div class="ring"><b>73%</b><small>OpenAI used</small></div>
+      <div class="glist">
+        <div class="grow"><span><span class="dot" style="background:var(--accent)"></span>OpenAI · 312 runs</span><span class="mono">~$6.60</span><span class="stat low">Refill</span></div>
+        <div class="grow"><span><span class="dot" style="background:var(--good)"></span>Gemini · 180 runs</span><span class="mono">free 82%</span><span class="stat ok">OK</span></div>
+        <div class="grow"><span><span class="dot" style="background:#7c3aed"></span>Claude · 50 runs</span><span class="mono">~$15.90</span><span class="stat ok">OK</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="card span2"><h3>Generations, last 7 days</h3><div class="bars"><i style="height:45%"></i><i style="height:62%"></i><i style="height:38%"></i><i style="height:82%"></i><i style="height:70%"></i><i style="height:30%"></i><i style="height:54%"></i></div></div>
+
+  <div class="card span2"><h3>Rating distribution</h3><div class="rdist">
+    <div>5★ <div class="rt"><div class="rf" style="width:64%"></div></div></div>
+    <div>4★ <div class="rt"><div class="rf" style="width:22%"></div></div></div>
+    <div>3★ <div class="rt"><div class="rf" style="width:9%;background:var(--warn)"></div></div></div>
+    <div>≤2★ <div class="rt"><div class="rf" style="width:5%;background:var(--accent)"></div></div></div>
+  </div></div>
+  <div class="card span2"><h3>Recent feedback</h3>
+    <div style="font-size:.85rem;color:var(--ink-soft);line-height:1.7">★★★★★ "Got me 2 interviews" — Priya<br>★★★★ "Loved the gap list" — Jordan<br>★★ "PDF export failed" — Sam ⚠️</div>
+  </div>
+</div>
+</body></html>

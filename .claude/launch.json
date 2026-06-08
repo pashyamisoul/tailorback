@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "tailorback", "runtimeExecutable": "/bin/sh", "runtimeArgs": ["-c", "sleep 100000"], "port": 5000 }
+  ]
+}

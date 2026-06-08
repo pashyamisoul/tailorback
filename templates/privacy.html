@@ -4,8 +4,10 @@
 {% block content %}
 
 <p>This Privacy Policy explains what data TailorBack ("we", "us") collects, why,
-and what we do with it. TailorBack is operated by [Company legal name],
-[jurisdiction]. For privacy questions or data requests, contact [support email].</p>
+and what we do with it. TailorBack is operated by {{ operator_name }}, a private
+individual based in {{ operator_jurisdiction }} (not a company), who is the data
+controller. Full operator details are in our <a href="/impressum">Impressum</a>.
+For privacy questions or data requests, contact {{ operator_email }}.</p>
 
 <h2>1. Data we collect</h2>
 <ul>
@@ -73,7 +75,7 @@ safety, and security of TailorBack and its users.</p>
   <li>To act on your feedback and, only where you have given consent, to display your
       review (with the display name and role you provided) publicly as a testimonial.
       A consented review rated four stars or higher may be published automatically; you
-      can ask us to remove a published review at any time by contacting [support email].</li>
+      can ask us to remove a published review at any time by contacting {{ operator_email }}.</li>
 </ul>
 
 <h2>6. Retention</h2>
@@ -87,13 +89,16 @@ safety, and security of TailorBack and its users.</p>
       description you submitted, the extracted text of your CV, the generated résumé and
       cover letter, the match score, and related metadata, in our systems for our own
       records, analytics, quality and abuse-prevention, and to operate and improve the
-      Service. These records are accessible to TailorBack administrators.</li>
+      Service. We do this on the basis of our <strong>legitimate interests</strong> in
+      running and improving TailorBack, and we keep these records for as long as
+      necessary for those purposes. These records are accessible to TailorBack
+      administrators.</li>
   <li>As a result, a document or generation you remove from your account may still exist
       in our backend database and administrative tools after it disappears from your
       downloads and history.</li>
   <li>Your account and credit records are retained while your account is active. You can
       request deletion of your account and the personal data we hold by contacting
-      [support email]; we will action such requests subject to any data we are legally
+      {{ operator_email }}; we will action such requests subject to any data we are legally
       required or permitted to retain.</li>
 </ul>
 
@@ -101,10 +106,13 @@ safety, and security of TailorBack and its users.</p>
 <p>Depending on your location (for example under the EU/UK GDPR), you may have the
 right to access, correct, export, or delete your personal data, to object to or
 restrict certain processing, and to withdraw consent. To exercise these rights,
-contact [support email]. You may also change your password and delete your
+contact {{ operator_email }}. You may also change your password and delete your
 downloadable documents directly in the app, note that this removes the files
 only; as explained in Section 6, the underlying generation record is retained.
-For deletion of the data we hold, contact us at [support email].</p>
+For deletion of the data we hold, contact us at {{ operator_email }}.</p>
+<p>You also have the right to lodge a complaint with a data-protection
+supervisory authority. The competent authority for TailorBack is the
+{{ supervisory_authority }}.</p>
 
 <h2>8. Security</h2>
 <p>We use measures such as hashed passwords, account-scoped access to your
@@ -125,6 +133,6 @@ safeguards for such transfers.</p>
 version; material changes will be highlighted in the app where appropriate.</p>
 
 <h2>12. Contact</h2>
-<p>Privacy questions and data requests: [support email].</p>
+<p>Privacy questions and data requests: {{ operator_email }}.</p>
 
 {% endblock %}

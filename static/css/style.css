@@ -404,32 +404,43 @@ html[data-theme="terminal"] .go .gicon { display: none; }
   .qm-cards { grid-template-columns: 1fr; }
 }
 .site-footer {
-  max-width: 980px;
-  margin: 0 auto;
-  padding: 1.35rem clamp(1.2rem, 5vw, 2rem) 2rem;
+  max-width: none;
+  margin: 0;
+  padding: 1.35rem clamp(1.2rem, 5vw, 3.5rem) 2rem;
   border-top: 1px solid var(--line);
   color: var(--ink-soft);
   display: flex;
   align-items: center;
-  gap: 0;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: .5rem 1.25rem;
   font-size: .84rem;
 }
-.site-footer span {
-  color: var(--ink);
-  font-weight: 800;
+.site-footer .footer-copy {
+  color: var(--ink-soft);
+  font-weight: 500;
   margin-right: auto;
+  white-space: nowrap;
 }
-.site-footer .footer-copy { font-weight: 500; color: var(--ink-soft); }
+/* Keep the legal links together as one group; they wrap below the copyright as
+   a unit rather than each link breaking mid-phrase. */
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+}
 .site-footer a {
   color: var(--ink-soft);
   text-decoration: none;
   font-weight: 700;
+  white-space: nowrap;
 }
 .site-footer a:hover { color: var(--accent); }
 /* A "|" divider between consecutive footer links, with tight, symmetric spacing. */
-.site-footer a + a::before {
+.footer-links a + a::before {
   content: "|";
-  margin: 0 0.45rem;
+  margin: 0 0.55rem;
   color: var(--ink-soft);
   font-weight: 400;
 }
@@ -1060,6 +1071,34 @@ html[data-theme="terminal"] .go .gicon { display: none; }
 }
 .settings-message.ok { color: var(--good); }
 .settings-message.warn { color: var(--warn); }
+
+/* Danger zone: self-service account deletion */
+.danger-card { border-color: color-mix(in srgb, #b91c1c 35%, var(--line)); }
+.danger-card summary strong { color: #b91c1c; }
+.danger-body { margin-top: .9rem; display: grid; gap: .7rem; }
+.danger-body p { color: var(--ink-soft); font-size: .86rem; margin: 0; }
+.danger-body label { display: grid; gap: .3rem; font-weight: 700; font-size: .78rem; }
+.danger-body code { background: var(--paper-2, rgba(0,0,0,.06)); padding: 0 .3rem; border-radius: 4px; }
+.danger-body input {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  padding: .55rem .65rem;
+  font: inherit;
+  max-width: 260px;
+}
+.danger-btn {
+  justify-self: start;
+  min-height: 40px;
+  border: 1px solid #b91c1c;
+  background: transparent;
+  color: #b91c1c;
+  padding: .55rem 1rem;
+  cursor: pointer;
+  font-weight: 800;
+}
+.danger-btn:hover:not(:disabled) { background: #b91c1c; color: #fff; }
+.danger-btn:disabled { opacity: .45; cursor: not-allowed; }
 
 /* ---------- admin ---------- */
 .admin-body {

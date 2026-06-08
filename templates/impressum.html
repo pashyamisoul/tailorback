@@ -1,0 +1,88 @@
+{% extends "legal_base.html" %}
+{% block title %}Impressum{% endblock %}
+{% block heading %}Impressum / Legal Notice{% endblock %}
+{% block content %}
+
+<p>Legal notice in accordance with § 5 DDG (Digitale-Dienste-Gesetz) and § 18
+Abs. 2 MStV. / Angaben gemäß § 5 DDG und § 18 Abs. 2 MStV.</p>
+
+<h2>Deutsch</h2>
+
+<h3>Diensteanbieter</h3>
+<p>
+  {{ operator_name }}<br />
+  {{ operator_address }}<br />
+  Deutschland
+</p>
+<p>TailorBack ist ein von einer Einzelperson betriebener Dienst. Es handelt sich
+nicht um eine Gesellschaft oder juristische Person.</p>
+
+<h3>Kontakt</h3>
+<p>E-Mail: {{ operator_email }}</p>
+
+<h3>Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV</h3>
+<p>
+  {{ operator_name }}<br />
+  {{ operator_address }}<br />
+  Deutschland
+</p>
+
+<h3>Umsatzsteuer</h3>
+<p>Als Kleinunternehmer im Sinne des § 19 UStG wird keine Umsatzsteuer
+ausgewiesen. [Diese Angabe vor Veröffentlichung bestätigen oder entfernen,
+falls nicht zutreffend; ggf. Umsatzsteuer-Identifikationsnummer ergänzen.]</p>
+
+<h3>Zuständige Aufsichtsbehörde (Datenschutz)</h3>
+<p>{{ supervisory_authority }}</p>
+
+<h3>Verbraucherstreitbeilegung</h3>
+<p>Wir sind nicht bereit und nicht verpflichtet, an Streitbeilegungsverfahren vor
+einer Verbraucherschlichtungsstelle teilzunehmen.</p>
+
+<h3>Haftung für Inhalte und Links</h3>
+<p>Die Inhalte dieses Dienstes wurden mit größtmöglicher Sorgfalt erstellt. Für
+die Richtigkeit, Vollständigkeit und Aktualität der Inhalte kann jedoch keine
+Gewähr übernommen werden. Für Inhalte externer Links sind ausschließlich deren
+Betreiber verantwortlich.</p>
+
+<hr />
+
+<h2>English</h2>
+
+<h3>Service provider</h3>
+<p>
+  {{ operator_name }}<br />
+  {{ operator_address }}<br />
+  Germany
+</p>
+<p>TailorBack is a service operated by a private individual. It is not a company
+or legal entity.</p>
+
+<h3>Contact</h3>
+<p>Email: {{ operator_email }}</p>
+
+<h3>Responsible for content (§ 18 (2) MStV)</h3>
+<p>
+  {{ operator_name }}<br />
+  {{ operator_address }}<br />
+  Germany
+</p>
+
+<h3>VAT</h3>
+<p>As a small-business operator within the meaning of § 19 of the German VAT Act
+(Kleinunternehmer), no VAT is charged. [Confirm or remove before launch if not
+applicable; add a VAT identification number if one applies.]</p>
+
+<h3>Data-protection supervisory authority</h3>
+<p>{{ supervisory_authority }}</p>
+
+<h3>Consumer dispute resolution</h3>
+<p>We are neither willing nor obliged to participate in dispute-resolution
+proceedings before a consumer arbitration board.</p>
+
+<h3>Liability for content and links</h3>
+<p>The content of this service has been prepared with the greatest possible care.
+However, no guarantee is given as to its accuracy, completeness, or timeliness.
+The operators of linked external sites are solely responsible for their content.</p>
+
+{% endblock %}

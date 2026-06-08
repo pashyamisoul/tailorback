@@ -728,9 +728,31 @@ def _stripe_signature_ok(payload, signature_header):
     return any(hmac.compare_digest(expected, sig) for sig in values.get("v1", []))
 
 
+# --- Operator / legal identity -------------------------------------------------
+# TailorBack is run by an individual (not a company), established in Germany.
+# These feed the Impressum, Privacy Policy, Terms, and ROPA. Fill the bracketed
+# items (postal address, support email) before public launch.
+OPERATOR_NAME = "Amith AshokReddy Rajolkar"
+OPERATOR_JURISDICTION = "Germany"
+OPERATOR_CITY = "Berlin, Germany"
+OPERATOR_ADDRESS = "[street and number], [postal code] Berlin, Germany"
+OPERATOR_EMAIL = "[support email]"
+SUPERVISORY_AUTHORITY = (
+    "Berliner Beauftragte für Datenschutz und Informationsfreiheit (BlnBDI)"
+)
+
+
 @app.context_processor
 def _inject_globals():
-    return {"current_year": datetime.utcnow().year}
+    return {
+        "current_year": datetime.utcnow().year,
+        "operator_name": OPERATOR_NAME,
+        "operator_jurisdiction": OPERATOR_JURISDICTION,
+        "operator_city": OPERATOR_CITY,
+        "operator_address": OPERATOR_ADDRESS,
+        "operator_email": OPERATOR_EMAIL,
+        "supervisory_authority": SUPERVISORY_AUTHORITY,
+    }
 
 
 def _published_testimonials(limit=3):
@@ -936,6 +958,23 @@ def auth_signin_email():
 def auth_logout():
     session.clear()
     return redirect(url_for("index"))
+
+
+@app.route("/api/account/delete", methods=["POST"])
+def account_delete():
+    """Self-service erasure: a signed-in user permanently deletes their own
+    account and all associated data. Requires an explicit confirmation flag."""
+    user = _current_user()
+    if not user:
+        return jsonify({"error": "Not signed in."}), 401
+    data = request.get_json(silent=True) or {}
+    if data.get("confirm") is not True:
+        return jsonify({"error": "Deletion not confirmed."}), 400
+    email = user.email
+    _erase_user_completely(user)
+    session.clear()
+    app.logger.warning("User self-deleted account %s", email)
+    return jsonify({"status": "ok"})
 
 
 def _resolve_jd(form):
@@ -1864,7 +1903,122 @@ def admin_adjust_credits(user_id):
     return redirect(url_for("admin_portal", adjusted=user.id))
 
 
-LEGAL_UPDATED = "June 3, 2026"
+def _delete_user_generation_data(user):
+    """Delete a user's generated documents + generation records (and files on
+    disk). Does NOT touch the account, credits, or feedback."""
+    for doc in GeneratedDocument.query.filter_by(user_id=user.id).all():
+        try:
+            os.remove(os.path.join(GENERATED, doc.filename))
+        except OSError:
+            pass
+    GeneratedDocument.query.filter_by(user_id=user.id).delete()
+    GenerationRun.query.filter_by(user_id=user.id).delete()
+
+
+def _erase_user_completely(user):
+    """Permanently delete a user AND all associated data (account included).
+    Shared by the admin 'Delete account' action and self-service deletion."""
+    email = user.email
+    _delete_user_generation_data(user)
+    Feedback.query.filter_by(user_id=user.id).delete()
+    CreditGrant.query.filter_by(user_id=user.id).delete()
+    # Contact messages are keyed by email, not user_id.
+    ContactMessage.query.filter_by(email=email).delete()
+    db.session.delete(user)
+    db.session.commit()
+
+
+@app.route("/admin/users/<int:user_id>/delete-data", methods=["POST"])
+def admin_delete_user_data(user_id):
+    """Delete only the documents/generations a user has produced. The account,
+    credits, and feedback stay; the user can keep using TailorBack."""
+    if not _admin_ok():
+        abort(403)
+    user = db.session.get(User, user_id)
+    if not user:
+        abort(404)
+    _delete_user_generation_data(user)
+    db.session.commit()
+    app.logger.warning("Admin deleted generation data for user %s (id %s)", user.email, user_id)
+    return redirect(url_for("admin_portal", datadeleted=1))
+
+
+@app.route("/admin/users/<int:user_id>/export", methods=["GET"])
+def admin_export_user(user_id):
+    """Right of access / portability: download everything we hold on a user as a
+    single JSON file, so a 'send me my data' request is one click."""
+    if not _admin_ok():
+        abort(403)
+    user = db.session.get(User, user_id)
+    if not user:
+        abort(404)
+
+    def cols(obj):
+        return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
+
+    account = cols(user)
+    # Never export secrets, even to the data subject.
+    account.pop("password_hash", None)
+    account.pop("email_verification_token", None)
+
+    payload = {
+        "exported_at": datetime.utcnow().isoformat() + "Z",
+        "export_note": (
+            "Personal data held by TailorBack for this user, provided under the "
+            "GDPR right of access / data portability. Password hashes and "
+            "verification tokens are intentionally excluded."
+        ),
+        "account": account,
+        "generations": [
+            cols(g) for g in GenerationRun.query.filter_by(user_id=user.id)
+            .order_by(GenerationRun.created_at).all()
+        ],
+        "generated_documents": [
+            cols(d) for d in GeneratedDocument.query.filter_by(user_id=user.id)
+            .order_by(GeneratedDocument.created_at).all()
+        ],
+        "feedback": [
+            cols(f) for f in Feedback.query.filter_by(user_id=user.id)
+            .order_by(Feedback.created_at).all()
+        ],
+        "credit_grants": [
+            cols(c) for c in CreditGrant.query.filter_by(user_id=user.id)
+            .order_by(CreditGrant.created_at).all()
+        ],
+        # Contact messages are keyed by email, not user_id.
+        "contact_messages": [
+            cols(m) for m in ContactMessage.query.filter_by(email=user.email)
+            .order_by(ContactMessage.created_at).all()
+        ],
+    }
+
+    body = _json.dumps(payload, indent=2, default=str, ensure_ascii=False)
+    safe = _re.sub(r"[^A-Za-z0-9_.-]", "_", user.email)
+    resp = make_response(body)
+    resp.headers["Content-Type"] = "application/json; charset=utf-8"
+    resp.headers["Content-Disposition"] = (
+        f'attachment; filename="tailorback-export-{safe}.json"'
+    )
+    app.logger.info("Admin exported data for user %s (id %s)", user.email, user_id)
+    return resp
+
+
+@app.route("/admin/users/<int:user_id>/erase", methods=["POST"])
+def admin_erase_user(user_id):
+    """Right-to-erasure: permanently delete a user AND all of their data
+    (account included). Use only when a user requests full deletion."""
+    if not _admin_ok():
+        abort(403)
+    user = db.session.get(User, user_id)
+    if not user:
+        abort(404)
+    email = user.email
+    _erase_user_completely(user)
+    app.logger.warning("Admin erased account + all data for user %s (id %s)", email, user_id)
+    return redirect(url_for("admin_portal", erased=1))
+
+
+LEGAL_UPDATED = "June 8, 2026"
 
 
 @app.route("/terms")
@@ -1890,6 +2044,11 @@ def privacy_page():
 @app.route("/accessibility")
 def accessibility_page():
     return render_template("accessibility.html", updated=LEGAL_UPDATED)
+
+
+@app.route("/impressum")
+def impressum_page():
+    return render_template("impressum.html", updated=LEGAL_UPDATED)
 
 
 @app.route("/contact")

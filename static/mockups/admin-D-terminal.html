@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Option D — Terminal console</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0d1117;--bg2:#161b22;--line:#27313c;--ink:#c9d1d9;--soft:#8b949e;--grn:#3fb950;--ylw:#d29922;--red:#f85149;--vio:#a371f7}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"JetBrains Mono",monospace}
+  .mlabel{text-align:center;font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:#0d1117;background:var(--grn);padding:.4rem}
+  .top{display:flex;justify-content:space-between;align-items:center;padding:.9rem 1.6rem;border-bottom:1px solid var(--line)}
+  .brand{font-weight:800;font-family:"Inter",sans-serif}.brand b{color:var(--grn)}
+  .top nav{display:flex;gap:1.3rem;font-size:.82rem}.top nav a{color:var(--soft);text-decoration:none}.top nav a.on{color:var(--grn)}
+  .wrap{padding:1.4rem 1.6rem 3rem;max-width:1180px;margin:0 auto}
+  .prompt{color:var(--soft);font-size:.82rem;margin:0 0 1rem}.prompt b{color:var(--grn)}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:1.4rem}
+  .kpi{background:var(--bg2);padding:.9rem 1.1rem}.kpi span{color:var(--soft);font-size:.72rem}.kpi b{display:block;font-size:1.6rem;font-weight:800;font-family:"Inter",sans-serif;margin-top:.2rem}
+  .box{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:1.1rem 1.3rem;margin-bottom:1.2rem}
+  .box h3{margin:0 0 .9rem;font-size:.82rem;color:var(--soft);text-transform:uppercase;letter-spacing:.12em}
+  .alert{border-left:3px solid var(--ylw);background:rgba(210,153,34,.12);padding:.7rem 1rem;font-size:.84rem;margin-bottom:1rem}.alert b{color:var(--ylw)}
+  .prov{display:grid;grid-template-columns:120px 1fr 90px 90px 90px;gap:1rem;align-items:center;padding:.55rem 0;font-size:.84rem;border-top:1px dashed var(--line)}
+  .prov:first-of-type{border-top:0}
+  .pname b{font-family:"Inter",sans-serif}.role{color:var(--soft);font-size:.68rem}
+  .meter{font-size:.78rem}
+  .bar{font-size:.8rem;letter-spacing:-1px}
+  .grn{color:var(--grn)}.ylw{color:var(--ylw)}.red{color:var(--red)}.vio{color:var(--vio)}.soft{color:var(--soft)}
+  .tag{font-size:.68rem;font-weight:700;padding:.12rem .5rem;border-radius:4px;border:1px solid currentColor}
+</style>
+</head>
+<body>
+<div class="mlabel">Admin Option D &middot; Terminal ops console (matches "terminal mode")</div>
+<div class="top"><div class="brand">tailor<b>back</b> :: admin</div><nav><a class="on">overview</a><a>users</a><a>generations</a><a>feedback</a><a>api</a><a>billing</a></nav></div>
+<div class="wrap">
+  <p class="prompt"><b>$</b> tailorback status --since 30d</p>
+  <div class="kpis">
+    <div class="kpi"><span>users</span><b>128</b></div>
+    <div class="kpi"><span>generations</span><b>542</b></div>
+    <div class="kpi"><span>avg_rating</span><b>4.6★</b></div>
+    <div class="kpi"><span>spend_30d</span><b>$24.60</b></div>
+  </div>
+  <div class="box">
+    <h3>api_usage &amp; credits</h3>
+    <div class="alert"><b>[warn]</b> openai balance ~$6.60 (~4d at current rate). primary provider — refill to avoid fallback to gemini/claude.</div>
+    <div class="prov">
+      <div class="pname"><b>openai</b><div class="role">primary</div></div>
+      <div class="bar grn">█████████████<span class="ylw">███</span><span class="soft">····</span> <span class="soft">58% of runs · 312</span></div>
+      <div class="meter">$18.40<div class="role">spent</div></div>
+      <div class="meter ylw">~$6.60<div class="role">left</div></div>
+      <div><span class="tag ylw">REFILL</span></div>
+    </div>
+    <div class="prov">
+      <div class="pname"><b>gemini</b><div class="role">fallback_1</div></div>
+      <div class="bar grn">████████<span class="soft">·········</span> <span class="soft">33% of runs · 180</span></div>
+      <div class="meter">$2.10<div class="role">spent</div></div>
+      <div class="meter grn">free 82%<div class="role">quota</div></div>
+      <div><span class="tag grn">OK</span></div>
+    </div>
+    <div class="prov">
+      <div class="pname"><b>claude</b><div class="role">fallback_2</div></div>
+      <div class="bar grn">██<span class="soft">···············</span> <span class="soft">9% of runs · 50</span></div>
+      <div class="meter">$4.10<div class="role">spent</div></div>
+      <div class="meter grn">~$15.90<div class="role">left</div></div>
+      <div><span class="tag grn">OK</span></div>
+    </div>
+  </div>
+  <div class="box"><h3>needs_attention</h3>
+    <div style="font-size:.84rem;line-height:1.9"><span class="red">!</span> 3 reviews ≤2★ this week<br><span class="ylw">!</span> openai balance low (~4d)<br><span class="soft">·</span> 2 users hit free limit, no purchase</div>
+  </div>
+</div>
+</body></html>
