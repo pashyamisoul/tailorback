@@ -46,6 +46,8 @@
     .admin-erase-btn:hover { background: #b91c1c; color: #fff; border-color: #b91c1c; }
     .admin-deldata-btn { font: inherit; font-size: .78rem; font-weight: 700; color: #b45309; background: transparent; border: 1px solid color-mix(in srgb, #b45309 45%, var(--line)); border-radius: 8px; padding: .35rem .7rem; cursor: pointer; }
     .admin-deldata-btn:hover { background: #b45309; color: #fff; border-color: #b45309; }
+    .admin-export-btn { font: inherit; font-size: .78rem; font-weight: 700; color: #1d4ed8; background: transparent; border: 1px solid color-mix(in srgb, #1d4ed8 45%, var(--line)); border-radius: 8px; padding: .35rem .7rem; cursor: pointer; text-decoration: none; display: inline-block; }
+    .admin-export-btn:hover { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
   </style>
 </head>
 <body class="admin-body">
@@ -198,6 +200,8 @@
             <button type="submit">Apply</button>
           </form>
           <div class="admin-erase-form">
+            <a class="admin-export-btn" href="/admin/users/{{ user.id }}/export"
+               title="Download everything we hold on this user as JSON (GDPR data-access request)">Export data</a>
             <form method="post" action="/admin/users/{{ user.id }}/delete-data" style="display:inline;"
                   onsubmit="return confirm('Delete all documents and generations for {{ user.email }}? The account, credits, and reviews stay, only the content they have generated is removed. This cannot be undone.');">
               <button type="submit" class="admin-deldata-btn" title="Delete only the documents/generations this user produced (keeps the account)">Delete data</button>

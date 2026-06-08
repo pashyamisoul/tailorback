@@ -1913,6 +1913,66 @@ def admin_delete_user_data(user_id):
     return redirect(url_for("admin_portal", datadeleted=1))
 
 
+@app.route("/admin/users/<int:user_id>/export", methods=["GET"])
+def admin_export_user(user_id):
+    """Right of access / portability: download everything we hold on a user as a
+    single JSON file, so a 'send me my data' request is one click."""
+    if not _admin_ok():
+        abort(403)
+    user = db.session.get(User, user_id)
+    if not user:
+        abort(404)
+
+    def cols(obj):
+        return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
+
+    account = cols(user)
+    # Never export secrets, even to the data subject.
+    account.pop("password_hash", None)
+    account.pop("email_verification_token", None)
+
+    payload = {
+        "exported_at": datetime.utcnow().isoformat() + "Z",
+        "export_note": (
+            "Personal data held by TailorBack for this user, provided under the "
+            "GDPR right of access / data portability. Password hashes and "
+            "verification tokens are intentionally excluded."
+        ),
+        "account": account,
+        "generations": [
+            cols(g) for g in GenerationRun.query.filter_by(user_id=user.id)
+            .order_by(GenerationRun.created_at).all()
+        ],
+        "generated_documents": [
+            cols(d) for d in GeneratedDocument.query.filter_by(user_id=user.id)
+            .order_by(GeneratedDocument.created_at).all()
+        ],
+        "feedback": [
+            cols(f) for f in Feedback.query.filter_by(user_id=user.id)
+            .order_by(Feedback.created_at).all()
+        ],
+        "credit_grants": [
+            cols(c) for c in CreditGrant.query.filter_by(user_id=user.id)
+            .order_by(CreditGrant.created_at).all()
+        ],
+        # Contact messages are keyed by email, not user_id.
+        "contact_messages": [
+            cols(m) for m in ContactMessage.query.filter_by(email=user.email)
+            .order_by(ContactMessage.created_at).all()
+        ],
+    }
+
+    body = _json.dumps(payload, indent=2, default=str, ensure_ascii=False)
+    safe = _re.sub(r"[^A-Za-z0-9_.-]", "_", user.email)
+    resp = make_response(body)
+    resp.headers["Content-Type"] = "application/json; charset=utf-8"
+    resp.headers["Content-Disposition"] = (
+        f'attachment; filename="tailorback-export-{safe}.json"'
+    )
+    app.logger.info("Admin exported data for user %s (id %s)", user.email, user_id)
+    return resp
+
+
 @app.route("/admin/users/<int:user_id>/erase", methods=["POST"])
 def admin_erase_user(user_id):
     """Right-to-erasure: permanently delete a user AND all of their data
