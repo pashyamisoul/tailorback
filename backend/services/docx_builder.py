@@ -68,6 +68,19 @@ TEMPLATES = {
         "heading_border_accent": True,
         "contact_align": WD_ALIGN_PARAGRAPH.LEFT,
     },
+    "serif": {
+        "font": "Georgia",
+        "name_align": WD_ALIGN_PARAGRAPH.CENTER,
+        "name_size": 22,
+        "name_color": BLACK,
+        "heading_uses_accent": False,
+        "heading_color": BLACK,
+        "heading_border": "000000",
+        "heading_border_accent": False,
+        "contact_align": WD_ALIGN_PARAGRAPH.CENTER,
+        "heading_align": WD_ALIGN_PARAGRAPH.CENTER,
+        "heading_small_caps": True,
+    },
 }
 
 DEFAULT_TEMPLATE = "editorial"
@@ -117,6 +130,8 @@ def _resolve_style(style):
         "heading_color": heading_color,
         "heading_border": heading_border,
         "contact_align": tmpl["contact_align"],
+        "heading_align": tmpl.get("heading_align", WD_ALIGN_PARAGRAPH.LEFT),
+        "heading_small_caps": tmpl.get("heading_small_caps", False),
     }
 
 
@@ -148,8 +163,14 @@ def _base(S):
 
 def _heading(doc, text, S):
     p = doc.add_paragraph(); _sp(p, before=12 * S["scale"], after=5 * S["scale"])
-    r = p.add_run(text.upper()); r.bold = True; r.font.size = Pt(S["base_size"])
-    r.font.color.rgb = S["heading_color"]; _track(r, 60)
+    p.alignment = S.get("heading_align", WD_ALIGN_PARAGRAPH.LEFT)
+    small_caps = S.get("heading_small_caps", False)
+    # Small caps needs the original case; otherwise we upper-case for the rule look.
+    r = p.add_run(text if small_caps else text.upper())
+    r.bold = True; r.font.size = Pt(S["base_size"]); r.font.color.rgb = S["heading_color"]
+    if small_caps:
+        r.font.small_caps = True
+    _track(r, 80 if small_caps else 60)
     _border(p, size=4, color=S["heading_border"])
     return p
 

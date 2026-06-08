@@ -2225,6 +2225,12 @@ html[data-theme="terminal"] .loader::before{ content:"$ tailorback --run"; displ
 .tmpl-editorial .doc-contact, .tmpl-classic .doc-contact { justify-content: center; }
 .tmpl-classic .doc-head { border-bottom-color: #000; }
 .tmpl-classic .doc-head-t { color: #000; }
+/* serif executive: centered serif name, small-caps centered headings */
+.doc-page.tmpl-serif { font-family: Georgia, "Times New Roman", serif; }
+.tmpl-serif .doc-name { text-align: center; letter-spacing: .08em; font-weight: 700; }
+.tmpl-serif .doc-contact { justify-content: center; border-bottom-color: #999; }
+.tmpl-serif .doc-head { justify-content: center; border-bottom: 1px solid #000; }
+.tmpl-serif .doc-head-t { color: #000; letter-spacing: .22em; }
 
 /* inline editable affordance */
 .ed { outline: none; border-radius: 3px; transition: box-shadow .12s, background .12s; cursor: text; }
