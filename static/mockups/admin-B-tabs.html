@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="editorial">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Option B — Top tabs</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+<style>
+  body{margin:0;background:var(--paper-2);color:var(--ink);font-family:"Inter",system-ui,sans-serif}
+  .mlabel{text-align:center;font-family:"Spline Sans Mono",monospace;font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:#fff;background:#111;padding:.4rem}
+  .top{background:var(--paper);border-bottom:1px solid var(--line);padding:0 2rem}
+  .top-row{display:flex;align-items:center;justify-content:space-between;padding:1rem 0 .6rem}
+  .brand{font-weight:900;font-size:1.15rem}.brand b{color:var(--accent)}
+  .tabs{display:flex;gap:.3rem}
+  .tabs button{border:0;background:none;font:inherit;font-weight:700;font-size:.9rem;color:var(--ink-soft);padding:.6rem .9rem;cursor:pointer;border-bottom:2px solid transparent}
+  .tabs button.on{color:var(--ink);border-color:var(--accent)}
+  .wrap{padding:1.6rem 2rem 3rem;max-width:1180px;margin:0 auto}
+  h1{margin:0 0 1.2rem;font-size:1.4rem;font-weight:900}
+  .strip{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.3rem}
+  .ptile{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:1.1rem 1.2rem}
+  .ptile .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem}
+  .pname{font-weight:800;font-size:1.05rem}.prole{font-size:.68rem;color:var(--ink-soft);font-family:"Spline Sans Mono",monospace;text-transform:uppercase;letter-spacing:.1em}
+  .stat{font-size:.7rem;font-weight:800;padding:.18rem .55rem;border-radius:999px}
+  .ok{color:var(--good);background:color-mix(in srgb,var(--good) 12%,transparent)}
+  .low{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
+  .big{font-size:1.9rem;font-weight:900;letter-spacing:-.02em;margin:.2rem 0}
+  .track{height:7px;background:var(--line);border-radius:5px;overflow:hidden;margin:.5rem 0}
+  .fill{height:100%;border-radius:5px}
+  .row2{display:flex;justify-content:space-between;font-size:.8rem;color:var(--ink-soft)}
+  .row2 b{color:var(--ink)}
+  .est{font-size:.72rem;color:var(--ink-soft);font-style:italic;margin-top:.3rem}
+  .alert{display:flex;gap:.6rem;background:color-mix(in srgb,var(--warn) 12%,var(--paper));border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line));border-radius:10px;padding:.7rem 1rem;font-size:.88rem;margin-bottom:1.2rem}.alert b{color:var(--warn)}
+  table{width:100%;border-collapse:collapse;font-size:.86rem;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  th,td{text-align:left;padding:.65rem .8rem;border-bottom:1px solid var(--line)}
+  th{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-soft)}
+  .panel-h{font-size:1rem;font-weight:800;margin:0 0 .7rem}
+</style>
+</head>
+<body>
+<div class="mlabel">Admin Option B &middot; Top-tab, data-dense</div>
+<div class="top">
+  <div class="top-row"><div class="brand">Tailor<b>Back</b> Admin</div><a href="#" style="color:var(--ink-soft);font-size:.85rem;font-weight:700;text-decoration:none">Sign out</a></div>
+  <div class="tabs"><button>Overview</button><button class="on">API &amp; usage</button><button>Users</button><button>Generations</button><button>Feedback</button><button>Billing</button></div>
+</div>
+<div class="wrap">
+  <h1>API &amp; usage</h1>
+  <div class="alert"><span>⚠️</span><div><b>OpenAI is running low</b> (~$6.60, about 4 days left). It's your primary, so top it up to avoid slower fallbacks.</div></div>
+  <div class="strip">
+    <div class="ptile"><div class="head"><div><div class="pname">OpenAI</div><div class="prole">Primary</div></div><span class="stat low">Refill soon</span></div><div class="big">312</div><div class="row2"><span>58% of runs</span><span><b>$18.40</b> spent</span></div><div class="track"><div class="fill" style="width:73%;background:var(--warn)"></div></div><div class="row2"><span>Balance</span><span><b>~$6.60</b></span></div><div class="est">~4 days at current rate</div></div>
+    <div class="ptile"><div class="head"><div><div class="pname">Gemini</div><div class="prole">Fallback 1</div></div><span class="stat ok">OK</span></div><div class="big">180</div><div class="row2"><span>33% of runs</span><span><b>$2.10</b> spent</span></div><div class="track"><div class="fill" style="width:82%;background:var(--good)"></div></div><div class="row2"><span>Free tier</span><span><b>82% used</b></span></div><div class="est">resets monthly</div></div>
+    <div class="ptile"><div class="head"><div><div class="pname">Claude</div><div class="prole">Fallback 2</div></div><span class="stat ok">OK</span></div><div class="big">50</div><div class="row2"><span>9% of runs</span><span><b>$4.10</b> spent</span></div><div class="track"><div class="fill" style="width:21%;background:var(--good)"></div></div><div class="row2"><span>Balance</span><span><b>~$15.90</b></span></div><div class="est">healthy</div></div>
+  </div>
+  <p class="panel-h">Recent generations by provider</p>
+  <table>
+    <thead><tr><th>When</th><th>User</th><th>Company / role</th><th>Provider</th><th>Tokens</th><th>Est. cost</th><th>Time</th></tr></thead>
+    <tbody>
+      <tr><td>06-07 10:14</td><td>aparna…</td><td>Ticketmaster · Tech Support</td><td>gemini</td><td>3,120</td><td>$0.00</td><td>7.2s</td></tr>
+      <tr><td>06-07 09:50</td><td>jordan…</td><td>Northwind · IT Engineer</td><td>openai</td><td>4,010</td><td>$0.06</td><td>6.1s</td></tr>
+      <tr><td>06-07 09:02</td><td>sam…</td><td>Acme · Data Analyst</td><td>openai</td><td>3,880</td><td>$0.05</td><td>5.8s</td></tr>
+    </tbody>
+  </table>
+</div>
+</body></html>

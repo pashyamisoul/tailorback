@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="editorial">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New template options</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Georgia&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+<style>
+  body { margin: 0; background: var(--paper-2); color: var(--ink); font-family: "Inter", system-ui, sans-serif; }
+  .mlabel { text-align: center; font-family: "Spline Sans Mono", monospace; font-size: .7rem; letter-spacing: .18em; text-transform: uppercase; color: #fff; background: #111; padding: .4rem; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 1.6rem 2rem 3rem; }
+  h1 { font-size: 1.5rem; font-weight: 900; }
+  .lead { color: var(--ink-soft); margin: 0 0 1.6rem; max-width: 70ch; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.4rem; }
+  .opt h3 { margin: 0 0 .1rem; font-size: 1.05rem; }
+  .opt .desc { color: var(--ink-soft); font-size: .85rem; margin: 0 0 .6rem; }
+  /* shared résumé "paper" */
+  .paper { background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.08); padding: 20px; font-size: 10px; line-height: 1.4; color: #222; aspect-ratio: 8.5/7; overflow: hidden; }
+  .paper .line { height: 5px; background: #e7e2d6; border-radius: 3px; margin: 4px 0; }
+  .paper .line.s { width: 55%; } .paper .line.m { width: 75%; }
+  .paper h4 { margin: 10px 0 4px; font-size: 8px; letter-spacing: .12em; text-transform: uppercase; color: #999; }
+  .chip { display: inline-block; font-size: 8px; border: 1px solid #ddd; border-radius: 99px; padding: 1px 6px; margin: 1px; }
+  /* A: Sidebar two-column */
+  .t-sidebar { display: grid; grid-template-columns: 34% 1fr; gap: 12px; }
+  .t-sidebar .side { background: #f3efe7; margin: -20px 0 -20px -20px; padding: 18px 12px; }
+  .t-sidebar .nm { font-size: 15px; font-weight: 900; }
+  .t-sidebar .role { color: #c8462e; font-size: 9px; font-weight: 700; }
+  /* B: Bold header bar */
+  .t-bold .bar { background: #1a1714; color: #fff; margin: -20px -20px 12px; padding: 16px 20px; }
+  .t-bold .bar .nm { font-size: 17px; font-weight: 900; }
+  .t-bold .bar .role { color: #f0a; font-size: 9px; } .t-bold .bar .role { color: #ff8a6b; }
+  /* C: Minimalist */
+  .t-min .nm { font-size: 17px; font-weight: 800; letter-spacing: -.5px; }
+  .t-min .role { color: #666; font-size: 9px; }
+  .t-min hr { border: 0; border-top: 1px solid #e7e2d6; margin: 8px 0; }
+  /* D: Serif executive */
+  .t-serif { font-family: Georgia, serif; text-align: center; }
+  .t-serif .nm { font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+  .t-serif .role { font-size: 9px; font-variant: small-caps; letter-spacing: 2px; color: #555; }
+  .t-serif .rule { border-top: 2px solid #1a1714; width: 40px; margin: 6px auto; }
+  .t-serif h4 { text-align: center; }
+  .t-serif .body { text-align: left; }
+</style>
+</head>
+<body>
+<div class="mlabel">New résumé template options &middot; pick the ones to build</div>
+<div class="wrap">
+  <h1>New template options</h1>
+  <p class="lead">You currently have <strong>Editorial, Modern, Classic, Compact</strong>. Here are 4 new directions. Tell me which to add (any number) and I'll build them into the editor gallery + the .docx/PDF export. All stay single-column-parseable where it matters for ATS.</p>
+  <div class="grid">
+
+    <div class="opt">
+      <h3>A &middot; Sidebar</h3>
+      <p class="desc">Left rail for contact + skills, main column for experience. Modern SaaS look.</p>
+      <div class="paper t-sidebar">
+        <div class="side">
+          <div class="nm">Jordan Avery</div>
+          <div class="role">Product Engineer</div>
+          <h4>Contact</h4><div class="line s"></div><div class="line m"></div>
+          <h4>Skills</h4><span class="chip">React</span><span class="chip">Node</span><span class="chip">AWS</span><span class="chip">SQL</span>
+        </div>
+        <div class="main">
+          <h4>Summary</h4><div class="line"></div><div class="line m"></div>
+          <h4>Experience</h4><div class="line"></div><div class="line s"></div><div class="line"></div><div class="line m"></div>
+          <h4>Education</h4><div class="line m"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <h3>B &middot; Bold header</h3>
+      <p class="desc">Dark name banner across the top, then a clean single column. High-impact.</p>
+      <div class="paper t-bold">
+        <div class="bar"><div class="nm">Jordan Avery</div><div class="role">Senior Product Engineer</div></div>
+        <h4>Summary</h4><div class="line"></div><div class="line m"></div>
+        <h4>Experience</h4><div class="line"></div><div class="line s"></div><div class="line"></div>
+        <h4>Skills</h4><span class="chip">React</span><span class="chip">Node</span><span class="chip">AWS</span>
+      </div>
+    </div>
+
+    <div class="opt">
+      <h3>C &middot; Minimalist</h3>
+      <p class="desc">Generous whitespace, thin rules, understated. Lets the content speak.</p>
+      <div class="paper t-min">
+        <div class="nm">Jordan Avery</div><div class="role">Product Engineer &middot; jordan@email.com</div>
+        <hr>
+        <h4>Summary</h4><div class="line"></div><div class="line m"></div>
+        <hr>
+        <h4>Experience</h4><div class="line"></div><div class="line s"></div><div class="line"></div><div class="line m"></div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <h3>D &middot; Serif executive</h3>
+      <p class="desc">Centered serif, small-caps headings. Polished and senior.</p>
+      <div class="paper t-serif">
+        <div class="nm">JORDAN AVERY</div><div class="role">Senior Product Engineer</div>
+        <div class="rule"></div>
+        <h4>Summary</h4><div class="body"><div class="line"></div><div class="line m"></div></div>
+        <h4>Experience</h4><div class="body"><div class="line"></div><div class="line s"></div><div class="line"></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

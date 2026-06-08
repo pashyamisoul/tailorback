@@ -728,9 +728,31 @@ def _stripe_signature_ok(payload, signature_header):
     return any(hmac.compare_digest(expected, sig) for sig in values.get("v1", []))
 
 
+# --- Operator / legal identity -------------------------------------------------
+# TailorBack is run by an individual (not a company), established in Germany.
+# These feed the Impressum, Privacy Policy, Terms, and ROPA. Fill the bracketed
+# items (postal address, support email) before public launch.
+OPERATOR_NAME = "Amith AshokReddy Rajolkar"
+OPERATOR_JURISDICTION = "Germany"
+OPERATOR_CITY = "Berlin, Germany"
+OPERATOR_ADDRESS = "[street and number], [postal code] Berlin, Germany"
+OPERATOR_EMAIL = "[support email]"
+SUPERVISORY_AUTHORITY = (
+    "Berliner Beauftragte für Datenschutz und Informationsfreiheit (BlnBDI)"
+)
+
+
 @app.context_processor
 def _inject_globals():
-    return {"current_year": datetime.utcnow().year}
+    return {
+        "current_year": datetime.utcnow().year,
+        "operator_name": OPERATOR_NAME,
+        "operator_jurisdiction": OPERATOR_JURISDICTION,
+        "operator_city": OPERATOR_CITY,
+        "operator_address": OPERATOR_ADDRESS,
+        "operator_email": OPERATOR_EMAIL,
+        "supervisory_authority": SUPERVISORY_AUTHORITY,
+    }
 
 
 def _published_testimonials(limit=3):
@@ -1912,7 +1934,7 @@ def admin_erase_user(user_id):
     return redirect(url_for("admin_portal", erased=1))
 
 
-LEGAL_UPDATED = "June 3, 2026"
+LEGAL_UPDATED = "June 8, 2026"
 
 
 @app.route("/terms")
@@ -1938,6 +1960,11 @@ def privacy_page():
 @app.route("/accessibility")
 def accessibility_page():
     return render_template("accessibility.html", updated=LEGAL_UPDATED)
+
+
+@app.route("/impressum")
+def impressum_page():
+    return render_template("impressum.html", updated=LEGAL_UPDATED)
 
 
 @app.route("/contact")

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="editorial">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin redesign mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+<style>
+  body { margin: 0; background: var(--paper-2); color: var(--ink); font-family: "Inter", system-ui, sans-serif; }
+  .mock-label { position: sticky; top: 0; text-align: center; font-family: "Spline Sans Mono", monospace; font-size: .7rem; letter-spacing: .18em; text-transform: uppercase; color: #fff; background: #111; padding: .4rem; z-index: 50; }
+  .ad { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+  /* sidebar */
+  .ad-side { background: var(--ink); color: var(--paper); padding: 1.4rem 1rem; display: flex; flex-direction: column; gap: .3rem; }
+  .ad-brand { font-weight: 900; font-size: 1.1rem; padding: .2rem .6rem 1.1rem; letter-spacing: -.02em; }
+  .ad-brand b { color: var(--accent); }
+  .ad-nav { display: flex; flex-direction: column; gap: .15rem; }
+  .ad-nav button { display: flex; align-items: center; gap: .6rem; text-align: left; border: 0; background: none; color: #cdc6ba; font: inherit; font-weight: 600; font-size: .92rem; padding: .6rem .7rem; border-radius: 9px; cursor: pointer; }
+  .ad-nav button:hover { background: rgba(255,255,255,.08); color: #fff; }
+  .ad-nav button.on { background: var(--accent); color: #fff; }
+  .ad-side-foot { margin-top: auto; border-top: 1px solid rgba(255,255,255,.12); padding-top: .8rem; }
+  .ad-side-foot a { color: #cdc6ba; text-decoration: none; font-size: .85rem; font-weight: 600; }
+  /* main */
+  .ad-main { padding: 1.6rem 2rem 3rem; overflow: auto; }
+  .ad-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.4rem; }
+  .ad-head h1 { margin: 0; font-size: 1.5rem; font-weight: 900; letter-spacing: -.02em; }
+  .ad-tools { display: flex; gap: .5rem; align-items: center; }
+  .ad-search { border: 1px solid var(--line); border-radius: 9px; padding: .5rem .8rem; font: inherit; font-size: .88rem; background: var(--paper); min-width: 200px; }
+  .ad-btn { border: 1px solid var(--line); background: var(--paper); border-radius: 9px; padding: .5rem .9rem; font: inherit; font-weight: 700; font-size: .85rem; cursor: pointer; }
+  .ad-btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .ad-sec { display: none; }
+  .ad-sec.on { display: block; animation: rise .4s ease both; }
+  /* KPI cards */
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.4rem; }
+  .kpi { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 1.1rem 1.2rem; }
+  .kpi span { font-size: .78rem; color: var(--ink-soft); font-weight: 600; }
+  .kpi strong { display: block; font-size: 1.9rem; font-weight: 900; margin: .3rem 0 .2rem; letter-spacing: -.02em; }
+  .kpi .delta { font-size: .78rem; font-weight: 700; }
+  .kpi .up { color: var(--good); } .kpi .down { color: var(--accent); }
+  /* panels + charts */
+  .ad-cards { display: grid; grid-template-columns: 1.4fr 1fr; gap: 1rem; margin-bottom: 1.2rem; }
+  .panel { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 1.2rem 1.3rem; }
+  .panel h3 { margin: 0 0 1rem; font-size: 1rem; font-weight: 800; }
+  .bars { display: flex; align-items: flex-end; gap: .7rem; height: 150px; }
+  .bars .bar { flex: 1; background: color-mix(in srgb, var(--accent) 75%, var(--paper)); border-radius: 6px 6px 0 0; position: relative; }
+  .bars .bar span { position: absolute; bottom: -1.4rem; left: 0; right: 0; text-align: center; font-size: .68rem; color: var(--ink-soft); }
+  .bars + .bars-x { margin-top: 1.6rem; }
+  .rdist { display: flex; flex-direction: column; gap: .5rem; }
+  .rrow { display: grid; grid-template-columns: 34px 1fr 30px; gap: .5rem; align-items: center; font-size: .82rem; }
+  .rtrack { height: 9px; background: var(--line); border-radius: 5px; overflow: hidden; }
+  .rfill { height: 100%; background: var(--good); border-radius: 5px; }
+  /* tables */
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  th, td { text-align: left; padding: .7rem .6rem; border-bottom: 1px solid var(--line); }
+  th { font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-soft); }
+  .pill { font-size: .72rem; font-weight: 700; padding: .15rem .55rem; border-radius: 999px; border: 1px solid var(--line); }
+  .pill.free { color: var(--ink-soft); } .pill.pro { color: var(--accent); border-color: var(--accent); }
+  .link { color: var(--accent); font-weight: 700; cursor: pointer; }
+  .filters { display: flex; gap: .5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .chip { border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: .35rem .8rem; font-size: .8rem; font-weight: 600; cursor: pointer; }
+  .chip.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  /* publish toggle */
+  .tog { position: relative; width: 42px; height: 23px; border-radius: 999px; background: var(--line); border: 0; cursor: pointer; transition: background .15s; }
+  .tog::after { content: ""; position: absolute; top: 2px; left: 2px; width: 19px; height: 19px; border-radius: 50%; background: #fff; transition: transform .15s; }
+  .tog.on { background: var(--good); } .tog.on::after { transform: translateX(19px); }
+  .stars { color: var(--accent); letter-spacing: .08em; }
+  @media (max-width: 900px) { .ad { grid-template-columns: 1fr; } .ad-side { flex-direction: row; flex-wrap: wrap; } .kpis { grid-template-columns: repeat(2,1fr); } .ad-cards { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="mock-label">Admin redesign mockup &middot; clickable: use the left nav</div>
+<div class="ad">
+  <aside class="ad-side">
+    <div class="ad-brand">Tailor<b>Back</b> Admin</div>
+    <nav class="ad-nav" id="adNav">
+      <button class="on" data-sec="overview">📊 Overview</button>
+      <button data-sec="users">👤 Users</button>
+      <button data-sec="generations">📄 Generations</button>
+      <button data-sec="feedback">⭐ Feedback</button>
+      <button data-sec="billing">💳 Billing</button>
+    </nav>
+    <div class="ad-side-foot"><a href="#">Sign out</a></div>
+  </aside>
+
+  <main class="ad-main">
+    <!-- OVERVIEW -->
+    <section class="ad-sec on" data-sec="overview">
+      <div class="ad-head">
+        <h1>Overview</h1>
+        <div class="ad-tools">
+          <select class="ad-search" style="min-width:130px"><option>Last 7 days</option><option>Last 30 days</option><option>All time</option></select>
+          <button class="ad-btn">Export CSV</button>
+        </div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><span>Total users</span><strong>128</strong><span class="delta up">▲ 12 this week</span></div>
+        <div class="kpi"><span>Generations</span><strong>542</strong><span class="delta up">▲ 38 this week</span></div>
+        <div class="kpi"><span>Avg rating</span><strong>4.6★</strong><span class="delta up">▲ 0.2</span></div>
+        <div class="kpi"><span>Credits granted</span><strong>320</strong><span class="delta down">▼ 5</span></div>
+      </div>
+      <div class="ad-cards">
+        <div class="panel">
+          <h3>Generations, last 7 days</h3>
+          <div class="bars">
+            <div class="bar" style="height:45%"><span>Mon</span></div>
+            <div class="bar" style="height:60%"><span>Tue</span></div>
+            <div class="bar" style="height:38%"><span>Wed</span></div>
+            <div class="bar" style="height:80%"><span>Thu</span></div>
+            <div class="bar" style="height:72%"><span>Fri</span></div>
+            <div class="bar" style="height:30%"><span>Sat</span></div>
+            <div class="bar" style="height:52%"><span>Sun</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Rating distribution</h3>
+          <div class="rdist">
+            <div class="rrow"><span>5★</span><div class="rtrack"><div class="rfill" style="width:64%"></div></div><span>64%</span></div>
+            <div class="rrow"><span>4★</span><div class="rtrack"><div class="rfill" style="width:22%"></div></div><span>22%</span></div>
+            <div class="rrow"><span>3★</span><div class="rtrack"><div class="rfill" style="width:9%;background:var(--warn)"></div></div><span>9%</span></div>
+            <div class="rrow"><span>2★</span><div class="rtrack"><div class="rfill" style="width:3%;background:var(--accent)"></div></div><span>3%</span></div>
+            <div class="rrow"><span>1★</span><div class="rtrack"><div class="rfill" style="width:2%;background:var(--accent)"></div></div><span>2%</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Needs attention</h3>
+        <table>
+          <tr><td>⚠️ 3 reviews rated 2★ or lower in the last 7 days</td><td style="text-align:right"><span class="link">Review</span></td></tr>
+          <tr><td>📨 2 users hit their free limit and haven't bought credits</td><td style="text-align:right"><span class="link">View</span></td></tr>
+          <tr><td>🕓 Avg generation time up 1.3s vs last week</td><td style="text-align:right"><span class="link">Inspect</span></td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- USERS -->
+    <section class="ad-sec" data-sec="users">
+      <div class="ad-head">
+        <h1>Users</h1>
+        <div class="ad-tools">
+          <input class="ad-search" placeholder="Search name or email…">
+          <button class="ad-btn">Export CSV</button>
+        </div>
+      </div>
+      <div class="filters">
+        <button class="chip on">All</button><button class="chip">Free</button>
+        <button class="chip">Pro</button><button class="chip">Unverified</button>
+      </div>
+      <div class="panel">
+        <table>
+          <thead><tr><th>User</th><th>Plan</th><th>Credits</th><th>Generations</th><th>Joined</th><th></th></tr></thead>
+          <tbody>
+            <tr><td>Aparna Mohan<br><small style="color:var(--ink-soft)">aparnamohan1906@gmail.com</small></td><td><span class="pill free">Free</span></td><td>1 of 2</td><td>1</td><td>2026-06-07</td><td><span class="link">View →</span></td></tr>
+            <tr><td>Jordan Avery<br><small style="color:var(--ink-soft)">jordan@example.com</small></td><td><span class="pill pro">Pro</span></td><td>18 of 20</td><td>14</td><td>2026-05-30</td><td><span class="link">View →</span></td></tr>
+            <tr><td>Sam Lee<br><small style="color:var(--ink-soft)">sam.lee@example.com</small></td><td><span class="pill free">Free</span></td><td>0 of 2</td><td>2</td><td>2026-05-28</td><td><span class="link">View →</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="color:var(--ink-soft);font-size:.85rem">Idea: "View →" opens a side drawer with that user's generations, feedback, credit history, and quick actions (grant credits, resend activation, suspend).</p>
+    </section>
+
+    <!-- GENERATIONS -->
+    <section class="ad-sec" data-sec="generations">
+      <div class="ad-head"><h1>Generations</h1><div class="ad-tools"><input class="ad-search" placeholder="Search company or role…"><button class="ad-btn">Export CSV</button></div></div>
+      <div class="filters"><button class="chip on">All</button><button class="chip">Low score (&lt;50)</button><button class="chip">PDF failed</button><button class="chip">Last 24h</button></div>
+      <div class="panel">
+        <table>
+          <thead><tr><th>When</th><th>User</th><th>Company / role</th><th>Score</th><th>Model</th><th>Time</th></tr></thead>
+          <tbody>
+            <tr><td>06-07 10:14</td><td>aparnamohan…</td><td>Ticketmaster · Tech Support</td><td>46</td><td>gemini</td><td>7.2s</td></tr>
+            <tr><td>06-07 09:50</td><td>jordan@…</td><td>Northwind · IT Engineer</td><td>82</td><td>openai</td><td>6.1s</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- FEEDBACK -->
+    <section class="ad-sec" data-sec="feedback">
+      <div class="ad-head"><h1>Feedback &amp; reviews</h1><div class="ad-tools"><button class="ad-btn">Export CSV</button></div></div>
+      <div class="filters"><button class="chip on">All</button><button class="chip">Published (live)</button><button class="chip">Consented</button><button class="chip">Low rating</button></div>
+      <div class="panel">
+        <table>
+          <thead><tr><th>Date</th><th>User</th><th>Rating</th><th>Comment</th><th>Publish on site</th></tr></thead>
+          <tbody>
+            <tr><td>06-07</td><td>Priya S.</td><td><span class="stars">★★★★★</span></td><td>Match score jumped 52→90. Landed two interviews.</td><td><button class="tog on" aria-label="Published"></button></td></tr>
+            <tr><td>06-06</td><td>Jordan A.</td><td><span class="stars">★★★★</span></td><td>Loved the honest gap list.</td><td><button class="tog on" aria-label="Published"></button></td></tr>
+            <tr><td>06-05</td><td>amith…</td><td><span class="stars">★★★★</span></td><td>Looks fine. (not consented)</td><td><button class="tog" aria-label="Hidden"></button></td></tr>
+            <tr><td>06-04</td><td>Sam L.</td><td><span class="stars" style="color:var(--warn)">★★</span></td><td>PDF export failed for me.</td><td><button class="tog" aria-label="Hidden"></button></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="color:var(--ink-soft);font-size:.85rem">Idea: the toggle lets you manually publish/unpublish any review on the homepage, overriding the auto-publish rule. Low-rating reviews get flagged here for follow-up.</p>
+    </section>
+
+    <!-- BILLING -->
+    <section class="ad-sec" data-sec="billing">
+      <div class="ad-head"><h1>Billing</h1><div class="ad-tools"><button class="ad-btn">Export CSV</button></div></div>
+      <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
+        <div class="kpi"><span>Revenue (30d)</span><strong>$1,240</strong><span class="delta up">▲ 18%</span></div>
+        <div class="kpi"><span>Paid packs sold</span><strong>47</strong><span class="delta up">▲ 6</span></div>
+        <div class="kpi"><span>Refunds</span><strong>1</strong><span class="delta">—</span></div>
+      </div>
+      <div class="panel">
+        <table>
+          <thead><tr><th>Date</th><th>User</th><th>Pack</th><th>Amount</th><th>Source</th></tr></thead>
+          <tbody>
+            <tr><td>06-07</td><td>jordan@…</td><td>20 credits</td><td>$24.00</td><td>Stripe</td></tr>
+            <tr><td>06-06</td><td>sam.lee@…</td><td>Admin grant</td><td>+5</td><td>manual</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+  const nav = document.getElementById('adNav');
+  nav.addEventListener('click', e => {
+    const b = e.target.closest('button[data-sec]'); if (!b) return;
+    nav.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    const sec = b.dataset.sec;
+    document.querySelectorAll('.ad-sec').forEach(s => s.classList.toggle('on', s.dataset.sec === sec));
+    document.querySelector('.ad-main').scrollTo(0, 0);
+  });
+  document.querySelectorAll('.tog').forEach(t => t.addEventListener('click', () => t.classList.toggle('on')));
+  document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
+    c.parentElement.querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x === c));
+  }));
+</script>
+</body>
+</html>

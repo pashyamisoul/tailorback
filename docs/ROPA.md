@@ -13,13 +13,14 @@ not legal advice.*
 ## 1. Controller details
 | Field | Value |
 |---|---|
-| Data controller | [Company legal name] |
+| Data controller | Amith AshokReddy Rajolkar (private individual, not a company) |
 | Trading name | TailorBack |
-| Address | [registered address] |
-| Jurisdiction | [country / state] |
+| Address | [street and number], [postal code] Berlin, Germany |
+| Jurisdiction | Germany |
 | Contact for data matters | [support email] |
-| Data Protection Officer | [name or "not appointed — not required"] |
-| EU/UK representative | [name, if you have no EU establishment and one is required] |
+| Data Protection Officer | Not appointed (not required for a sole individual at this scale) |
+| EU/UK representative | Not required (controller is established in the EU/Germany) |
+| Supervisory authority | Berliner Beauftragte für Datenschutz und Informationsfreiheit (BlnBDI) |
 
 ## 2. Categories of data subjects
 - Registered users (job seekers) who create an account.
