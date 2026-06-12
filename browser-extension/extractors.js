@@ -93,10 +93,21 @@ function tbPageExtractor() {
     if (desc) confident = true;
   }
 
-  // --- 3. generic fallback: NOT confident (used only for "grab anyway") ---
+  // --- 3. URL patterns that reliably indicate a job page, even when the
+  // per-site selectors miss (LinkedIn's logged-in markup is fragile). ---
+  const path = location.pathname, search = location.search;
+  const jobUrl =
+    /\/jobs\/view\//.test(path) || /currentJobId=/.test(search) ||
+    /\/(viewjob|m\/viewjob)\b/.test(path) || /[?&](vjk|jk)=/.test(search) ||
+    host.includes("greenhouse.io") || host.includes("boards.greenhouse") ||
+    host.includes("lever.co") || host.includes("jobs.lever") ||
+    host.includes("ashbyhq.com") || host.includes("myworkdayjobs.com") ||
+    /\/(careers?|jobs?)(\/|$)/i.test(path);
+
+  // Fill the description from the main content block if we still don't have one.
   if (!desc) {
     const candidates = Array.from(document.querySelectorAll(
-      "article, main, [class*='description'], [id*='description']"
+      "article, main, [class*='description'], [id*='description'], [class*='job']"
     ));
     let best = "", bestLen = 0;
     for (const el of candidates) {
@@ -104,9 +115,11 @@ function tbPageExtractor() {
       if (t.length > bestLen && t.length < 20000) { best = t; bestLen = t.length; }
     }
     desc = best || text(document.body).slice(0, 8000);
-    site = "this page";
-    confident = false;
+    if (!site) site = jobUrl ? "Job posting" : "this page";
   }
+  // Confident if a known job site matched, JSON-LD said JobPosting, or the URL
+  // is clearly a job page. A generic article/feed stays not-confident.
+  if (jobUrl) confident = true;
 
   if (!role) role = firstText(["h1", "h2"]) || (document.title || "").split(/[|\-–]/)[0].trim();
   desc = clean(desc);
