@@ -55,7 +55,9 @@ async function detect() {
       func: tbPageExtractor, // from extractors.js
     });
     const job = results && results[0] && results[0].result;
-    if (job && job.text && job.words >= 40) renderDetected(job);
+    // Only auto-show a job when we're confident it IS a posting (JSON-LD or a
+    // known job site). Otherwise show the empty state with a manual fallback.
+    if (job && job.confident && job.text && job.words >= 40) renderDetected(job);
     else renderEmpty(job);
   } catch (err) {
     renderEmpty(null, err && err.message);
