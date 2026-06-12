@@ -8,6 +8,26 @@ document.getElementById("optionsLink").addEventListener("click", (e) => {
   if (chrome.runtime.openOptionsPage) chrome.runtime.openOptionsPage();
 });
 
+// ---- theme (editorial / terminal), persisted ----
+function applyTheme(theme) {
+  const t = theme === "terminal" ? "terminal" : "editorial";
+  document.documentElement.setAttribute("data-theme", t);
+  const btn = document.getElementById("themeToggle");
+  if (btn) btn.textContent = t === "terminal" ? "◑ Editorial" : "◐ Terminal";
+}
+function initTheme() {
+  try {
+    chrome.storage.sync.get({ theme: "editorial" }, (v) => applyTheme(v && v.theme));
+  } catch (_) { applyTheme("editorial"); }
+}
+document.getElementById("themeToggle").addEventListener("click", () => {
+  const next = document.documentElement.getAttribute("data-theme") === "terminal"
+    ? "editorial" : "terminal";
+  applyTheme(next);
+  try { chrome.storage.sync.set({ theme: next }); } catch (_) {}
+});
+initTheme();
+
 function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
@@ -46,6 +66,7 @@ async function detect() {
 function renderDetected(job) {
   const co = [job.company, job.location].filter(Boolean).join(" · ");
   body.innerHTML = `
+    <p class="cmd"><b>$</b> grab --job</p>
     <div class="detect">Detected job</div>
     <div class="role">${esc(job.role) || "Job posting"}</div>
     <div class="co">${esc(co)}</div>
