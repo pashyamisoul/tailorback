@@ -1,51 +1,152 @@
-// TailorBack Job Grabber (PROTOTYPE).
-// Pulls the main visible text from the active tab, copies it to the clipboard,
-// and opens TailorBack so the user can paste it into the Job Description box.
-// No scraping of gated/private data; it only reads what the user is viewing.
+"use strict";
 
-const statusEl = document.getElementById("status");
+const DEFAULT_APP_URL = "http://127.0.0.1:5000/";
+const body = document.getElementById("body");
 
-function setStatus(msg, cls) {
-  statusEl.textContent = msg;
-  statusEl.className = "status" + (cls ? " " + cls : "");
-}
-
-// Runs in the page context: grab a reasonable "main content" text block.
-function extractJobText() {
-  const pick = (sel) => {
-    const el = document.querySelector(sel);
-    return el ? el.innerText.trim() : "";
-  };
-  // Try common job-posting containers first, then fall back to <main>/body.
-  const candidates = [
-    '[class*="job-description"]', '[class*="jobDescription"]',
-    '[data-testid*="jobDescription"]', 'article', 'main',
-  ];
-  for (const sel of candidates) {
-    const t = pick(sel);
-    if (t && t.length > 200) return t;
+// ---- theme (editorial / terminal), persisted ----
+function applyTheme(theme) {
+  const t = theme === "terminal" ? "terminal" : "editorial";
+  document.documentElement.setAttribute("data-theme", t);
+  const btn = document.getElementById("themeToggle");
+  if (btn) {
+    // Accent-coloured theme glyph (clearly visible in both themes).
+    btn.textContent = t === "terminal" ? "◑" : "◐";
+    btn.title = t === "terminal" ? "Switch to editorial" : "Switch to terminal";
   }
-  return (document.body ? document.body.innerText : "").trim();
 }
-
-document.getElementById("grab").addEventListener("click", async () => {
-  setStatus("Reading page…");
+function initTheme() {
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const [{ result }] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: extractJobText,
-    });
-    const text = (result || "").slice(0, 20000);
-    if (!text || text.length < 100) {
-      setStatus("Could not find enough text on this page.", "err");
-      return;
-    }
-    await navigator.clipboard.writeText(text);
-    const url = (document.getElementById("appUrl").value || "").trim() || "http://127.0.0.1:5000/";
-    await chrome.tabs.create({ url });
-    setStatus("Copied. Paste it into the Job Description box.", "ok");
-  } catch (e) {
-    setStatus("Error: " + (e && e.message ? e.message : e), "err");
-  }
+    chrome.storage.sync.get({ theme: "editorial" }, (v) => applyTheme(v && v.theme));
+  } catch (_) { applyTheme("editorial"); }
+}
+document.getElementById("themeToggle").addEventListener("click", () => {
+  const next = document.documentElement.getAttribute("data-theme") === "terminal"
+    ? "editorial" : "terminal";
+  applyTheme(next);
+  try { chrome.storage.sync.set({ theme: next }); } catch (_) {}
 });
+initTheme();
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
+}
+
+function getAppUrl() {
+  return new Promise((resolve) => {
+    try {
+      chrome.storage.sync.get({ appUrl: DEFAULT_APP_URL }, (v) =>
+        resolve((v && v.appUrl) || DEFAULT_APP_URL));
+    } catch (_) {
+      resolve(DEFAULT_APP_URL);
+    }
+  });
+}
+
+async function detect() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || !tab.id || /^(chrome|edge|about|chrome-extension):/.test(tab.url || "")) {
+    return renderEmpty();
+  }
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: tbPageExtractor, // from extractors.js
+    });
+    const job = results && results[0] && results[0].result;
+    // Only auto-show a job when we're confident it IS a posting (JSON-LD or a
+    // known job site). Otherwise show the empty state with a manual fallback.
+    if (job && job.confident && job.text && job.words >= 40) renderDetected(job);
+    else renderEmpty(job);
+  } catch (err) {
+    renderEmpty(null, err && err.message);
+  }
+}
+
+function renderDetected(job) {
+  const co = [job.company, job.location].filter(Boolean).join(" · ");
+  body.innerHTML = `
+    <p class="cmd"><b>$</b> grab --job</p>
+    <div class="detect">Detected job</div>
+    <div class="role">${esc(job.role) || "Job posting"}</div>
+    <div class="co">${esc(co)}</div>
+    <span class="src">${esc(job.site)}${job.words ? " · " + job.words + " words" : ""}</span>
+    <div class="jd">${esc(job.text.slice(0, 600))}</div>
+    <button class="btn btn-primary" id="tailor">Tailor this job →</button>
+    <p class="hint">Opens TailorBack with the job description already filled in.</p>
+    <p class="msg" id="msg"></p>`;
+  document.getElementById("tailor").addEventListener("click", () => tailor(job));
+}
+
+function renderSent(job) {
+  body.innerHTML = `
+    <div class="detect">Captured</div>
+    <div class="role">${esc(job.role) || "Job posting"}</div>
+    ${job.company ? `<div class="co">${esc(job.company)}</div>` : ""}
+    <div class="step done"><span class="n">✓</span><span><b>Job captured</b> (${job.words} words)</span></div>
+    <div class="step done"><span class="n">✓</span><span>Opened TailorBack with the job filled in</span></div>
+    <div class="step"><span class="n">3</span><span>Pick your CV and hit <b>Run</b></span></div>
+    <button class="btn btn-primary" id="reopen">Open TailorBack ↗</button>
+    <p class="hint">Also copied to your clipboard, just in case.</p>`;
+  document.getElementById("reopen").addEventListener("click", () => openApp(job));
+}
+
+function renderEmpty(job, errMsg) {
+  body.innerHTML = `
+    <div class="empty">
+      <div class="big">🔎</div>
+      <p><b>No job posting detected here.</b></p>
+      <p>Open a job on LinkedIn, Indeed, Greenhouse or Lever, then click the TailorBack icon.</p>
+    </div>
+    ${errMsg ? `<p class="msg err">${esc(errMsg)}</p>` : ""}
+    <button class="btn btn-ghost" id="grabAnyway">Grab visible text anyway</button>
+    <button class="btn btn-primary" id="openApp">Open TailorBack</button>`;
+  document.getElementById("openApp").addEventListener("click", openApp);
+  document.getElementById("grabAnyway").addEventListener("click", grabAnyway);
+}
+
+async function tailor(job) {
+  const msg = document.getElementById("msg");
+  try {
+    await navigator.clipboard.writeText(job.text);
+    await openApp(job);
+    renderSent(job);
+  } catch (err) {
+    if (msg) { msg.textContent = "Could not copy: " + (err.message || err); msg.className = "msg err"; }
+  }
+}
+
+async function grabAnyway() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || !tab.id) return;
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => (document.body.innerText || "").trim().slice(0, 12000),
+    });
+    const txt = results && results[0] && results[0].result;
+    if (txt) {
+      const job = { role: "Visible page text", company: "", text: txt, words: txt.split(/\s+/).length };
+      await navigator.clipboard.writeText(txt);
+      await openApp(job);
+      renderSent(job);
+    }
+  } catch (_) { /* restricted page */ }
+}
+
+async function openApp(job) {
+  const base = await getAppUrl();
+  let url = base.split("#")[0];
+  if (job && job.text) {
+    // Pass the job in the URL fragment (#…), which the browser never sends to
+    // the server. The app reads it, fills the Job Description box, and clears it.
+    const payload = encodeURIComponent(JSON.stringify({
+      jd: job.text, role: job.role || "", company: job.company || "",
+    }));
+    url += "#tb=" + payload;
+  }
+  chrome.tabs.create({ url });
+}
+
+detect();
