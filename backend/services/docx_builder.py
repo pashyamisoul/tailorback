@@ -9,6 +9,9 @@ BLACK = RGBColor(0, 0, 0)
 DARK = RGBColor(0x1a, 0x1a, 0x1a)
 GREY = RGBColor(0x5a, 0x5a, 0x5a)
 ACCENT = RGBColor(0x2b, 0x2b, 0x2b)
+WHITE = RGBColor(0xff, 0xff, 0xff)
+BANNER_BG = "1a1a1a"          # dark banner fill for the "bold" template
+BANNER_CONTACT = RGBColor(0xcf, 0xca, 0xbf)
 
 # ---------------------------------------------------------------------------
 # Style system
@@ -81,6 +84,28 @@ TEMPLATES = {
         "heading_align": WD_ALIGN_PARAGRAPH.CENTER,
         "heading_small_caps": True,
     },
+    "bold": {
+        "font": "Calibri",
+        "name_align": WD_ALIGN_PARAGRAPH.LEFT,
+        "name_size": 22,
+        "name_color": WHITE,            # white on the dark banner
+        "heading_uses_accent": True,
+        "heading_border": None,
+        "heading_border_accent": True,
+        "contact_align": WD_ALIGN_PARAGRAPH.LEFT,
+        "banner": True,                 # render name + contact in a dark banner
+    },
+    "minimal": {
+        "font": "Calibri",
+        "name_align": WD_ALIGN_PARAGRAPH.LEFT,
+        "name_size": 19,
+        "name_color": BLACK,
+        "heading_uses_accent": False,
+        "heading_color": RGBColor(0x22, 0x22, 0x22),
+        "heading_border": "dddddd",     # hairline rule
+        "heading_border_accent": False,
+        "contact_align": WD_ALIGN_PARAGRAPH.LEFT,
+    },
 }
 
 DEFAULT_TEMPLATE = "editorial"
@@ -132,6 +157,7 @@ def _resolve_style(style):
         "contact_align": tmpl["contact_align"],
         "heading_align": tmpl.get("heading_align", WD_ALIGN_PARAGRAPH.LEFT),
         "heading_small_caps": tmpl.get("heading_small_caps", False),
+        "banner": tmpl.get("banner", False),
     }
 
 
@@ -150,6 +176,37 @@ def _border(p, size=6, color="000000", val="single"):
 def _track(run, val):
     rPr = run._element.get_or_add_rPr(); s = OxmlElement("w:spacing")
     s.set(qn("w:val"), str(val)); rPr.append(s)
+
+def _shade(cell, fill):
+    """Fill a table cell with a solid background colour."""
+    tcPr = cell._tc.get_or_add_tcPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear"); shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"), fill)
+    tcPr.append(shd)
+
+def _no_table_borders(table):
+    tblPr = table._tbl.tblPr
+    borders = OxmlElement("w:tblBorders")
+    for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        e = OxmlElement("w:" + edge); e.set(qn("w:val"), "none"); e.set(qn("w:sz"), "0")
+        borders.append(e)
+    tblPr.append(borders)
+
+def _banner(doc, name, contact, S):
+    """Dark full-width banner holding the name + contact (the 'bold' template)."""
+    table = doc.add_table(rows=1, cols=1)
+    _no_table_borders(table)
+    cell = table.cell(0, 0)
+    _shade(cell, BANNER_BG)
+    # tighten cell margins a touch via the single paragraph spacing
+    np = cell.paragraphs[0]; _sp(np, before=2, after=2)
+    nr = np.add_run((name or "").upper())
+    nr.bold = True; nr.font.size = Pt(S["name_size"]); nr.font.color.rgb = WHITE; _track(nr, 60)
+    if contact:
+        cp = cell.add_paragraph(); _sp(cp, before=2, after=2)
+        cr = cp.add_run(contact); cr.font.size = Pt(9); cr.font.color.rgb = BANNER_CONTACT
+    doc.add_paragraph()  # spacer below the banner
 
 def _base(S):
     doc = Document(); s = doc.sections[0]
@@ -177,19 +234,24 @@ def _heading(doc, text, S):
 def build_resume(resume, out_path, style=None):
     S = _resolve_style(style)
     doc = _base(S)
-    name_p = doc.add_paragraph(); name_p.alignment = S["name_align"]
-    _sp(name_p, after=3)
-    nr = name_p.add_run((resume.get("name","") or "").upper())
-    nr.bold = True; nr.font.size = Pt(S["name_size"]); nr.font.color.rgb = S["name_color"]; _track(nr, 80)
 
     c = resume.get("contact", {}) or {}
     bits = [c.get("email"), c.get("phone"), c.get("location"), *(c.get("links") or [])]
     contact = "    •    ".join(b for b in bits if b)
-    if contact:
-        cp = doc.add_paragraph(); cp.alignment = S["contact_align"]
-        _sp(cp, after=6); cr = cp.add_run(contact)
-        cr.font.size = Pt(9); cr.font.color.rgb = GREY
-        _border(cp, size=8, color="000000")
+
+    if S.get("banner"):
+        # Dark full-width banner with name + contact (the "bold" template).
+        _banner(doc, resume.get("name", ""), contact, S)
+    else:
+        name_p = doc.add_paragraph(); name_p.alignment = S["name_align"]
+        _sp(name_p, after=3)
+        nr = name_p.add_run((resume.get("name","") or "").upper())
+        nr.bold = True; nr.font.size = Pt(S["name_size"]); nr.font.color.rgb = S["name_color"]; _track(nr, 80)
+        if contact:
+            cp = doc.add_paragraph(); cp.alignment = S["contact_align"]
+            _sp(cp, after=6); cr = cp.add_run(contact)
+            cr.font.size = Pt(9); cr.font.color.rgb = GREY
+            _border(cp, size=8, color="000000")
 
     if resume.get("summary"):
         _heading(doc, "Professional Summary", S)

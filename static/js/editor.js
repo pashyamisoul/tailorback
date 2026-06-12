@@ -18,6 +18,8 @@
     { id: "classic", name: "Classic", hint: "Serif · refined" },
     { id: "compact", name: "Compact", hint: "Dense · one page" },
     { id: "serif", name: "Serif executive", hint: "Centered serif · small-caps" },
+    { id: "bold", name: "Bold header", hint: "Dark banner · accent rules" },
+    { id: "minimal", name: "Minimalist", hint: "Airy · hairline rules" },
   ];
   const ACCENTS = ["c8462e", "1f6feb", "0f766e", "7c3aed", "be123c", "b45309", "0369a1", "111827"];
   const FONTS = ["Calibri", "Georgia", "Arial", "Garamond", "Helvetica", "Times New Roman"];
