@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>TailorBack — Settings</title>
+<style>
+  :root{--paper:#f4efe6;--ink:#1a1714;--soft:#6f665d;--accent:#c8462e;--line:#ded8cb}
+  body{font-family:"Segoe UI",system-ui,sans-serif;background:var(--paper);color:var(--ink);max-width:480px;margin:3rem auto;padding:0 1.2rem}
+  h1{font-size:1.3rem}h1 b{color:var(--accent)}
+  label{display:block;font-weight:700;font-size:.85rem;margin:1.2rem 0 .3rem}
+  input{width:100%;box-sizing:border-box;font:inherit;padding:.55rem .65rem;border:1px solid var(--line);border-radius:8px}
+  p{color:var(--soft);font-size:.82rem;line-height:1.5}
+  button{margin-top:1.2rem;font:inherit;font-weight:800;border:0;border-radius:9px;padding:.6rem 1.1rem;background:var(--accent);color:#fff;cursor:pointer}
+  .ok{color:#3c6e47;font-size:.82rem;margin-left:.6rem}
+</style>
+</head>
+<body>
+  <h1>Tailor<b>Back</b> settings</h1>
+  <p>Where should the extension open TailorBack? Use your deployed app URL, or the local dev server for testing.</p>
+  <label for="appUrl">TailorBack URL</label>
+  <input id="appUrl" type="url" placeholder="https://your-tailorback-domain/" />
+  <div><button id="save">Save</button><span class="ok" id="saved"></span></div>
+  <script src="options.js"></script>
+</body>
+</html>

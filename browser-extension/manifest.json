@@ -1,12 +1,22 @@
 {
   "manifest_version": 3,
-  "name": "TailorBack Job Grabber (prototype)",
-  "version": "0.1.0",
-  "description": "Grab a job description from the current page and tailor it with TailorBack.",
-  "permissions": ["activeTab", "scripting", "clipboardWrite"],
+  "name": "TailorBack Job Grabber",
+  "version": "0.2.0",
+  "description": "Capture a job posting from LinkedIn, Indeed, Greenhouse or Lever and tailor your resume with TailorBack.",
+  "permissions": ["activeTab", "scripting", "storage", "clipboardWrite"],
   "action": {
-    "default_title": "TailorBack",
-    "default_popup": "popup.html"
+    "default_title": "TailorBack — tailor this job",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
   },
-  "icons": {}
+  "options_page": "options.html",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
 }
