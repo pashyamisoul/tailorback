@@ -9,8 +9,8 @@ function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", t);
   const btn = document.getElementById("themeToggle");
   if (btn) {
-    // Show the glyph for the mode you'll switch TO.
-    btn.textContent = t === "terminal" ? "🌙" : ">_";
+    // Accent-coloured theme glyph (clearly visible on the dark header).
+    btn.textContent = t === "terminal" ? "◑" : "◐";
     btn.title = t === "terminal" ? "Switch to midnight" : "Switch to terminal";
   }
 }
