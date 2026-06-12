@@ -3,17 +3,16 @@
 const DEFAULT_APP_URL = "http://127.0.0.1:5000/";
 const body = document.getElementById("body");
 
-document.getElementById("optionsLink").addEventListener("click", (e) => {
-  e.preventDefault();
-  if (chrome.runtime.openOptionsPage) chrome.runtime.openOptionsPage();
-});
-
 // ---- theme (editorial / terminal), persisted ----
 function applyTheme(theme) {
   const t = theme === "terminal" ? "terminal" : "editorial";
   document.documentElement.setAttribute("data-theme", t);
   const btn = document.getElementById("themeToggle");
-  if (btn) btn.textContent = t === "terminal" ? "◑ Editorial" : "◐ Terminal";
+  if (btn) {
+    // Show the icon for the mode you'll switch TO.
+    btn.textContent = t === "terminal" ? "☀️" : "🌙";
+    btn.title = t === "terminal" ? "Switch to editorial mode" : "Switch to terminal mode";
+  }
 }
 function initTheme() {
   try {
