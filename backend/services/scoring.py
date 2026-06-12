@@ -85,6 +85,53 @@ def _sentences(text):
     return [p.strip() for p in parts if len(p.strip()) >= 35]
 
 
+# Phrases that mark company boilerplate / culture / benefits rather than actual
+# job requirements. Job Match ignores sentences that are purely these, so a
+# concise, well-targeted resume is not penalised for failing to echo marketing
+# copy that a longer generic CV happens to overlap.
+BOILERPLATE_HINTS = (
+    "we are", "we're", "we offer", "we provide", "we believe", "we work",
+    "we welcome", "we strive", "our company", "our office", "our mission",
+    "our values", "our culture", "our team is", "our clients", "who we are",
+    "about us", "about the company", "join us", "join our", "apply now",
+    "welcome applications", "equal opportunity", "equal-opportunity",
+    "diversity", "inclusion", "what we offer", "we offer you", "perks",
+    "founded", "established in", "headquarter", "grown into", "operating in",
+    "colleagues", "employees worldwide", "fast-growing", "our employees say",
+)
+
+# Words that signal an actual requirement / responsibility line.
+REQUIREMENT_HINTS = {
+    "experience", "years", "year", "proficient", "proficiency", "knowledge",
+    "skill", "skills", "ability", "able", "familiar", "familiarity", "degree",
+    "bachelor", "master", "responsible", "responsibilities", "manage",
+    "management", "develop", "support", "maintain", "ensure", "must", "should",
+    "required", "require", "requirements", "preferred", "advantage", "strong",
+    "demonstrated", "expertise", "understanding", "working", "candidate",
+    "ideal", "seeking", "background", "fluent", "communication", "collaborate",
+    "design", "build", "implement", "troubleshoot", "administer", "configure",
+    "analyze", "document", "certification", "tools", "technologies", "proven",
+    "minimum", "responsibility", "role", "tasks",
+}
+
+
+def _requirement_sentences(jd_sentences):
+    """Keep requirement / responsibility sentences; drop sentences that are
+    purely company boilerplate. Falls back to all sentences when the filter
+    leaves too little signal (short or unusually worded JDs)."""
+    reqs = []
+    for s in jd_sentences:
+        low = s.lower()
+        toks = set(_tokens(s))
+        has_req = bool(toks & REQUIREMENT_HINTS) or "you will" in low \
+            or "you'll" in low or "you have" in low or "you are" in low
+        is_boiler = any(b in low for b in BOILERPLATE_HINTS)
+        if is_boiler and not has_req:
+            continue  # pure marketing / culture sentence
+        reqs.append(s)
+    return reqs if len(reqs) >= 5 else jd_sentences
+
+
 def _keyword_set(text):
     toks = _tokens(text)
     # Keep distinctive terms: long-enough words or acronyms, minus generic
@@ -118,15 +165,18 @@ def score_resume(cv_text, jd_text, model_analysis=None):
     jd_sentences = _sentences(jd_text)
     if not jd_sentences:
         jd_sentences = [jd_text]
+    # Score against actual requirement/responsibility sentences, not company
+    # boilerplate, so a focused tailored resume isn't penalised for being concise.
+    req_sentences = _requirement_sentences(jd_sentences)
     evidenced = 0
-    for sent in jd_sentences:
+    for sent in req_sentences:
         sent_terms = {t for t in _tokens(sent) if len(t) >= 4}
         if not sent_terms:
             continue
         overlap = sent_terms & cv_tokens
         if len(overlap) / max(1, len(sent_terms)) >= 0.18:
             evidenced += 1
-    job_match = round((evidenced / max(1, len(jd_sentences))) * 100)
+    job_match = round((evidenced / max(1, len(req_sentences))) * 100)
 
     jd_keywords = sorted(_keyword_set(jd_text))
     present_keywords = [k for k in jd_keywords if k in cv_low or k in cv_tokens]
@@ -147,13 +197,13 @@ def score_resume(cv_text, jd_text, model_analysis=None):
 
     metric_count, bullet_count = _metric_bullets(cv_text)
     impact = round((metric_count / bullet_count) * 100)
-    overall = round(0.40 * job_match + 0.30 * keyword_coverage +
-                    0.15 * structure + 0.15 * impact)
+    overall = round(0.38 * job_match + 0.30 * keyword_coverage +
+                    0.16 * structure + 0.16 * impact)
 
     missing = [k for k in jd_keywords if k not in present_keywords][:14]
     dimensions = [
         {"name": "Job Match", "score": job_match,
-         "note": f"{evidenced} of {len(jd_sentences)} job requirement statements show clear evidence in the current resume."},
+         "note": f"{evidenced} of {len(req_sentences)} job requirement statements show clear evidence in the current resume."},
         {"name": "Keyword Coverage", "score": keyword_coverage,
          "note": f"{len(present_keywords)} of {len(jd_keywords)} extracted job keywords appear in the current resume."},
         {"name": "Structure & Format", "score": structure,
