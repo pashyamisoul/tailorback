@@ -3,25 +3,25 @@
 const DEFAULT_APP_URL = "http://127.0.0.1:5000/";
 const body = document.getElementById("body");
 
-// ---- theme (midnight / terminal), persisted ----
+// ---- theme (editorial / terminal), persisted ----
 function applyTheme(theme) {
-  const t = theme === "terminal" ? "terminal" : "midnight";
+  const t = theme === "terminal" ? "terminal" : "editorial";
   document.documentElement.setAttribute("data-theme", t);
   const btn = document.getElementById("themeToggle");
   if (btn) {
-    // Accent-coloured theme glyph (clearly visible on the dark header).
+    // Accent-coloured theme glyph (clearly visible in both themes).
     btn.textContent = t === "terminal" ? "◑" : "◐";
-    btn.title = t === "terminal" ? "Switch to midnight" : "Switch to terminal";
+    btn.title = t === "terminal" ? "Switch to editorial" : "Switch to terminal";
   }
 }
 function initTheme() {
   try {
-    chrome.storage.sync.get({ theme: "midnight" }, (v) => applyTheme(v && v.theme));
-  } catch (_) { applyTheme("midnight"); }
+    chrome.storage.sync.get({ theme: "editorial" }, (v) => applyTheme(v && v.theme));
+  } catch (_) { applyTheme("editorial"); }
 }
 document.getElementById("themeToggle").addEventListener("click", () => {
   const next = document.documentElement.getAttribute("data-theme") === "terminal"
-    ? "midnight" : "terminal";
+    ? "editorial" : "terminal";
   applyTheme(next);
   try { chrome.storage.sync.set({ theme: next }); } catch (_) {}
 });

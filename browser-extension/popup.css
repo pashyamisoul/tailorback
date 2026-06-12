@@ -1,9 +1,9 @@
-/* Two themes: midnight (default) + terminal. */
-:root, html[data-theme="midnight"]{
-  --bg:#1d2230; --panel:#161b27; --ink:#ffffff; --soft:#aeb4c4; --line:#2c3242;
-  --accent:#ff7a59; --on-accent:#ffffff; --good:#5ad19b;
-  --btn:linear-gradient(90deg,#ff7a59,#ff5b87);
-  --src-fg:#9fc1ff; --src-bg:#222a3d; --src-bd:#34405c;
+/* Two themes: editorial (default) + terminal. */
+:root, html[data-theme="editorial"]{
+  --bg:#f4efe6; --panel:#fffdf8; --ink:#1a1714; --soft:#6f665d; --line:#ded8cb;
+  --accent:#c8462e; --on-accent:#fff; --good:#3c6e47;
+  --btn:#c8462e;
+  --src-fg:#0a66c2; --src-bg:#eaf2fb; --src-bd:#cfe1f5;
   --font:"Segoe UI",system-ui,sans-serif; --radius:10px; --lower:none;
 }
 html[data-theme="terminal"]{
