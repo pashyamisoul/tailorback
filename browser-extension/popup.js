@@ -52,7 +52,7 @@ function renderDetected(job) {
     <span class="src">${esc(job.site)}${job.words ? " · " + job.words + " words" : ""}</span>
     <div class="jd">${esc(job.text.slice(0, 600))}</div>
     <button class="btn btn-primary" id="tailor">Tailor this job →</button>
-    <p class="hint">Copies the job description and opens TailorBack to paste it in.</p>
+    <p class="hint">Opens TailorBack with the job description already filled in.</p>
     <p class="msg" id="msg"></p>`;
   document.getElementById("tailor").addEventListener("click", () => tailor(job));
 }
@@ -62,11 +62,12 @@ function renderSent(job) {
     <div class="detect">Captured</div>
     <div class="role">${esc(job.role) || "Job posting"}</div>
     ${job.company ? `<div class="co">${esc(job.company)}</div>` : ""}
-    <div class="step done"><span class="n">✓</span><span><b>Job description copied</b> (${job.words} words)</span></div>
-    <div class="step done"><span class="n">✓</span><span>Opened TailorBack in a new tab</span></div>
-    <div class="step"><span class="n">3</span><span>Paste into the Job Description box (Ctrl/Cmd+V), pick your CV, hit <b>Run</b></span></div>
-    <button class="btn btn-primary" id="reopen">Open TailorBack ↗</button>`;
-  document.getElementById("reopen").addEventListener("click", openApp);
+    <div class="step done"><span class="n">✓</span><span><b>Job captured</b> (${job.words} words)</span></div>
+    <div class="step done"><span class="n">✓</span><span>Opened TailorBack with the job filled in</span></div>
+    <div class="step"><span class="n">3</span><span>Pick your CV and hit <b>Run</b></span></div>
+    <button class="btn btn-primary" id="reopen">Open TailorBack ↗</button>
+    <p class="hint">Also copied to your clipboard, just in case.</p>`;
+  document.getElementById("reopen").addEventListener("click", () => openApp(job));
 }
 
 function renderEmpty(job, errMsg) {
@@ -87,7 +88,7 @@ async function tailor(job) {
   const msg = document.getElementById("msg");
   try {
     await navigator.clipboard.writeText(job.text);
-    await openApp();
+    await openApp(job);
     renderSent(job);
   } catch (err) {
     if (msg) { msg.textContent = "Could not copy: " + (err.message || err); msg.className = "msg err"; }
@@ -104,15 +105,25 @@ async function grabAnyway() {
     });
     const txt = results && results[0] && results[0].result;
     if (txt) {
+      const job = { role: "Visible page text", company: "", text: txt, words: txt.split(/\s+/).length };
       await navigator.clipboard.writeText(txt);
-      await openApp();
-      renderSent({ role: "Visible page text", company: "", words: txt.split(/\s+/).length });
+      await openApp(job);
+      renderSent(job);
     }
   } catch (_) { /* restricted page */ }
 }
 
-async function openApp() {
-  const url = await getAppUrl();
+async function openApp(job) {
+  const base = await getAppUrl();
+  let url = base.split("#")[0];
+  if (job && job.text) {
+    // Pass the job in the URL fragment (#…), which the browser never sends to
+    // the server. The app reads it, fills the Job Description box, and clears it.
+    const payload = encodeURIComponent(JSON.stringify({
+      jd: job.text, role: job.role || "", company: job.company || "",
+    }));
+    url += "#tb=" + payload;
+  }
   chrome.tabs.create({ url });
 }
 

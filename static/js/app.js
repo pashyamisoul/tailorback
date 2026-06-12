@@ -1337,3 +1337,27 @@ document.getElementById('openInterview')?.addEventListener('click', async () => 
     }
   });
 })();
+
+// ---- Job import from the browser extension ----
+// The extension opens the app with the job in the URL *fragment* (after #),
+// which browsers never send to the server, so the job text stays out of
+// server logs. We read it, fill the Job Description box, then clear the hash.
+(function tbImportFromExtension() {
+  const m = (location.hash || '').match(/[#&]tb=([^&]+)/);
+  if (!m) return;
+  let data;
+  try { data = JSON.parse(decodeURIComponent(m[1])); } catch (e) { return; }
+  // Always clear the fragment so the job text isn't left in the address bar/history.
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+  const jd = (data && data.jd || '').trim();
+  if (!jd) return;
+  const box = document.querySelector('textarea[name="jd_text"]');
+  if (!box) return;
+  // Make sure the "Paste description" tab is active (not "Use a job link").
+  const pasteSeg = document.querySelector('.toggle[data-group="jd"] .seg[data-mode="paste"]');
+  if (pasteSeg && !pasteSeg.classList.contains('active')) pasteSeg.click();
+  box.value = jd;
+  box.dispatchEvent(new Event('input', { bubbles: true }));
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (window.toast) toast('Job description loaded from the extension.');
+})();
