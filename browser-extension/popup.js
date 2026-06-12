@@ -3,25 +3,25 @@
 const DEFAULT_APP_URL = "http://127.0.0.1:5000/";
 const body = document.getElementById("body");
 
-// ---- theme (editorial / terminal), persisted ----
+// ---- theme (midnight / terminal), persisted ----
 function applyTheme(theme) {
-  const t = theme === "terminal" ? "terminal" : "editorial";
+  const t = theme === "terminal" ? "terminal" : "midnight";
   document.documentElement.setAttribute("data-theme", t);
   const btn = document.getElementById("themeToggle");
   if (btn) {
-    // Show the icon for the mode you'll switch TO.
-    btn.textContent = t === "terminal" ? "☀️" : "🌙";
-    btn.title = t === "terminal" ? "Switch to editorial mode" : "Switch to terminal mode";
+    // Show the glyph for the mode you'll switch TO.
+    btn.textContent = t === "terminal" ? "🌙" : ">_";
+    btn.title = t === "terminal" ? "Switch to midnight" : "Switch to terminal";
   }
 }
 function initTheme() {
   try {
-    chrome.storage.sync.get({ theme: "editorial" }, (v) => applyTheme(v && v.theme));
-  } catch (_) { applyTheme("editorial"); }
+    chrome.storage.sync.get({ theme: "midnight" }, (v) => applyTheme(v && v.theme));
+  } catch (_) { applyTheme("midnight"); }
 }
 document.getElementById("themeToggle").addEventListener("click", () => {
   const next = document.documentElement.getAttribute("data-theme") === "terminal"
-    ? "editorial" : "terminal";
+    ? "midnight" : "terminal";
   applyTheme(next);
   try { chrome.storage.sync.set({ theme: next }); } catch (_) {}
 });

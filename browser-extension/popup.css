@@ -1,13 +1,15 @@
-/* Two themes, mirroring the app: editorial (default) + terminal. */
-:root, html[data-theme="editorial"]{
-  --bg:#f4efe6; --panel:#fffdf8; --ink:#1a1714; --soft:#6f665d; --line:#ded8cb;
-  --accent:#c8462e; --on-accent:#fff; --good:#3c6e47;
-  --src-fg:#0a66c2; --src-bg:#eaf2fb; --src-bd:#cfe1f5;
+/* Two themes: midnight (default) + terminal. */
+:root, html[data-theme="midnight"]{
+  --bg:#1d2230; --panel:#161b27; --ink:#ffffff; --soft:#aeb4c4; --line:#2c3242;
+  --accent:#ff7a59; --on-accent:#ffffff; --good:#5ad19b;
+  --btn:linear-gradient(90deg,#ff7a59,#ff5b87);
+  --src-fg:#9fc1ff; --src-bg:#222a3d; --src-bd:#34405c;
   --font:"Segoe UI",system-ui,sans-serif; --radius:10px; --lower:none;
 }
 html[data-theme="terminal"]{
   --bg:#0d1117; --panel:#161b22; --ink:#c9d1d9; --soft:#8b949e; --line:#27313c;
   --accent:#3fb950; --on-accent:#0d1117; --good:#3fb950;
+  --btn:#3fb950;
   --src-fg:#3fb950; --src-bg:transparent; --src-bd:#2a4a32;
   --font:ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace; --radius:7px; --lower:lowercase;
 }
@@ -37,7 +39,7 @@ html[data-theme="terminal"] .cmd{display:block}
 .jd::after{content:"";position:absolute;inset:auto 0 0 0;height:28px;background:linear-gradient(transparent,var(--panel))}
 
 .btn{display:block;width:100%;text-align:center;border:0;border-radius:var(--radius);padding:.7rem;font:inherit;font-weight:800;cursor:pointer;margin-top:.85rem;text-transform:var(--lower)}
-.btn-primary{background:var(--accent);color:var(--on-accent)}
+.btn-primary{background:var(--btn);color:var(--on-accent)}
 .btn-primary:hover{filter:brightness(.96)}
 .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line);font-weight:700}
 .btn-ghost:hover{background:var(--panel)}
