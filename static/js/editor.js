@@ -18,6 +18,9 @@
     { id: "classic", name: "Classic", hint: "Serif · refined" },
     { id: "compact", name: "Compact", hint: "Dense · one page" },
     { id: "serif", name: "Serif executive", hint: "Centered serif · small-caps" },
+    { id: "bold", name: "Bold header", hint: "Dark banner · accent rules" },
+    { id: "minimal", name: "Minimalist", hint: "Airy · hairline rules" },
+    { id: "sidebar", name: "Sidebar", hint: "Two-column · skills left" },
   ];
   const ACCENTS = ["c8462e", "1f6feb", "0f766e", "7c3aed", "be123c", "b45309", "0369a1", "111827"];
   const FONTS = ["Calibri", "Georgia", "Arial", "Garamond", "Helvetica", "Times New Roman"];
@@ -238,9 +241,14 @@
 
     side.querySelector("#tplGrid").addEventListener("click", e => {
       const b = e.target.closest("[data-tpl]"); if (!b) return;
+      const prev = ST.style.template;
       ST.style.template = b.dataset.tpl;
       side.querySelectorAll(".tpl-chip").forEach(c => c.classList.toggle("active", c === b));
-      applyStageStyle(); markDirty();
+      // The sidebar template has a different DOM structure (two columns), so a
+      // full re-render is needed when entering or leaving it; others just restyle.
+      if (ST.style.template === "sidebar" || prev === "sidebar") renderStage();
+      else applyStageStyle();
+      markDirty();
     });
     side.querySelector("#swatches").addEventListener("click", e => {
       const b = e.target.closest("[data-accent]"); if (!b) return;
@@ -400,58 +408,71 @@
       ...links.map((l, i) => `<span class="c-link">${ed("contact.links." + i, l, "c-item")}<button class="mini-x" data-act="del-link" data-i="${i}" title="Remove">×</button></span>`),
     ].join('<span class="c-dot">•</span>');
 
-    return `
-    <div class="doc-page tmpl-${ST.style.template} density-${ST.style.density}">
-      ${ed("name", r.name, "doc-name", "h1")}
-      <div class="doc-contact">${contactParts}
+    // Build each section as a fragment so layouts can arrange them differently.
+    const nameEl = ed("name", r.name, "doc-name", "h1");
+    const contactEl = `<div class="doc-contact">${contactParts}
         <button class="mini-add" data-act="add-link" title="Add link">+ link</button>
-      </div>
-
-      <section class="doc-sec">
+      </div>`;
+    const summarySec = `<section class="doc-sec">
         ${sectionHead("Professional Summary", refineBtn("Rewrite", "summary"))}
         ${ed("summary", r.summary, "doc-summary", "p")}
-      </section>
-
-      <section class="doc-sec">
+      </section>`;
+    const skillsSec = `<section class="doc-sec">
         ${sectionHead("Core Competencies", refineBtn("Refine", "skills"))}
         <div class="doc-skills" data-list="skills">
           ${skills.map((s, i) => skillChip(s, i)).join("")}
           <button class="mini-add chip-add" data-act="add-skill" title="Add skill">+</button>
         </div>
-      </section>
-
-      <section class="doc-sec">
+      </section>`;
+    const expSec = `<section class="doc-sec">
         ${sectionHead("Professional Experience")}
         <div data-list="experience">
           ${exp.map((j, i) => jobHtml(j, i, exp.length)).join("")}
         </div>
         <button class="mini-add row-add" data-act="add-job">+ Add role</button>
-      </section>
-
-      <section class="doc-sec">
+      </section>`;
+    const projSec = `<section class="doc-sec">
         ${sectionHead("Projects")}
         <div data-list="projects">
           ${projects.map((p, i) => projectHtml(p, i, projects.length)).join("")}
         </div>
         <button class="mini-add row-add" data-act="add-project">+ Add project</button>
-      </section>
-
-      ${edu.length || true ? `
-      <section class="doc-sec">
+      </section>`;
+    const eduSec = `<section class="doc-sec">
         ${sectionHead("Education")}
         <div data-list="education">
           ${edu.map((e, i) => eduHtml(e, i)).join("")}
         </div>
         <button class="mini-add row-add" data-act="add-edu">+ Add education</button>
-      </section>` : ""}
-
-      ${certs.length ? `
-      <section class="doc-sec">
+      </section>`;
+    const certsSec = certs.length ? `<section class="doc-sec">
         ${sectionHead("Certifications")}
         <ul class="doc-certs" data-list="certifications">
           ${certs.map((ct, i) => `<li>${ed("certifications." + i, ct, "")}<button class="mini-x" data-act="del-cert" data-i="${i}">×</button></li>`).join("")}
         </ul>
-      </section>` : ""}
+      </section>` : "";
+
+    const cls = `doc-page tmpl-${ST.style.template} density-${ST.style.density}`;
+
+    if (ST.style.template === "sidebar") {
+      // Two columns: contact/skills/education on the left, the rest on the right.
+      return `
+      <div class="${cls}">
+        <div class="doc-side">${nameEl}${contactEl}${skillsSec}${eduSec}${certsSec}</div>
+        <div class="doc-main">${summarySec}${expSec}${projSec}</div>
+      </div>`;
+    }
+
+    return `
+    <div class="${cls}">
+      ${nameEl}
+      ${contactEl}
+      ${summarySec}
+      ${skillsSec}
+      ${expSec}
+      ${projSec}
+      ${eduSec}
+      ${certsSec}
     </div>`;
   }
 

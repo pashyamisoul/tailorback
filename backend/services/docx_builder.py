@@ -9,6 +9,9 @@ BLACK = RGBColor(0, 0, 0)
 DARK = RGBColor(0x1a, 0x1a, 0x1a)
 GREY = RGBColor(0x5a, 0x5a, 0x5a)
 ACCENT = RGBColor(0x2b, 0x2b, 0x2b)
+WHITE = RGBColor(0xff, 0xff, 0xff)
+BANNER_BG = "1a1a1a"          # dark banner fill for the "bold" template
+BANNER_CONTACT = RGBColor(0xcf, 0xca, 0xbf)
 
 # ---------------------------------------------------------------------------
 # Style system
@@ -81,7 +84,42 @@ TEMPLATES = {
         "heading_align": WD_ALIGN_PARAGRAPH.CENTER,
         "heading_small_caps": True,
     },
+    "bold": {
+        "font": "Calibri",
+        "name_align": WD_ALIGN_PARAGRAPH.LEFT,
+        "name_size": 22,
+        "name_color": WHITE,            # white on the dark banner
+        "heading_uses_accent": True,
+        "heading_border": None,
+        "heading_border_accent": True,
+        "contact_align": WD_ALIGN_PARAGRAPH.LEFT,
+        "banner": True,                 # render name + contact in a dark banner
+    },
+    "minimal": {
+        "font": "Calibri",
+        "name_align": WD_ALIGN_PARAGRAPH.LEFT,
+        "name_size": 19,
+        "name_color": BLACK,
+        "heading_uses_accent": False,
+        "heading_color": RGBColor(0x22, 0x22, 0x22),
+        "heading_border": "dddddd",     # hairline rule
+        "heading_border_accent": False,
+        "contact_align": WD_ALIGN_PARAGRAPH.LEFT,
+    },
+    "sidebar": {
+        "font": "Calibri",
+        "name_align": WD_ALIGN_PARAGRAPH.LEFT,
+        "name_size": 18,
+        "name_color": BLACK,
+        "heading_uses_accent": True,
+        "heading_border": None,
+        "heading_border_accent": True,
+        "contact_align": WD_ALIGN_PARAGRAPH.LEFT,
+        "sidebar": True,                # two-column table layout
+    },
 }
+
+SIDEBAR_BG = "f3efe6"                    # tinted left column
 
 DEFAULT_TEMPLATE = "editorial"
 
@@ -132,6 +170,8 @@ def _resolve_style(style):
         "contact_align": tmpl["contact_align"],
         "heading_align": tmpl.get("heading_align", WD_ALIGN_PARAGRAPH.LEFT),
         "heading_small_caps": tmpl.get("heading_small_caps", False),
+        "banner": tmpl.get("banner", False),
+        "sidebar": tmpl.get("sidebar", False),
     }
 
 
@@ -150,6 +190,131 @@ def _border(p, size=6, color="000000", val="single"):
 def _track(run, val):
     rPr = run._element.get_or_add_rPr(); s = OxmlElement("w:spacing")
     s.set(qn("w:val"), str(val)); rPr.append(s)
+
+def _shade(cell, fill):
+    """Fill a table cell with a solid background colour."""
+    tcPr = cell._tc.get_or_add_tcPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear"); shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"), fill)
+    tcPr.append(shd)
+
+def _no_table_borders(table):
+    tblPr = table._tbl.tblPr
+    borders = OxmlElement("w:tblBorders")
+    for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        e = OxmlElement("w:" + edge); e.set(qn("w:val"), "none"); e.set(qn("w:sz"), "0")
+        borders.append(e)
+    tblPr.append(borders)
+
+def _banner(doc, name, contact, S):
+    """Dark full-width banner holding the name + contact (the 'bold' template)."""
+    table = doc.add_table(rows=1, cols=1)
+    _no_table_borders(table)
+    cell = table.cell(0, 0)
+    _shade(cell, BANNER_BG)
+    # tighten cell margins a touch via the single paragraph spacing
+    np = cell.paragraphs[0]; _sp(np, before=2, after=2)
+    nr = np.add_run((name or "").upper())
+    nr.bold = True; nr.font.size = Pt(S["name_size"]); nr.font.color.rgb = WHITE; _track(nr, 60)
+    if contact:
+        cp = cell.add_paragraph(); _sp(cp, before=2, after=2)
+        cr = cp.add_run(contact); cr.font.size = Pt(9); cr.font.color.rgb = BANNER_CONTACT
+    doc.add_paragraph()  # spacer below the banner
+
+def _set_cell_width(cell, width):
+    cell.width = width
+    tcPr = cell._tc.get_or_add_tcPr()
+    for existing in tcPr.findall(qn("w:tcW")):
+        tcPr.remove(existing)
+    tcW = OxmlElement("w:tcW")
+    tcW.set(qn("w:w"), str(int(width.twips))); tcW.set(qn("w:type"), "dxa")
+    tcPr.append(tcW)
+
+def _cell_margins(cell, top=80, bottom=80, left=140, right=140):
+    tcPr = cell._tc.get_or_add_tcPr()
+    mar = OxmlElement("w:tcMar")
+    for edge, val in (("top", top), ("bottom", bottom), ("start", left), ("end", right),
+                      ("left", left), ("right", right)):
+        m = OxmlElement("w:" + edge); m.set(qn("w:w"), str(val)); m.set(qn("w:type"), "dxa")
+        mar.append(m)
+    tcPr.append(mar)
+
+def _cell_heading(cell, text, S, first=False):
+    p = cell.add_paragraph(); _sp(p, before=0 if first else 10, after=3)
+    r = p.add_run(text.upper()); r.bold = True; r.font.size = Pt(S["base_size"])
+    r.font.color.rgb = S["heading_color"]; _track(r, 50)
+    return p
+
+def _job_into(container, job, S, name_key="title", link_key="company"):
+    head = container.add_paragraph(); _sp(head, before=6, after=1)
+    r = head.add_run(job.get(name_key, "")); r.bold = True; r.font.size = Pt(S["base_size"])
+    sub = job.get(link_key)
+    if sub:
+        sr = head.add_run(f"  ·  {sub}"); sr.font.size = Pt(S["base_size"]); sr.font.color.rgb = S["heading_color"]
+    if job.get("dates"):
+        d = head.add_run(f"   {job['dates']}"); d.italic = True; d.font.size = Pt(8.5); d.font.color.rgb = GREY
+    for b in (job.get("bullets") or []):
+        bp = container.add_paragraph(b, style="List Bullet"); _sp(bp, after=2, line=1.08)
+
+def _build_resume_sidebar(resume, doc, S):
+    """Two-column layout: tinted left column (contact, skills, education),
+    main right column (summary, experience, projects). Rendered as a borderless
+    table so it survives the .docx/PDF pipeline."""
+    table = doc.add_table(rows=1, cols=2)
+    table.allow_autofit = False
+    _no_table_borders(table)
+    left, right = table.cell(0, 0), table.cell(0, 1)
+    _set_cell_width(left, Inches(2.35)); _set_cell_width(right, Inches(4.45))
+    _shade(left, SIDEBAR_BG)
+    _cell_margins(left); _cell_margins(right, left=160, right=80)
+
+    c = resume.get("contact", {}) or {}
+
+    # ---- left column ----
+    np = left.paragraphs[0]; _sp(np, after=4)
+    nr = np.add_run((resume.get("name", "") or "").upper())
+    nr.bold = True; nr.font.size = Pt(S["name_size"]); nr.font.color.rgb = BLACK; _track(nr, 30)
+    for v in [c.get("email"), c.get("phone"), c.get("location"), *(c.get("links") or [])]:
+        if v:
+            cp = left.add_paragraph(); _sp(cp, after=1)
+            cr = cp.add_run(v); cr.font.size = Pt(8.5); cr.font.color.rgb = GREY
+
+    if resume.get("skills"):
+        _cell_heading(left, "Skills", S)
+        for s in resume["skills"]:
+            sp = left.add_paragraph(); _sp(sp, after=1)
+            sr = sp.add_run(s); sr.font.size = Pt(S["base_size"])
+
+    if resume.get("education"):
+        _cell_heading(left, "Education", S)
+        for e in resume["education"]:
+            ep = left.add_paragraph(); _sp(ep, after=3)
+            ep.add_run(e.get("degree", "")).bold = True
+            if e.get("institution"):
+                ir = ep.add_run(f"\n{e['institution']}"); ir.font.size = Pt(9); ir.font.color.rgb = GREY
+            if e.get("dates"):
+                dr = ep.add_run(f"\n{e['dates']}"); dr.italic = True; dr.font.size = Pt(8.5); dr.font.color.rgb = GREY
+
+    if resume.get("certifications"):
+        _cell_heading(left, "Certifications", S)
+        for cert in resume["certifications"]:
+            cp = left.add_paragraph(); _sp(cp, after=2)
+            cp.add_run(cert).font.size = Pt(9)
+
+    # ---- right column ----
+    first = True
+    if resume.get("summary"):
+        _cell_heading(right, "Professional Summary", S, first=True); first = False
+        p = right.add_paragraph(resume["summary"]); _sp(p, after=2, line=1.12)
+    if resume.get("experience"):
+        _cell_heading(right, "Professional Experience", S, first=first); first = False
+        for job in resume["experience"]:
+            _job_into(right, job, S, "title", "company")
+    if resume.get("projects"):
+        _cell_heading(right, "Projects", S, first=first)
+        for proj in resume["projects"]:
+            _job_into(right, proj, S, "name", "link")
 
 def _base(S):
     doc = Document(); s = doc.sections[0]
@@ -177,19 +342,28 @@ def _heading(doc, text, S):
 def build_resume(resume, out_path, style=None):
     S = _resolve_style(style)
     doc = _base(S)
-    name_p = doc.add_paragraph(); name_p.alignment = S["name_align"]
-    _sp(name_p, after=3)
-    nr = name_p.add_run((resume.get("name","") or "").upper())
-    nr.bold = True; nr.font.size = Pt(S["name_size"]); nr.font.color.rgb = S["name_color"]; _track(nr, 80)
+
+    if S.get("sidebar"):
+        _build_resume_sidebar(resume, doc, S)
+        doc.save(out_path); return out_path
 
     c = resume.get("contact", {}) or {}
     bits = [c.get("email"), c.get("phone"), c.get("location"), *(c.get("links") or [])]
     contact = "    •    ".join(b for b in bits if b)
-    if contact:
-        cp = doc.add_paragraph(); cp.alignment = S["contact_align"]
-        _sp(cp, after=6); cr = cp.add_run(contact)
-        cr.font.size = Pt(9); cr.font.color.rgb = GREY
-        _border(cp, size=8, color="000000")
+
+    if S.get("banner"):
+        # Dark full-width banner with name + contact (the "bold" template).
+        _banner(doc, resume.get("name", ""), contact, S)
+    else:
+        name_p = doc.add_paragraph(); name_p.alignment = S["name_align"]
+        _sp(name_p, after=3)
+        nr = name_p.add_run((resume.get("name","") or "").upper())
+        nr.bold = True; nr.font.size = Pt(S["name_size"]); nr.font.color.rgb = S["name_color"]; _track(nr, 80)
+        if contact:
+            cp = doc.add_paragraph(); cp.alignment = S["contact_align"]
+            _sp(cp, after=6); cr = cp.add_run(contact)
+            cr.font.size = Pt(9); cr.font.color.rgb = GREY
+            _border(cp, size=8, color="000000")
 
     if resume.get("summary"):
         _heading(doc, "Professional Summary", S)

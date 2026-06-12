@@ -2232,6 +2232,31 @@ html[data-theme="terminal"] .loader::before{ content:"$ tailorback --run"; displ
 .tmpl-serif .doc-head { justify-content: center; border-bottom: 1px solid #000; }
 .tmpl-serif .doc-head-t { color: #000; letter-spacing: .22em; }
 
+/* bold header: dark full-width banner with name + contact, accent rules */
+.tmpl-bold .doc-name { background: #1a1a1a; color: #fff; text-align: left; margin: -3rem -3.2rem 0; padding: 2rem 3.2rem .25rem; }
+.tmpl-bold .doc-contact { background: #1a1a1a; color: #cfcabf; justify-content: flex-start; margin: 0 -3.2rem 1.3rem; padding: 0 3.2rem 1.5rem; border-bottom: 0; }
+.tmpl-bold .doc-contact .c-item, .tmpl-bold .doc-contact .c-dot { color: #cfcabf; }
+.tmpl-bold .doc-head { justify-content: flex-start; border-bottom: 2px solid var(--doc-accent); }
+.tmpl-bold .doc-head-t { color: var(--doc-accent); }
+
+/* minimalist: airy, hairline rules, understated grey headings */
+.tmpl-minimal .doc-name { text-align: left; font-weight: 600; letter-spacing: .01em; text-transform: none; }
+.tmpl-minimal .doc-contact { justify-content: flex-start; border-bottom-color: #e6e0d2; color: #777; }
+.tmpl-minimal .doc-head { border-bottom: 1px solid #e6e0d2; margin-top: .4rem; }
+.tmpl-minimal .doc-head-t { color: #222; font-weight: 700; letter-spacing: .22em; }
+.tmpl-minimal .doc-sec { margin-top: 1.5rem; }
+
+/* sidebar: two-column layout (only when the column structure is present) */
+.doc-page.tmpl-sidebar:has(.doc-side) { display: grid; grid-template-columns: 34% 1fr; padding: 0; overflow: hidden; }
+.tmpl-sidebar .doc-side { background: #f3efe6; padding: 2.2rem 1.5rem; }
+.tmpl-sidebar .doc-main { padding: 2.2rem 1.9rem; }
+.tmpl-sidebar .doc-side .doc-name { text-align: left; font-size: 1.55rem; }
+.tmpl-sidebar .doc-contact { flex-direction: column; align-items: flex-start; gap: .2rem; border-bottom: 0; padding-bottom: .3rem; margin-bottom: .5rem; }
+.tmpl-sidebar .doc-contact .c-dot { display: none; }
+.tmpl-sidebar .doc-head { border-bottom: 0; margin-bottom: .15rem; }
+.tmpl-sidebar .doc-head-t { color: var(--doc-accent); }
+.tmpl-sidebar .doc-main .doc-head { border-bottom: 1px solid #e6e0d2; }
+
 /* inline editable affordance */
 .ed { outline: none; border-radius: 3px; transition: box-shadow .12s, background .12s; cursor: text; }
 .ed:hover { box-shadow: 0 0 0 1px #e2d9c6; }
