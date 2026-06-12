@@ -2246,6 +2246,17 @@ html[data-theme="terminal"] .loader::before{ content:"$ tailorback --run"; displ
 .tmpl-minimal .doc-head-t { color: #222; font-weight: 700; letter-spacing: .22em; }
 .tmpl-minimal .doc-sec { margin-top: 1.5rem; }
 
+/* sidebar: two-column layout (only when the column structure is present) */
+.doc-page.tmpl-sidebar:has(.doc-side) { display: grid; grid-template-columns: 34% 1fr; padding: 0; overflow: hidden; }
+.tmpl-sidebar .doc-side { background: #f3efe6; padding: 2.2rem 1.5rem; }
+.tmpl-sidebar .doc-main { padding: 2.2rem 1.9rem; }
+.tmpl-sidebar .doc-side .doc-name { text-align: left; font-size: 1.55rem; }
+.tmpl-sidebar .doc-contact { flex-direction: column; align-items: flex-start; gap: .2rem; border-bottom: 0; padding-bottom: .3rem; margin-bottom: .5rem; }
+.tmpl-sidebar .doc-contact .c-dot { display: none; }
+.tmpl-sidebar .doc-head { border-bottom: 0; margin-bottom: .15rem; }
+.tmpl-sidebar .doc-head-t { color: var(--doc-accent); }
+.tmpl-sidebar .doc-main .doc-head { border-bottom: 1px solid #e6e0d2; }
+
 /* inline editable affordance */
 .ed { outline: none; border-radius: 3px; transition: box-shadow .12s, background .12s; cursor: text; }
 .ed:hover { box-shadow: 0 0 0 1px #e2d9c6; }
