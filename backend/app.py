@@ -16,6 +16,7 @@ needs_paste signal so the frontend can prompt for paste.
 import os
 import uuid
 import json as _json
+import functools
 import threading
 import queue as _queue
 import hashlib
@@ -625,6 +626,46 @@ def _make_email_verification_token():
     return uuid.uuid4().hex + uuid.uuid4().hex
 
 
+# ---- lightweight in-memory rate limiting (single-instance friendly) ----
+_rl_lock = threading.Lock()
+_rl_hits = {}
+
+
+def _rl_identity():
+    uid = session.get("user_id")
+    if uid:
+        return f"u{uid}"
+    fwd = request.headers.get("X-Forwarded-For", "")
+    ip = (fwd.split(",")[0].strip() if fwd else None) or request.remote_addr or "anon"
+    return ip
+
+
+def rate_limit(max_calls, per_seconds):
+    """Throttle a route to max_calls per per_seconds, keyed by user or client IP."""
+    def decorator(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            now = time.time()
+            key = f"{fn.__name__}:{_rl_identity()}"
+            with _rl_lock:
+                hits = [t for t in _rl_hits.get(key, ()) if now - t < per_seconds]
+                if len(hits) >= max_calls:
+                    retry = max(1, int(per_seconds - (now - hits[0])) + 1)
+                    resp = jsonify({"status": "rate_limited",
+                                    "message": "Too many requests. Please wait a moment and try again."})
+                    resp.status_code = 429
+                    resp.headers["Retry-After"] = str(retry)
+                    return resp
+                hits.append(now)
+                _rl_hits[key] = hits
+                if len(_rl_hits) > 4000:  # opportunistic cleanup
+                    for k in [k for k, v in _rl_hits.items() if not v or now - v[-1] > per_seconds]:
+                        _rl_hits.pop(k, None)
+            return fn(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
 def _smtp_send(to_email, subject, body):
     """Send a plain-text email via SMTP using env config. Raises on failure."""
     import smtplib
@@ -890,6 +931,7 @@ def auth_google_callback():
 
 
 @app.route("/api/auth/signup", methods=["POST"])
+@rate_limit(8, 600)
 def auth_signup_email():
     data = request.get_json(silent=True) or {}
     full_name = (data.get("full_name") or "").strip()
@@ -947,6 +989,7 @@ def activate_email(token):
 
 
 @app.route("/api/auth/signin", methods=["POST"])
+@rate_limit(12, 300)
 def auth_signin_email():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
@@ -978,6 +1021,7 @@ def auth_signin_email():
 
 
 @app.route("/api/auth/forgot", methods=["POST"])
+@rate_limit(5, 900)
 def auth_forgot_password():
     """Start a password reset. Always returns a generic message so it never
     reveals whether an email is registered."""
@@ -1009,6 +1053,7 @@ def reset_password_page(token):
 
 
 @app.route("/api/auth/reset", methods=["POST"])
+@rate_limit(10, 600)
 def auth_reset_password():
     data = request.get_json(silent=True) or {}
     token = (data.get("token") or "").strip()
@@ -1092,6 +1137,7 @@ def _resolve_cv(form, files):
 
 
 @app.route("/api/generate", methods=["POST"])
+@rate_limit(20, 300)
 def generate():
     current_user = _current_user()
     if not current_user:
@@ -2133,6 +2179,7 @@ def contact_page():
 
 
 @app.route("/api/contact", methods=["POST"])
+@rate_limit(5, 600)
 def contact_submit():
     """Public contact form. Stores the message; admins read it in the dashboard."""
     data = request.get_json(silent=True) or {}
