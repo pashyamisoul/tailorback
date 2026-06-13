@@ -17,7 +17,7 @@ not legal advice.*
 | Trading name | TailorBack |
 | Address | [street and number], [postal code] Berlin, Germany |
 | Jurisdiction | Germany |
-| Contact for data matters | [support email] |
+| Contact for data matters | contact@tailorback.com |
 | Data Protection Officer | Not appointed (not required for a sole individual at this scale) |
 | EU/UK representative | Not required (controller is established in the EU/Germany) |
 | Supervisory authority | Berliner Beauftragte für Datenschutz und Informationsfreiheit (BlnBDI) |
@@ -83,7 +83,7 @@ with each provider's DPA].
 | All of a user's data | Deleted on a verified erasure request (admin "Delete account" action). Admins can also clear only a user's generated documents/history while keeping the account ("Delete data" action). |
 
 ## 8. Data-subject rights & how they are met
-- **Access / portability:** provided on request to [support email].
+- **Access / portability:** provided on request to contact@tailorback.com.
 - **Rectification:** users can edit account details and documents in-app.
 - **Erasure:** users may request deletion via the contact form or [support
   email]; an admin permanently deletes the user and all associated data

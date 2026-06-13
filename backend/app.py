@@ -736,7 +736,7 @@ OPERATOR_NAME = "Amith AshokReddy Rajolkar"
 OPERATOR_JURISDICTION = "Germany"
 OPERATOR_CITY = "Berlin, Germany"
 OPERATOR_ADDRESS = "[street and number], [postal code] Berlin, Germany"
-OPERATOR_EMAIL = "[support email]"
+OPERATOR_EMAIL = "contact@tailorback.com"
 SUPERVISORY_AUTHORITY = (
     "Berliner Beauftragte für Datenschutz und Informationsfreiheit (BlnBDI)"
 )
