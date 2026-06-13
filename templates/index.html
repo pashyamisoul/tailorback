@@ -18,6 +18,7 @@
     <div class="site-nav" aria-label="Primary"></div>
     <nav>
       <button id="themeToggle">terminal mode</button>
+      {% if billing_enabled %}
       <div class="pro-menu" id="proMenu">
         <button type="button" class="pro-trigger" id="proTrigger">
           <span class="tb-logo">Tailor<span class="tb-accent">Back</span><span class="tb-pro">Pro</span></span>
@@ -53,6 +54,7 @@
           </div>
         </div>
       </div>
+      {% endif %}
       {% if user_email %}
       <div class="nav-credits" aria-label="Credits remaining">
         <strong>{{ credits_remaining }}</strong>
