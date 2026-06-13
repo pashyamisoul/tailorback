@@ -674,10 +674,12 @@ def _smtp_send(to_email, subject, body):
     port = int(os.environ.get("SMTP_PORT", "587"))
     user = os.environ.get("SMTP_USER")
     password = os.environ.get("SMTP_PASSWORD")
-    sender = os.environ.get("SMTP_FROM") or user or "no-reply@tailorback.app"
+    sender = os.environ.get("SMTP_FROM") or user or "noreply@tailorback.com"
+    from_name = os.environ.get("SMTP_FROM_NAME", "TailorBack")
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = sender
+    msg["From"] = f"{from_name} <{sender}>" if from_name else sender
+    msg["Reply-To"] = OPERATOR_EMAIL
     msg["To"] = to_email
     msg.set_content(body)
     if os.environ.get("SMTP_USE_SSL") == "1":
@@ -699,7 +701,8 @@ def _send_activation_email(user):
         "Welcome to TailorBack!\n\n"
         "Activate your account by opening this link:\n"
         f"{activation_url}\n\n"
-        "If you did not sign up, you can ignore this email."
+        "If you did not sign up, you can ignore this email.\n\n"
+        f"Need help? Email us at {OPERATOR_EMAIL}."
     )
     if os.environ.get("SMTP_HOST"):
         try:
@@ -719,7 +722,8 @@ def _send_password_reset_email(user):
         "We received a request to reset your TailorBack password.\n\n"
         "Choose a new password by opening this link (valid for 1 hour):\n"
         f"{reset_url}\n\n"
-        "If you did not request this, ignore this email, your password will not change."
+        "If you did not request this, ignore this email, your password will not change.\n\n"
+        f"Need help? Email us at {OPERATOR_EMAIL}."
     )
     if os.environ.get("SMTP_HOST"):
         try:
@@ -800,7 +804,8 @@ OPERATOR_NAME = "Amith AshokReddy Rajolkar"
 OPERATOR_JURISDICTION = "Germany"
 OPERATOR_CITY = "Berlin, Germany"
 OPERATOR_ADDRESS = "[street and number], [postal code] Berlin, Germany"
-OPERATOR_EMAIL = "contact@tailorback.com"
+OPERATOR_EMAIL = "contact@tailorback.com"     # general support / data requests
+FINANCE_EMAIL = "finance@tailorback.com"      # billing / refunds
 SUPERVISORY_AUTHORITY = (
     "Berliner Beauftragte für Datenschutz und Informationsfreiheit (BlnBDI)"
 )
@@ -815,6 +820,7 @@ def _inject_globals():
         "operator_city": OPERATOR_CITY,
         "operator_address": OPERATOR_ADDRESS,
         "operator_email": OPERATOR_EMAIL,
+        "finance_email": FINANCE_EMAIL,
         "supervisory_authority": SUPERVISORY_AUTHORITY,
     }
 
