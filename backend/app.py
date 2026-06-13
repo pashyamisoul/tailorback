@@ -135,6 +135,8 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=True)
     email_verified = db.Column(db.Boolean, default=False, nullable=False)
     email_verification_token = db.Column(db.String(64), unique=True, nullable=True)
+    password_reset_token = db.Column(db.String(128), unique=True, nullable=True)
+    password_reset_expires = db.Column(db.DateTime, nullable=True)
     country = db.Column(db.String(120), nullable=True)
     zip_code = db.Column(db.String(32), nullable=True)
     current_pack = db.Column(db.String(64), nullable=True)
@@ -238,6 +240,8 @@ def _ensure_schema():
             "password_hash": "VARCHAR(255)",
             "email_verified": "BOOLEAN DEFAULT 0",
             "email_verification_token": "VARCHAR(64)",
+            "password_reset_token": "VARCHAR(128)",
+            "password_reset_expires": "DATETIME",
             "country": "VARCHAR(120)",
             "zip_code": "VARCHAR(32)",
             "current_pack": "VARCHAR(64)",
@@ -668,6 +672,25 @@ def _send_activation_email(user):
     return activation_url
 
 
+def _send_password_reset_email(user):
+    reset_url = url_for("reset_password_page", token=user.password_reset_token, _external=True)
+    body = (
+        "We received a request to reset your TailorBack password.\n\n"
+        "Choose a new password by opening this link (valid for 1 hour):\n"
+        f"{reset_url}\n\n"
+        "If you did not request this, ignore this email, your password will not change."
+    )
+    if os.environ.get("SMTP_HOST"):
+        try:
+            _smtp_send(user.email, "Reset your TailorBack password", body)
+            app.logger.info("Password reset email sent to %s", user.email)
+        except Exception:
+            app.logger.exception("Failed to send password reset email to %s", user.email)
+    else:
+        app.logger.warning("SMTP not configured; reset link for %s: %s", user.email, reset_url)
+    return reset_url
+
+
 def _model_from_stages(stages):
     if "generating_claude" in stages or "switching_to_claude" in stages:
         return "anthropic", os.environ.get("ANTHROPIC_MODEL", llm.CLAUDE_MODEL)
@@ -952,6 +975,59 @@ def auth_signin_email():
         return jsonify(payload), 403
     _login_user(user)
     return jsonify({"status": "ok", "user": _safe_user_payload(user)})
+
+
+@app.route("/api/auth/forgot", methods=["POST"])
+def auth_forgot_password():
+    """Start a password reset. Always returns a generic message so it never
+    reveals whether an email is registered."""
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    generic = {"status": "ok",
+               "message": "If an account exists for that email, a reset link is on its way."}
+    if not email:
+        return jsonify(generic)
+    user = User.query.filter_by(email=email).first()
+    # Only password (email/password) accounts can reset; Google-only accounts can't.
+    if user and user.password_hash:
+        user.password_reset_token = _make_email_verification_token()
+        user.password_reset_expires = datetime.utcnow() + timedelta(hours=1)
+        db.session.commit()
+        reset_url = _send_password_reset_email(user)
+        # Dev convenience: when no mailer is configured, surface the link.
+        if not os.environ.get("SMTP_HOST") and os.environ.get("FLASK_ENV") != "production":
+            return jsonify({**generic, "reset_url": reset_url})
+    return jsonify(generic)
+
+
+@app.route("/auth/reset/<token>")
+def reset_password_page(token):
+    user = User.query.filter_by(password_reset_token=token).first()
+    valid = bool(user and user.password_reset_expires
+                 and user.password_reset_expires > datetime.utcnow())
+    return render_template("reset_password.html", token=token, valid=valid)
+
+
+@app.route("/api/auth/reset", methods=["POST"])
+def auth_reset_password():
+    data = request.get_json(silent=True) or {}
+    token = (data.get("token") or "").strip()
+    password = data.get("password") or ""
+    if len(password) < 8:
+        return jsonify({"status": "error",
+                        "message": "Password must be at least 8 characters."}), 400
+    user = User.query.filter_by(password_reset_token=token).first() if token else None
+    if not user or not user.password_reset_expires or user.password_reset_expires < datetime.utcnow():
+        return jsonify({"status": "error",
+                        "message": "This reset link is invalid or has expired. Request a new one."}), 400
+    user.password_hash = generate_password_hash(password, method="pbkdf2:sha256")
+    user.password_reset_token = None
+    user.password_reset_expires = None
+    user.email_verified = True  # completing reset proves they control the inbox
+    db.session.commit()
+    app.logger.info("Password reset completed for %s", user.email)
+    return jsonify({"status": "ok",
+                    "message": "Your password has been reset. You can now sign in."})
 
 
 @app.route("/auth/logout")
