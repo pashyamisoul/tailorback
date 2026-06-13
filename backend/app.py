@@ -16,6 +16,7 @@ needs_paste signal so the frontend can prompt for paste.
 import os
 import uuid
 import json as _json
+import functools
 import threading
 import queue as _queue
 import hashlib
@@ -135,6 +136,8 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=True)
     email_verified = db.Column(db.Boolean, default=False, nullable=False)
     email_verification_token = db.Column(db.String(64), unique=True, nullable=True)
+    password_reset_token = db.Column(db.String(128), unique=True, nullable=True)
+    password_reset_expires = db.Column(db.DateTime, nullable=True)
     country = db.Column(db.String(120), nullable=True)
     zip_code = db.Column(db.String(32), nullable=True)
     current_pack = db.Column(db.String(64), nullable=True)
@@ -238,6 +241,8 @@ def _ensure_schema():
             "password_hash": "VARCHAR(255)",
             "email_verified": "BOOLEAN DEFAULT 0",
             "email_verification_token": "VARCHAR(64)",
+            "password_reset_token": "VARCHAR(128)",
+            "password_reset_expires": "DATETIME",
             "country": "VARCHAR(120)",
             "zip_code": "VARCHAR(32)",
             "current_pack": "VARCHAR(64)",
@@ -621,6 +626,46 @@ def _make_email_verification_token():
     return uuid.uuid4().hex + uuid.uuid4().hex
 
 
+# ---- lightweight in-memory rate limiting (single-instance friendly) ----
+_rl_lock = threading.Lock()
+_rl_hits = {}
+
+
+def _rl_identity():
+    uid = session.get("user_id")
+    if uid:
+        return f"u{uid}"
+    fwd = request.headers.get("X-Forwarded-For", "")
+    ip = (fwd.split(",")[0].strip() if fwd else None) or request.remote_addr or "anon"
+    return ip
+
+
+def rate_limit(max_calls, per_seconds):
+    """Throttle a route to max_calls per per_seconds, keyed by user or client IP."""
+    def decorator(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            now = time.time()
+            key = f"{fn.__name__}:{_rl_identity()}"
+            with _rl_lock:
+                hits = [t for t in _rl_hits.get(key, ()) if now - t < per_seconds]
+                if len(hits) >= max_calls:
+                    retry = max(1, int(per_seconds - (now - hits[0])) + 1)
+                    resp = jsonify({"status": "rate_limited",
+                                    "message": "Too many requests. Please wait a moment and try again."})
+                    resp.status_code = 429
+                    resp.headers["Retry-After"] = str(retry)
+                    return resp
+                hits.append(now)
+                _rl_hits[key] = hits
+                if len(_rl_hits) > 4000:  # opportunistic cleanup
+                    for k in [k for k, v in _rl_hits.items() if not v or now - v[-1] > per_seconds]:
+                        _rl_hits.pop(k, None)
+            return fn(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
 def _smtp_send(to_email, subject, body):
     """Send a plain-text email via SMTP using env config. Raises on failure."""
     import smtplib
@@ -629,10 +674,12 @@ def _smtp_send(to_email, subject, body):
     port = int(os.environ.get("SMTP_PORT", "587"))
     user = os.environ.get("SMTP_USER")
     password = os.environ.get("SMTP_PASSWORD")
-    sender = os.environ.get("SMTP_FROM") or user or "no-reply@tailorback.app"
+    sender = os.environ.get("SMTP_FROM") or user or "noreply@tailorback.com"
+    from_name = os.environ.get("SMTP_FROM_NAME", "TailorBack")
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = sender
+    msg["From"] = f"{from_name} <{sender}>" if from_name else sender
+    msg["Reply-To"] = OPERATOR_EMAIL
     msg["To"] = to_email
     msg.set_content(body)
     if os.environ.get("SMTP_USE_SSL") == "1":
@@ -654,7 +701,8 @@ def _send_activation_email(user):
         "Welcome to TailorBack!\n\n"
         "Activate your account by opening this link:\n"
         f"{activation_url}\n\n"
-        "If you did not sign up, you can ignore this email."
+        "If you did not sign up, you can ignore this email.\n\n"
+        f"Need help? Email us at {OPERATOR_EMAIL}."
     )
     if os.environ.get("SMTP_HOST"):
         try:
@@ -666,6 +714,26 @@ def _send_activation_email(user):
         # No mail provider configured: log the link so dev/self-host can still activate.
         app.logger.warning("SMTP not configured; activation link for %s: %s", user.email, activation_url)
     return activation_url
+
+
+def _send_password_reset_email(user):
+    reset_url = url_for("reset_password_page", token=user.password_reset_token, _external=True)
+    body = (
+        "We received a request to reset your TailorBack password.\n\n"
+        "Choose a new password by opening this link (valid for 1 hour):\n"
+        f"{reset_url}\n\n"
+        "If you did not request this, ignore this email, your password will not change.\n\n"
+        f"Need help? Email us at {OPERATOR_EMAIL}."
+    )
+    if os.environ.get("SMTP_HOST"):
+        try:
+            _smtp_send(user.email, "Reset your TailorBack password", body)
+            app.logger.info("Password reset email sent to %s", user.email)
+        except Exception:
+            app.logger.exception("Failed to send password reset email to %s", user.email)
+    else:
+        app.logger.warning("SMTP not configured; reset link for %s: %s", user.email, reset_url)
+    return reset_url
 
 
 def _model_from_stages(stages):
@@ -736,7 +804,8 @@ OPERATOR_NAME = "Amith AshokReddy Rajolkar"
 OPERATOR_JURISDICTION = "Germany"
 OPERATOR_CITY = "Berlin, Germany"
 OPERATOR_ADDRESS = "[street and number], [postal code] Berlin, Germany"
-OPERATOR_EMAIL = "[support email]"
+OPERATOR_EMAIL = "contact@tailorback.com"     # general support / data requests
+FINANCE_EMAIL = "finance@tailorback.com"      # billing / refunds
 SUPERVISORY_AUTHORITY = (
     "Berliner Beauftragte für Datenschutz und Informationsfreiheit (BlnBDI)"
 )
@@ -751,6 +820,7 @@ def _inject_globals():
         "operator_city": OPERATOR_CITY,
         "operator_address": OPERATOR_ADDRESS,
         "operator_email": OPERATOR_EMAIL,
+        "finance_email": FINANCE_EMAIL,
         "supervisory_authority": SUPERVISORY_AUTHORITY,
     }
 
@@ -867,6 +937,7 @@ def auth_google_callback():
 
 
 @app.route("/api/auth/signup", methods=["POST"])
+@rate_limit(8, 600)
 def auth_signup_email():
     data = request.get_json(silent=True) or {}
     full_name = (data.get("full_name") or "").strip()
@@ -924,6 +995,7 @@ def activate_email(token):
 
 
 @app.route("/api/auth/signin", methods=["POST"])
+@rate_limit(12, 300)
 def auth_signin_email():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
@@ -952,6 +1024,61 @@ def auth_signin_email():
         return jsonify(payload), 403
     _login_user(user)
     return jsonify({"status": "ok", "user": _safe_user_payload(user)})
+
+
+@app.route("/api/auth/forgot", methods=["POST"])
+@rate_limit(5, 900)
+def auth_forgot_password():
+    """Start a password reset. Always returns a generic message so it never
+    reveals whether an email is registered."""
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    generic = {"status": "ok",
+               "message": "If an account exists for that email, a reset link is on its way."}
+    if not email:
+        return jsonify(generic)
+    user = User.query.filter_by(email=email).first()
+    # Only password (email/password) accounts can reset; Google-only accounts can't.
+    if user and user.password_hash:
+        user.password_reset_token = _make_email_verification_token()
+        user.password_reset_expires = datetime.utcnow() + timedelta(hours=1)
+        db.session.commit()
+        reset_url = _send_password_reset_email(user)
+        # Dev convenience: when no mailer is configured, surface the link.
+        if not os.environ.get("SMTP_HOST") and os.environ.get("FLASK_ENV") != "production":
+            return jsonify({**generic, "reset_url": reset_url})
+    return jsonify(generic)
+
+
+@app.route("/auth/reset/<token>")
+def reset_password_page(token):
+    user = User.query.filter_by(password_reset_token=token).first()
+    valid = bool(user and user.password_reset_expires
+                 and user.password_reset_expires > datetime.utcnow())
+    return render_template("reset_password.html", token=token, valid=valid)
+
+
+@app.route("/api/auth/reset", methods=["POST"])
+@rate_limit(10, 600)
+def auth_reset_password():
+    data = request.get_json(silent=True) or {}
+    token = (data.get("token") or "").strip()
+    password = data.get("password") or ""
+    if len(password) < 8:
+        return jsonify({"status": "error",
+                        "message": "Password must be at least 8 characters."}), 400
+    user = User.query.filter_by(password_reset_token=token).first() if token else None
+    if not user or not user.password_reset_expires or user.password_reset_expires < datetime.utcnow():
+        return jsonify({"status": "error",
+                        "message": "This reset link is invalid or has expired. Request a new one."}), 400
+    user.password_hash = generate_password_hash(password, method="pbkdf2:sha256")
+    user.password_reset_token = None
+    user.password_reset_expires = None
+    user.email_verified = True  # completing reset proves they control the inbox
+    db.session.commit()
+    app.logger.info("Password reset completed for %s", user.email)
+    return jsonify({"status": "ok",
+                    "message": "Your password has been reset. You can now sign in."})
 
 
 @app.route("/auth/logout")
@@ -1016,6 +1143,7 @@ def _resolve_cv(form, files):
 
 
 @app.route("/api/generate", methods=["POST"])
+@rate_limit(20, 300)
 def generate():
     current_user = _current_user()
     if not current_user:
@@ -2057,6 +2185,7 @@ def contact_page():
 
 
 @app.route("/api/contact", methods=["POST"])
+@rate_limit(5, 600)
 def contact_submit():
     """Public contact form. Stores the message; admins read it in the dashboard."""
     data = request.get_json(silent=True) or {}

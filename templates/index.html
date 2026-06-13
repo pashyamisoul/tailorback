@@ -444,6 +444,7 @@
             <span>Password</span>
             <input type="password" name="password" autocomplete="current-password" required />
           </label>
+          <p class="auth-forgot"><button type="button" data-auth-tab="forgot">Forgot password?</button></p>
           <button type="submit" class="go">Sign In</button>
         </form>
         <div class="or-line"><span>or</span></div>
@@ -458,6 +459,25 @@
         </a>
         <p class="auth-switch">New to TailorBack? <button type="button" data-auth-tab="signup">Create an account</button></p>
         <p class="admin-entry"><a href="/admin">Admin sign in</a></p>
+      </section>
+
+      <section class="auth-view hidden" id="forgotView">
+        <h2>Reset your password</h2>
+        <p class="auth-sub">Enter your account email and we'll send a reset link.</p>
+        <div class="auth-check hidden" id="forgotCheck">
+          <strong>Check your email</strong>
+          <p>If an account exists for that email, a reset link is on its way. The link is valid for 1 hour.</p>
+          <a class="dev-activation hidden" id="devResetLink" href="#">Open local reset link</a>
+        </div>
+        <form class="auth-form" id="forgotForm">
+          <label>
+            <span>Email address</span>
+            <input type="email" name="email" autocomplete="email" required />
+          </label>
+          <button type="submit" class="go">Send reset link</button>
+          <p class="auth-inline-error hidden" id="forgotError" role="alert"></p>
+        </form>
+        <p class="auth-switch"><button type="button" data-auth-tab="signin">← Back to sign in</button></p>
       </section>
 
       <section class="auth-view hidden" id="signupView">

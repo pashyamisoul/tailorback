@@ -837,6 +837,24 @@ html[data-theme="terminal"] .go .gicon { display: none; }
   font: inherit;
   font-weight: 800;
 }
+.auth-forgot {
+  text-align: right;
+  margin: -.35rem 0 .2rem;
+}
+.auth-forgot button {
+  border: 0;
+  background: transparent;
+  color: #c8c3ff;
+  cursor: pointer;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 700;
+}
+.auth-sub {
+  color: rgba(244,240,234,.72);
+  font-size: .9rem;
+  margin: 0 0 1rem;
+}
 .auth-legal {
   display: flex;
   gap: .6rem;

@@ -100,6 +100,7 @@ const authModal = document.getElementById('authModal');
 const historyModal = document.getElementById('historyModal');
 const signinView = document.getElementById('signinView');
 const signupView = document.getElementById('signupView');
+const forgotView = document.getElementById('forgotView');
 const signupForm = document.getElementById('signupForm');
 const signupCheck = document.getElementById('signupCheck');
 const devActivationLink = document.getElementById('devActivationLink');
@@ -149,6 +150,39 @@ function switchAuthTab(tab) {
   });
   signinView?.classList.toggle('hidden', tab !== 'signin');
   signupView?.classList.toggle('hidden', tab !== 'signup');
+  forgotView?.classList.toggle('hidden', tab !== 'forgot');
+}
+
+// Forgot-password: request a reset link.
+const forgotForm = document.getElementById('forgotForm');
+if (forgotForm) {
+  forgotForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = forgotForm.querySelector('input[name="email"]').value.trim();
+    const err = document.getElementById('forgotError');
+    const check = document.getElementById('forgotCheck');
+    const btn = forgotForm.querySelector('button[type="submit"]');
+    if (err) { err.classList.add('hidden'); err.textContent = ''; }
+    if (btn) btn.disabled = true;
+    try {
+      const r = await fetch('/api/auth/forgot', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const d = await r.json().catch(() => ({}));
+      forgotForm.classList.add('hidden');
+      if (check) {
+        check.classList.remove('hidden');
+        // Dev convenience: show the link when no mailer is configured.
+        const dev = document.getElementById('devResetLink');
+        if (dev && d.reset_url) { dev.href = d.reset_url; dev.classList.remove('hidden'); }
+      }
+    } catch (e2) {
+      if (err) { err.textContent = 'Something went wrong. Please try again.'; err.classList.remove('hidden'); }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  });
 }
 
 function openAuth(tab = 'signin') {
