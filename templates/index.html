@@ -70,15 +70,6 @@
             <span class="avatar avatar-lg">{{ user_email[0]|upper }}</span>
             <span class="account-email">{{ user_email }}</span>
           </div>
-          <div class="account-credits">
-            <div class="credits-row">
-              <span>Generations</span>
-              <span class="credits-count">{{ credits_remaining }} of {{ credits_limit }} left</span>
-            </div>
-            <div class="credits-bar">
-              <div class="credits-fill" style="width: {{ (credits_remaining / credits_limit * 100)|round|int }}%"></div>
-            </div>
-          </div>
           <button type="button" class="account-action" id="openHistory">Account &amp; settings</button>
           <a class="account-signout" href="/auth/logout">Sign out</a>
         </div>

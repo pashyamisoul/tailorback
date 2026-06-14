@@ -53,13 +53,6 @@ window.addEventListener("message", (e) => {
             <span class="avatar avatar-lg">${initial}</span>
             <span class="account-email"></span>
           </div>
-          <div class="account-credits">
-              <div class="credits-row">
-              <span>Generations</span>
-              <span class="credits-count">${remaining} of ${limit} left</span>
-            </div>
-            <div class="credits-bar"><div class="credits-fill" style="width: ${pct}%"></div></div>
-          </div>
           <button type="button" class="account-action" id="openHistory">Account &amp; settings</button>
           <a class="account-signout" href="/auth/logout">Sign out</a>
         </div>`;
