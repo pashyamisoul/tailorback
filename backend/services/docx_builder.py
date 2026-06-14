@@ -119,7 +119,8 @@ TEMPLATES = {
     },
 }
 
-SIDEBAR_BG = "f3efe6"                    # tinted left column
+SIDEBAR_BG = "f3efe6"                    # tinted left column (legacy)
+SIDEBAR_RULE = "c9c4b8"                  # vertical divider rule for the sidebar layout
 
 DEFAULT_TEMPLATE = "editorial"
 
@@ -191,6 +192,47 @@ def _track(run, val):
     rPr = run._element.get_or_add_rPr(); s = OxmlElement("w:spacing")
     s.set(qn("w:val"), str(val)); rPr.append(s)
 
+# Letter-spacing presets (twentieths of a point). Kept tasteful — wide tracking
+# on a name reads as a rendering bug ("A M I T H"), not as design.
+TRACK_NAME = 30
+TRACK_HEADING = 24
+TRACK_SMALLCAPS = 40
+
+def _bullet(container, text, S, after=2.5, indent=0.22):
+    """A hanging-indent bullet that renders identically in Word and LibreOffice.
+    We draw the glyph ourselves (U+2022 in the body font) instead of relying on
+    the 'List Bullet' style, whose Symbol-font bullet renders as tofu under some
+    LibreOffice/font combinations."""
+    p = container.add_paragraph()
+    pf = p.paragraph_format
+    pf.left_indent = Inches(indent)
+    pf.first_line_indent = Inches(-indent)
+    pf.tab_stops.add_tab_stop(Inches(indent))
+    _sp(p, after=after, line=1.12)
+    br = p.add_run("•\t"); br.font.size = Pt(S["base_size"]); br.font.color.rgb = S["accent"]
+    tr = p.add_run(text); tr.font.size = Pt(S["base_size"]); tr.font.color.rgb = DARK
+    return p
+
+def _entry(container, title, subtitle, dates, bullets, S, tab_pos=6.7):
+    """A job / project / education entry in the premium two-line layout:
+        **Title**                                   Dates (right-aligned)
+        Subtitle (company · location)
+        • bullets
+    Two lines stop the date from wrapping under a long title+company string."""
+    head = container.add_paragraph(); _sp(head, before=8 * S["scale"], after=0, line=1.05)
+    if dates:
+        head.paragraph_format.tab_stops.add_tab_stop(Inches(tab_pos), WD_TAB_ALIGNMENT.RIGHT)
+    r = head.add_run(title or ""); r.bold = True
+    r.font.size = Pt(S["base_size"] + 0.5); r.font.color.rgb = DARK
+    if dates:
+        d = head.add_run(f"\t{dates}"); d.italic = True
+        d.font.size = Pt(S["base_size"] - 1.5); d.font.color.rgb = GREY
+    if subtitle:
+        sub = container.add_paragraph(); _sp(sub, after=3, line=1.05)
+        sr = sub.add_run(subtitle); sr.font.size = Pt(S["base_size"]); sr.font.color.rgb = S["heading_color"]
+    for b in (bullets or []):
+        _bullet(container, b, S)
+
 def _shade(cell, fill):
     """Fill a table cell with a solid background colour."""
     tcPr = cell._tc.get_or_add_tcPr()
@@ -207,6 +249,17 @@ def _no_table_borders(table):
         borders.append(e)
     tblPr.append(borders)
 
+def _cell_edge_border(cell, edge="right", color="cfcabf", size=8):
+    """Draw a single border on one edge of a cell — used as the sidebar divider
+    rule. A rule survives page breaks cleanly, unlike a shaded cell which leaves
+    an empty colour band when the other column runs longer."""
+    tcPr = cell._tc.get_or_add_tcPr()
+    borders = OxmlElement("w:tcBorders")
+    e = OxmlElement("w:" + edge)
+    e.set(qn("w:val"), "single"); e.set(qn("w:sz"), str(size))
+    e.set(qn("w:space"), "0"); e.set(qn("w:color"), color)
+    borders.append(e); tcPr.append(borders)
+
 def _banner(doc, name, contact, S):
     """Dark full-width banner holding the name + contact (the 'bold' template)."""
     table = doc.add_table(rows=1, cols=1)
@@ -216,7 +269,7 @@ def _banner(doc, name, contact, S):
     # tighten cell margins a touch via the single paragraph spacing
     np = cell.paragraphs[0]; _sp(np, before=2, after=2)
     nr = np.add_run((name or "").upper())
-    nr.bold = True; nr.font.size = Pt(S["name_size"]); nr.font.color.rgb = WHITE; _track(nr, 60)
+    nr.bold = True; nr.font.size = Pt(S["name_size"]); nr.font.color.rgb = WHITE; _track(nr, TRACK_NAME)
     if contact:
         cp = cell.add_paragraph(); _sp(cp, before=2, after=2)
         cr = cp.add_run(contact); cr.font.size = Pt(9); cr.font.color.rgb = BANNER_CONTACT
@@ -243,19 +296,12 @@ def _cell_margins(cell, top=80, bottom=80, left=140, right=140):
 def _cell_heading(cell, text, S, first=False):
     p = cell.add_paragraph(); _sp(p, before=0 if first else 10, after=3)
     r = p.add_run(text.upper()); r.bold = True; r.font.size = Pt(S["base_size"])
-    r.font.color.rgb = S["heading_color"]; _track(r, 50)
+    r.font.color.rgb = S["heading_color"]; _track(r, TRACK_HEADING)
     return p
 
 def _job_into(container, job, S, name_key="title", link_key="company"):
-    head = container.add_paragraph(); _sp(head, before=6, after=1)
-    r = head.add_run(job.get(name_key, "")); r.bold = True; r.font.size = Pt(S["base_size"])
-    sub = job.get(link_key)
-    if sub:
-        sr = head.add_run(f"  ·  {sub}"); sr.font.size = Pt(S["base_size"]); sr.font.color.rgb = S["heading_color"]
-    if job.get("dates"):
-        d = head.add_run(f"   {job['dates']}"); d.italic = True; d.font.size = Pt(8.5); d.font.color.rgb = GREY
-    for b in (job.get("bullets") or []):
-        bp = container.add_paragraph(b, style="List Bullet"); _sp(bp, after=2, line=1.08)
+    _entry(container, job.get(name_key, ""), job.get(link_key), job.get("dates"),
+           job.get("bullets") or [], S, tab_pos=4.0)
 
 def _build_resume_sidebar(resume, doc, S):
     """Two-column layout: tinted left column (contact, skills, education),
@@ -265,26 +311,28 @@ def _build_resume_sidebar(resume, doc, S):
     table.allow_autofit = False
     _no_table_borders(table)
     left, right = table.cell(0, 0), table.cell(0, 1)
-    _set_cell_width(left, Inches(2.35)); _set_cell_width(right, Inches(4.45))
-    _shade(left, SIDEBAR_BG)
-    _cell_margins(left); _cell_margins(right, left=160, right=80)
+    _set_cell_width(left, Inches(2.3)); _set_cell_width(right, Inches(4.5))
+    # A vertical divider rule (not cell shading) gives the sidebar feel while
+    # surviving page breaks cleanly — no empty colour band on overflow pages.
+    _cell_edge_border(left, "right", color=SIDEBAR_RULE)
+    _cell_margins(left, left=20, right=180); _cell_margins(right, left=200, right=20)
 
     c = resume.get("contact", {}) or {}
 
     # ---- left column ----
-    np = left.paragraphs[0]; _sp(np, after=4)
+    np = left.paragraphs[0]; _sp(np, after=5)
     nr = np.add_run((resume.get("name", "") or "").upper())
-    nr.bold = True; nr.font.size = Pt(S["name_size"]); nr.font.color.rgb = BLACK; _track(nr, 30)
+    nr.bold = True; nr.font.size = Pt(S["name_size"]); nr.font.color.rgb = BLACK; _track(nr, TRACK_NAME)
     for v in [c.get("email"), c.get("phone"), c.get("location"), *(c.get("links") or [])]:
         if v:
-            cp = left.add_paragraph(); _sp(cp, after=1)
+            cp = left.add_paragraph(); _sp(cp, after=1, line=1.05)
             cr = cp.add_run(v); cr.font.size = Pt(8.5); cr.font.color.rgb = GREY
 
     if resume.get("skills"):
         _cell_heading(left, "Skills", S)
-        for s in resume["skills"]:
-            sp = left.add_paragraph(); _sp(sp, after=1)
-            sr = sp.add_run(s); sr.font.size = Pt(S["base_size"])
+        # Comma-flow rather than one-per-line, so the sidebar stays compact.
+        sp = left.add_paragraph(); _sp(sp, after=2, line=1.25)
+        sr = sp.add_run(",  ".join(resume["skills"])); sr.font.size = Pt(S["base_size"] - 0.5)
 
     if resume.get("education"):
         _cell_heading(left, "Education", S)
@@ -335,7 +383,7 @@ def _heading(doc, text, S):
     r.bold = True; r.font.size = Pt(S["base_size"]); r.font.color.rgb = S["heading_color"]
     if small_caps:
         r.font.small_caps = True
-    _track(r, 80 if small_caps else 60)
+    _track(r, TRACK_SMALLCAPS if small_caps else TRACK_HEADING)
     _border(p, size=4, color=S["heading_border"])
     return p
 
@@ -358,7 +406,7 @@ def build_resume(resume, out_path, style=None):
         name_p = doc.add_paragraph(); name_p.alignment = S["name_align"]
         _sp(name_p, after=3)
         nr = name_p.add_run((resume.get("name","") or "").upper())
-        nr.bold = True; nr.font.size = Pt(S["name_size"]); nr.font.color.rgb = S["name_color"]; _track(nr, 80)
+        nr.bold = True; nr.font.size = Pt(S["name_size"]); nr.font.color.rgb = S["name_color"]; _track(nr, TRACK_NAME)
         if contact:
             cp = doc.add_paragraph(); cp.alignment = S["contact_align"]
             _sp(cp, after=6); cr = cp.add_run(contact)
@@ -377,49 +425,25 @@ def build_resume(resume, out_path, style=None):
     if resume.get("experience"):
         _heading(doc, "Professional Experience", S)
         for job in resume["experience"]:
-            head = doc.add_paragraph(); _sp(head, before=7 * S["scale"], after=1)
-            head.paragraph_format.tab_stops.add_tab_stop(Inches(6.8), WD_TAB_ALIGNMENT.RIGHT)
-            r = head.add_run(job.get("title","")); r.bold = True; r.font.size = Pt(S["base_size"])
-            if job.get("company"):
-                cr = head.add_run(f"   |   {job['company']}"); cr.bold = True
-                cr.font.size = Pt(S["base_size"]); cr.font.color.rgb = S["heading_color"]
-            if job.get("dates"):
-                d = head.add_run(f"\t{job['dates']}"); d.italic = True
-                d.font.size = Pt(9); d.font.color.rgb = GREY
-            for b in job.get("bullets", []):
-                bp = doc.add_paragraph(b, style="List Bullet"); _sp(bp, after=2, line=1.08)
+            _entry(doc, job.get("title", ""), job.get("company"), job.get("dates"),
+                   job.get("bullets") or [], S)
 
     if resume.get("projects"):
         _heading(doc, "Projects", S)
         for proj in resume["projects"]:
-            head = doc.add_paragraph(); _sp(head, before=7 * S["scale"], after=1)
-            head.paragraph_format.tab_stops.add_tab_stop(Inches(6.8), WD_TAB_ALIGNMENT.RIGHT)
-            r = head.add_run(proj.get("name", "")); r.bold = True; r.font.size = Pt(S["base_size"])
-            if proj.get("link"):
-                lr = head.add_run(f"   |   {proj['link']}")
-                lr.font.size = Pt(9); lr.font.color.rgb = S["heading_color"]
-            if proj.get("dates"):
-                d = head.add_run(f"\t{proj['dates']}"); d.italic = True
-                d.font.size = Pt(9); d.font.color.rgb = GREY
-            for b in proj.get("bullets", []):
-                bp = doc.add_paragraph(b, style="List Bullet"); _sp(bp, after=2, line=1.08)
+            _entry(doc, proj.get("name", ""), proj.get("link"), proj.get("dates"),
+                   proj.get("bullets") or [], S)
 
     if resume.get("education"):
         _heading(doc, "Education", S)
         for ed in resume["education"]:
-            p = doc.add_paragraph(); _sp(p, before=2, after=1)
-            p.paragraph_format.tab_stops.add_tab_stop(Inches(6.8), WD_TAB_ALIGNMENT.RIGHT)
-            p.add_run(ed.get("degree","")).bold = True
-            if ed.get("institution"):
-                ir = p.add_run(f", {ed['institution']}"); ir.font.color.rgb = GREY
-            if ed.get("dates"):
-                dr = p.add_run(f"\t{ed['dates']}"); dr.italic = True
-                dr.font.size = Pt(9); dr.font.color.rgb = GREY
+            _entry(doc, ed.get("degree", ""), ed.get("institution"), ed.get("dates"),
+                   [], S)
 
     if resume.get("certifications"):
         _heading(doc, "Certifications", S)
         for cert in resume["certifications"]:
-            cp = doc.add_paragraph(cert, style="List Bullet"); _sp(cp, after=2, line=1.08)
+            _bullet(doc, cert, S)
     doc.save(out_path); return out_path
 
 def build_cover_letter(letter, applicant_name, out_path, contact_line="", links=None, style=None):
@@ -429,7 +453,7 @@ def build_cover_letter(letter, applicant_name, out_path, contact_line="", links=
     if applicant_name:
         n = doc.add_paragraph(); n.alignment = S["name_align"]; _sp(n, after=2)
         nr = n.add_run(applicant_name.upper()); nr.bold = True
-        nr.font.size = Pt(max(16, S["name_size"] - 4)); nr.font.color.rgb = S["name_color"]; _track(nr, 60)
+        nr.font.size = Pt(max(16, S["name_size"] - 4)); nr.font.color.rgb = S["name_color"]; _track(nr, TRACK_NAME)
     line_bits = []
     if contact_line: line_bits.append(contact_line)
     if links: line_bits.extend(links)
