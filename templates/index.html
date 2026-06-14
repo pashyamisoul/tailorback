@@ -18,7 +18,6 @@
     <div class="site-nav" aria-label="Primary"></div>
     <nav>
       <button id="themeToggle">terminal mode</button>
-      {% if billing_enabled %}
       <div class="pro-menu" id="proMenu">
         <button type="button" class="pro-trigger" id="proTrigger">
           <span class="tb-logo">Tailor<span class="tb-accent">Back</span><span class="tb-pro">Pro</span></span>
@@ -54,11 +53,19 @@
           </div>
         </div>
       </div>
-      {% endif %}
       {% if user_email %}
-      <div class="nav-credits" aria-label="Credits remaining">
-        <strong>{{ credits_remaining }}</strong>
-        <span>credits</span>
+      <div class="credits-menu" id="creditsMenu">
+        <button type="button" class="nav-credits" id="creditsBtn" aria-label="Generations remaining">
+          <strong>{{ credits_remaining }}</strong>
+          <span>credits</span>
+        </button>
+        <div class="credits-popover" id="creditsPopover" hidden>
+          <div class="credits-row">
+            <span>Generations</span>
+            <span class="credits-count">{{ credits_remaining }} of {{ credits_limit }} left</span>
+          </div>
+          <div class="credits-bar"><div class="credits-fill" style="width: {{ (credits_remaining / credits_limit * 100)|round|int }}%"></div></div>
+        </div>
       </div>
       <div class="account" id="account">
         <button type="button" class="account-btn" id="accountBtn" aria-label="Account menu">

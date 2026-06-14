@@ -37,9 +37,16 @@ window.addEventListener("message", (e) => {
       const limit = Number.isFinite(e.data.creditsLimit) ? e.data.creditsLimit : 5;
       const pct = limit ? Math.max(0, Math.min(100, Math.round((remaining / limit) * 100))) : 0;
       const credits = document.createElement("div");
-      credits.className = "nav-credits";
-      credits.setAttribute("aria-label", "Credits remaining");
-      credits.innerHTML = `<strong>${remaining}</strong><span>credits</span>`;
+      credits.className = "credits-menu";
+      credits.id = "creditsMenu";
+      credits.innerHTML = `
+        <button type="button" class="nav-credits" id="creditsBtn" aria-label="Generations remaining">
+          <strong>${remaining}</strong><span>credits</span>
+        </button>
+        <div class="credits-popover" id="creditsPopover" hidden>
+          <div class="credits-row"><span>Generations</span><span class="credits-count">${remaining} of ${limit} left</span></div>
+          <div class="credits-bar"><div class="credits-fill" style="width: ${pct}%"></div></div>
+        </div>`;
       const account = document.createElement("div");
       account.className = "account";
       account.id = "account";
@@ -60,6 +67,7 @@ window.addEventListener("message", (e) => {
       nav.appendChild(credits);
       nav.appendChild(account);
       bindAccountDropdown();
+      bindCreditsDropdown();
       bindHistoryButton();
     }
   }
@@ -1167,6 +1175,17 @@ function bindAccountDropdown() {
 }
 
 bindAccountDropdown();
+function bindCreditsDropdown() {
+  const btn = document.getElementById("creditsBtn");
+  const menu = document.getElementById("creditsPopover");
+  if (!btn || !menu || btn.dataset.bound === "true") return;
+  btn.dataset.bound = "true";
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    menu.hidden = !menu.hidden;
+  });
+}
+bindCreditsDropdown();
 function bindHistoryButton() {
   const btn = document.getElementById("openHistory");
   if (!btn || btn.dataset.bound === "true") return;
@@ -1184,6 +1203,11 @@ document.addEventListener("click", (e) => {
   const btn = document.getElementById("accountBtn");
   if (menu && btn && !menu.hidden && !menu.contains(e.target) && e.target !== btn) {
     menu.hidden = true;
+  }
+  const cmenu = document.getElementById("creditsPopover");
+  const cbtn = document.getElementById("creditsBtn");
+  if (cmenu && cbtn && !cmenu.hidden && !cmenu.contains(e.target) && !cbtn.contains(e.target)) {
+    cmenu.hidden = true;
   }
 });
 
