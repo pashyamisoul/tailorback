@@ -378,33 +378,20 @@
         </div>
       </div>
 
+      {% if testimonials %}
       <div class="lz-block">
         <h2 class="lz-h">What job-seekers say</h2>
         <div class="lz-quotes">
-          {% if testimonials %}
-            {% for t in testimonials %}
+          {% for t in testimonials %}
             <figure class="lz-quote">
               <div class="lz-stars" aria-label="{{ t.rating }} out of 5">{% for _ in range(t.rating) %}★{% endfor %}</div>
               <blockquote>"{{ t.text }}"</blockquote>
               <figcaption>{{ t.name }}{% if t.role %}, {{ t.role }}{% endif %}</figcaption>
             </figure>
-            {% endfor %}
-          {% else %}
-            <figure class="lz-quote">
-              <blockquote>"[Add a real quote about how the honest tailoring helped land an interview.]"</blockquote>
-              <figcaption>[Reviewer name], [Role]</figcaption>
-            </figure>
-            <figure class="lz-quote">
-              <blockquote>"[Add a real quote about the match score / editor.]"</blockquote>
-              <figcaption>[Reviewer name], [Role]</figcaption>
-            </figure>
-            <figure class="lz-quote">
-              <blockquote>"[Add a real quote about ease of use / speed.]"</blockquote>
-              <figcaption>[Reviewer name], [Role]</figcaption>
-            </figure>
-          {% endif %}
+          {% endfor %}
         </div>
       </div>
+      {% endif %}
 
       <section class="fb-band" aria-label="Leave feedback">
         <div class="fb-text">

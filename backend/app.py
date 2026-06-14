@@ -924,8 +924,8 @@ def _inject_globals():
 def _published_testimonials(limit=3):
     """Auto-published reviews for the landing testimonials: consented + rating >= 4.
 
-    Returns the most recent ones with a non-empty comment. Falls back to an
-    empty list (the template then shows its placeholder quotes)."""
+    Returns the most recent ones with a non-empty comment. When empty, the
+    landing page hides the whole 'What job-seekers say' section."""
     rows = (Feedback.query
             .filter(Feedback.consent_to_publish.is_(True),
                     Feedback.rating >= 4,
