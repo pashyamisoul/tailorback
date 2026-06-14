@@ -330,9 +330,12 @@ def _render_solid_sidebar(r, cfg, ac, font, side_bg):
     base = _BASE % {"font": font, "ac": ac}
     css = base + f"""
 @page{{size:Letter;margin:0}}
-.wrap{{display:table;width:100%;table-layout:fixed;min-height:25.6cm}}
-.main{{display:table-cell;width:67%;vertical-align:top;padding:0.55in 0.4in 0.55in 0.55in}}
-.aside{{display:table-cell;width:33%;vertical-align:top;background:{side_bg};color:#dfe6f0;padding:0.55in 0.34in}}
+/* Fixed full-height band repeats on every page, so overflow pages show a
+   clean colour band (never a half-empty box). Content flows over it. */
+.sidebar-bg{{position:fixed;top:0;bottom:0;right:0;width:2.55in;background:{side_bg}}}
+.wrap{{display:table;width:100%;table-layout:fixed}}
+.main{{display:table-cell;vertical-align:top;padding:0.55in 0.4in 0.55in 0.55in}}
+.aside{{display:table-cell;width:2.55in;vertical-align:top;color:#dfe6f0;padding:0.55in 0.34in}}
 .name{{font-size:23pt;font-weight:800;color:{side_bg};letter-spacing:1px;text-transform:uppercase}}
 .hl{{color:{ac};font-weight:700;font-size:10pt;margin:2px 0 8px}}
 .main h2{{font-size:11pt;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:{side_bg};
@@ -362,7 +365,7 @@ def _render_solid_sidebar(r, cfg, ac, font, side_bg):
         aside.append("<h2>Certifications</h2>" + "".join(f"<div class=ci>• {e(c)}</div>" for c in r["certifications"]))
     if langs:
         aside.append("<h2>Languages</h2>" + "".join(f"<div class=ci>{e(n)} — {e(lv)}</div>" for n, lv in langs))
-    return _doc(css, f"<div class='wrap'><main class='main'>{''.join(main)}</main><aside class='aside'>{''.join(aside)}</aside></div>")
+    return _doc(css, f"<div class='sidebar-bg'></div><div class='wrap'><main class='main'>{''.join(main)}</main><aside class='aside'>{''.join(aside)}</aside></div>")
 
 
 def _render_tint_sidebar(r, cfg, ac, font):
@@ -370,9 +373,11 @@ def _render_tint_sidebar(r, cfg, ac, font):
     base = _BASE % {"font": font, "ac": ac}
     css = base + f"""
 @page{{size:Letter;margin:0}}
-.wrap{{display:table;width:100%;table-layout:fixed;min-height:25.6cm}}
-.aside{{display:table-cell;width:33%;vertical-align:top;background:{ac}14;padding:0.5in 0.32in;border-right:3px solid {ac}}}
-.main{{display:table-cell;width:67%;vertical-align:top;padding:0.5in 0.45in}}
+/* Fixed full-height tint band repeats on every page (clean overflow pages). */
+.sidebar-bg{{position:fixed;top:0;bottom:0;left:0;width:2.5in;background:{ac}14;border-right:3px solid {ac}}}
+.wrap{{display:table;width:100%;table-layout:fixed}}
+.aside{{display:table-cell;width:2.5in;vertical-align:top;padding:0.5in 0.32in}}
+.main{{display:table-cell;vertical-align:top;padding:0.5in 0.45in}}
 .mono{{width:66px;height:66px;border-radius:50%;background:{ac};color:#fff;font-size:20pt;font-weight:800;
   display:flex;align-items:center;justify-content:center;margin-bottom:10px}}
 .aside h2{{font-size:9.5pt;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:{ac};
@@ -404,7 +409,7 @@ def _render_tint_sidebar(r, cfg, ac, font):
         main.append(f"<h2>Projects</h2>{_canon_entries(_proj_canon(r), ac)}")
     if r.get("education"):
         main.append(f"<h2>Education</h2>{_canon_entries(_edu_canon(r), ac)}")
-    return _doc(css, f"<div class='wrap'><aside class='aside'>{''.join(aside)}</aside><main class='main'>{''.join(main)}</main></div>")
+    return _doc(css, f"<div class='sidebar-bg'></div><div class='wrap'><aside class='aside'>{''.join(aside)}</aside><main class='main'>{''.join(main)}</main></div>")
 
 
 def _render_banner(r, cfg, ac, font):
