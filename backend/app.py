@@ -1538,6 +1538,26 @@ def stripe_webhook():
     return jsonify({"status": "ok", "credits_added": credits})
 
 
+def _nice_download_name(fname, user):
+    """A clean download filename: Lastname-Company_resume.pdf (no random suffix).
+    Pulls the person's last name + target company from the GenerationRun."""
+    ext = os.path.splitext(fname)[1] or ".pdf"
+    kind = "cover-letter" if "coverletter" in fname.lower() else "resume"
+    job_id = fname.split("__", 1)[0] if "__" in fname else ""
+    last, company = "", ""
+    run = (GenerationRun.query.filter_by(job_id=job_id, user_id=user.id).first()
+           if job_id else None)
+    if run:
+        company = (run.company or "").strip()
+        try:
+            nm = (_json.loads(run.resume_json or "{}").get("name") or "").strip()
+        except Exception:
+            nm = ""
+        last = nm.split()[-1] if nm else ""
+    stem = _slugify(last, company) or "tailorback"
+    return f"{stem}_{kind}{ext}"
+
+
 @app.route("/download/<path:fname>")
 def download(fname):
     current_user = _current_user()
@@ -1550,10 +1570,8 @@ def download(fname):
     if doc.expires_at <= datetime.utcnow():
         _cleanup_generated()
         abort(404)
-    # disk name is "<job_id>__<clean>.ext"; download as the clean part only
-    clean = fname.split("__", 1)[1] if "__" in fname else fname
     return send_from_directory(GENERATED, fname, as_attachment=True,
-                               download_name=clean)
+                               download_name=_nice_download_name(fname, current_user))
 
 
 @app.route("/api/generated/<job_id>", methods=["DELETE"])
