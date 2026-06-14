@@ -194,7 +194,7 @@ class GenerationRun(db.Model):
     resume_json = db.Column(db.Text, nullable=True)
     cover_letter_json = db.Column(db.Text, nullable=True)
     analysis_json = db.Column(db.Text, nullable=True)
-    model_status = db.Column(db.String(64), nullable=True)
+    model_status = db.Column(db.Text, nullable=True)  # comma-joined status trail; can exceed 64 chars
     model_provider = db.Column(db.String(32), nullable=True)
     model_name = db.Column(db.String(128), nullable=True)
     generation_seconds = db.Column(db.Float, nullable=True)
@@ -248,7 +248,11 @@ LLM_PROVIDERS = ("openai", "gemini", "claude")
 
 
 def _ensure_schema():
-    if not app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite:///"):
+    uri = app.config["SQLALCHEMY_DATABASE_URI"]
+    if uri.startswith("postgresql"):
+        _ensure_schema_postgres()
+        return
+    if not uri.startswith("sqlite:///"):
         return
     columns = {
         "user": {
@@ -290,6 +294,27 @@ def _ensure_schema():
                 if name not in existing:
                     conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
         conn.exec_driver_sql("UPDATE user SET email_verified = 1 WHERE provider IN ('google', 'both')")
+        conn.commit()
+
+
+def _ensure_schema_postgres():
+    """db.create_all() builds fresh tables, but it never *alters* existing ones.
+    Postgres (unlike SQLite) enforces VARCHAR lengths, so columns that hold long
+    or growing values must be widened to TEXT to avoid StringDataRightTruncation
+    on insert. Idempotent: only alters a column that isn't already TEXT."""
+    widen = {
+        "generation_run": ["model_status"],
+    }
+    with db.engine.connect() as conn:
+        for table, cols in widen.items():
+            for col in cols:
+                row = conn.exec_driver_sql(
+                    "SELECT data_type FROM information_schema.columns "
+                    f"WHERE table_name = '{table}' AND column_name = '{col}'"
+                ).fetchone()
+                if row and row[0] != "text":
+                    conn.exec_driver_sql(
+                        f"ALTER TABLE {table} ALTER COLUMN {col} TYPE TEXT")
         conn.commit()
 
 
