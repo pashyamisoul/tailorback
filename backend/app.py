@@ -60,7 +60,8 @@ FREE_LIMIT = int(os.environ.get("FREE_GENERATION_LIMIT", "2"))
 GENERATED_RETENTION_DAYS = int(os.environ.get("GENERATED_RETENTION_DAYS", "7"))
 
 # --- Document style gallery (drives docx_builder + the in-app editor) ---
-ALLOWED_TEMPLATES = {"editorial", "modern", "classic", "compact"}
+ALLOWED_TEMPLATES = {"editorial", "modern", "classic", "compact",
+                     "serif", "bold", "minimal", "sidebar"}
 ALLOWED_FONTS = {"Calibri", "Georgia", "Arial", "Garamond", "Helvetica", "Times New Roman"}
 ALLOWED_DENSITY = {"comfortable", "compact"}
 _DEFAULT_DOC_STYLE = {
