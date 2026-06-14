@@ -2239,6 +2239,10 @@ html[data-theme="terminal"] .loader::before{ content:"$ tailorback --run"; displ
 .doc-summary { margin: 0; }
 .doc-skills { display: flex; flex-wrap: wrap; gap: .35rem; }
 .skill-chip { display: inline-flex; align-items: center; gap: .2rem; background: #f1ede4; border-radius: 4px; padding: .15rem .45rem; font-size: .82rem; }
+.doc-skill-group { margin-bottom: .45rem; }
+.skgroup-head { display: flex; align-items: center; gap: .35rem; margin-bottom: .25rem; }
+.skgroup-cat { font-weight: 700; font-size: .85rem; }
+.job-location { font-style: italic; color: #666; font-size: .82rem; }
 .doc-job { margin-bottom: .75rem; }
 .job-head { display: flex; align-items: baseline; justify-content: space-between; gap: .8rem; flex-wrap: wrap; }
 .job-title-row { font-weight: 700; }

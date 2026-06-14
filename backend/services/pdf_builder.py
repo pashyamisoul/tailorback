@@ -1,19 +1,21 @@
-"""Designer-grade PDF export via HTML/CSS + WeasyPrint.
+"""Designer-grade, ATS-standard PDF export via HTML/CSS + WeasyPrint.
 
 The docx pipeline (docx_builder) stays the source for the *editable* .docx
-download. This module renders the *PDF* download from real HTML/CSS, which gives
-pixel-level control the .docx -> LibreOffice path can't: proper typography,
-consistent bullets, true two-column sidebars, dark banners, hairline rules.
+download. This module renders the *PDF* from real HTML/CSS for pixel-level
+control over the recruiter/ATS-standard layout:
 
-One parametric template + a per-style config drives all eight gallery looks, so
-accent colour, font, density, header treatment and layout are data, not code.
+  * single column (parses cleanly top-to-bottom)
+  * canonical entries: Company (bold) + Location (right) / Title (italic) +
+    Dates (right), bullets led by action verbs
+  * skills grouped by labelled category
+  * monochrome by default; an accent is an optional, restrained tint
+
+One parametric template + a per-style config drives every gallery look
+(serif/sans, centered/left header, monochrome/accent/banner).
 """
 import os
-import datetime
 from jinja2 import Environment, select_autoescape
 
-# WeasyPrint pulls in system libs (pango/cairo). Import lazily so the app still
-# boots (and the docx path still works) on a box where those libs are missing.
 try:
     from weasyprint import HTML
     _WEASY_OK = True
@@ -25,28 +27,23 @@ def available():
     return _WEASY_OK
 
 
-# --- per-template configuration ------------------------------------------------
-# layout:  "single" | "sidebar" | "banner"
-# header:  "center" | "left"
-# family:  "sans" | "serif"
-# heading: "rule" (uppercase + bottom rule) | "smallcaps" | "hairline" | "plain"
+# accent: "none" | "rule" (tint section rules) | "banner" (dark header band)
 TEMPLATES = {
-    "editorial": {"layout": "single", "header": "center", "family": "sans",  "heading": "rule"},
-    "modern":    {"layout": "single", "header": "left",   "family": "sans",  "heading": "accent"},
-    "classic":   {"layout": "single", "header": "center", "family": "serif", "heading": "rule"},
-    "compact":   {"layout": "single", "header": "left",   "family": "sans",  "heading": "accent"},
-    "serif":     {"layout": "single", "header": "center", "family": "serif", "heading": "smallcaps"},
-    "bold":      {"layout": "banner", "header": "left",   "family": "sans",  "heading": "accent"},
-    "minimal":   {"layout": "single", "header": "left",   "family": "sans",  "heading": "hairline"},
-    "sidebar":   {"layout": "sidebar", "header": "left",  "family": "sans",  "heading": "accent"},
+    "editorial": {"header": "center", "family": "serif", "accent": "none",   "smallcaps": False, "two_col": False},
+    "modern":    {"header": "left",   "family": "sans",  "accent": "rule",   "smallcaps": False, "two_col": False},
+    "classic":   {"header": "center", "family": "serif", "accent": "none",   "smallcaps": False, "two_col": False},
+    "compact":   {"header": "left",   "family": "sans",  "accent": "none",   "smallcaps": False, "two_col": False},
+    "serif":     {"header": "center", "family": "serif", "accent": "none",   "smallcaps": True,  "two_col": False},
+    "bold":      {"header": "left",   "family": "sans",  "accent": "banner", "smallcaps": False, "two_col": False},
+    "minimal":   {"header": "left",   "family": "sans",  "accent": "none",   "smallcaps": False, "two_col": False},
+    "sidebar":   {"header": "left",   "family": "sans",  "accent": "rule",   "smallcaps": False, "two_col": True},
 }
 DEFAULT_TEMPLATE = "editorial"
 
 FONT_STACKS = {
-    "sans":  "'Inter', 'Open Sans', 'Helvetica Neue', 'Liberation Sans', Arial, sans-serif",
+    "sans":  "'Open Sans', 'Helvetica Neue', 'Liberation Sans', Arial, sans-serif",
     "serif": "'Georgia', 'Liberation Serif', 'Times New Roman', serif",
 }
-# Map the UI font picker onto a concrete stack (falls back to template family).
 FONT_OVERRIDES = {
     "Calibri": "sans", "Arial": "sans", "Helvetica": "sans",
     "Georgia": "serif", "Garamond": "serif", "Times New Roman": "serif",
@@ -57,100 +54,93 @@ def _norm_accent(accent):
     a = (accent or "").lstrip("#")
     if len(a) == 6:
         try:
-            int(a, 16)
-            return "#" + a
+            int(a, 16); return "#" + a
         except ValueError:
             pass
     return "#c8462e"
 
 
 def _contact_bits(c):
-    bits = [c.get("email"), c.get("phone"), c.get("location"), *(c.get("links") or [])]
+    bits = [c.get("location"), c.get("phone"), c.get("email"), *(c.get("links") or [])]
     return [b for b in bits if b]
+
+
+def _skill_groups(skills):
+    """Normalise skills into [{'category': str|None, 'items': [str]}], accepting
+    the new grouped shape, a dict, or a legacy flat list of strings."""
+    if not skills:
+        return []
+    if isinstance(skills, dict):
+        return [{"category": k, "items": v} for k, v in skills.items() if v]
+    if isinstance(skills, list) and skills and isinstance(skills[0], dict):
+        out = []
+        for g in skills:
+            items = g.get("items") or []
+            if items:
+                out.append({"category": (g.get("category") or "").strip() or None, "items": items})
+        return out
+    return [{"category": None, "items": [s for s in skills if s]}]
 
 
 _ENV = Environment(autoescape=select_autoescape(["html", "xml"]))
 
 _TEMPLATE_HTML = """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><style>{{ css }}</style></head>
-<body class="tmpl-{{ cfg.layout }} head-{{ cfg.header }} fam-{{ cfg.family }} hd-{{ cfg.heading }} dens-{{ density }}">
+<body class="head-{{ cfg.header }} fam-{{ cfg.family }} acc-{{ cfg.accent }}{% if cfg.smallcaps %} smallcaps{% endif %}{% if cfg.two_col %} two-col{% endif %}">
 
-{% macro section_head(label) -%}
-  <h2 class="sec">{{ label }}</h2>
-{%- endmacro %}
+{% macro section(label) -%}<h2 class="sec">{{ label }}</h2>{%- endmacro %}
 
-{% macro entry(title, sub, dates, bullets) -%}
+{% macro entry(primary, topright, secondary, botright, bullets) -%}
   <div class="entry">
-    <div class="entry-top">
-      <span class="entry-title">{{ title }}</span>
-      {% if dates %}<span class="entry-dates">{{ dates }}</span>{% endif %}
-    </div>
-    {% if sub %}<div class="entry-sub">{{ sub }}</div>{% endif %}
+    <div class="erow"><span class="eprimary">{{ primary }}</span>{% if topright %}<span class="eright">{{ topright }}</span>{% endif %}</div>
+    {% if secondary or botright %}<div class="erow esub"><span class="esec">{{ secondary }}</span>{% if botright %}<span class="eright2">{{ botright }}</span>{% endif %}</div>{% endif %}
     {% if bullets %}<ul class="bullets">{% for b in bullets %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
   </div>
 {%- endmacro %}
 
+{% macro summary_block() -%}{% if resume.summary %}<section>{{ section('Summary') }}<p class="summary">{{ resume.summary }}</p></section>{% endif %}{%- endmacro %}
+
 {% macro skills_block() -%}
-  {% if resume.skills %}<section class="s-skills">{{ section_head(skills_label) }}
-    <p class="skills">{{ resume.skills | join('  •  ') }}</p></section>{% endif %}
-{%- endmacro %}
-
-{% macro education_block() -%}
-  {% if resume.education %}<section>{{ section_head('Education') }}
-    {% for e in resume.education %}{{ entry(e.degree, e.institution, e.dates, none) }}{% endfor %}</section>{% endif %}
-{%- endmacro %}
-
-{% macro certs_block() -%}
-  {% if resume.certifications %}<section>{{ section_head('Certifications') }}
-    <ul class="bullets certs">{% for c in resume.certifications %}<li>{{ c }}</li>{% endfor %}</ul></section>{% endif %}
-{%- endmacro %}
-
-{% macro summary_block() -%}
-  {% if resume.summary %}<section>{{ section_head('Professional Summary') }}
-    <p class="summary">{{ resume.summary }}</p></section>{% endif %}
+  {% if groups %}<section>{{ section('Skills') }}<div class="skills">
+    {% for g in groups %}<p>{% if g['category'] %}<span class="skcat">{{ g['category'] }}:</span> {% endif %}{{ g['items'] | join(', ') }}</p>{% endfor %}
+  </div></section>{% endif %}
 {%- endmacro %}
 
 {% macro experience_block() -%}
-  {% if resume.experience %}<section>{{ section_head('Professional Experience') }}
-    {% for j in resume.experience %}{{ entry(j.title, j.company, j.dates, j.bullets) }}{% endfor %}</section>{% endif %}
+  {% if resume.experience %}<section>{{ section('Experience') }}
+    {% for j in resume.experience %}{{ entry(j.company or j.title, j.location, j.title if j.company else None, j.dates, j.bullets) }}{% endfor %}
+  </section>{% endif %}
 {%- endmacro %}
 
 {% macro projects_block() -%}
-  {% if resume.projects %}<section>{{ section_head('Projects') }}
-    {% for p in resume.projects %}{{ entry(p.name, p.link, p.dates, p.bullets) }}{% endfor %}</section>{% endif %}
+  {% if resume.projects %}<section>{{ section('Projects') }}
+    {% for p in resume.projects %}{{ entry(p.name, p.dates, p.link, none, p.bullets) }}{% endfor %}
+  </section>{% endif %}
 {%- endmacro %}
 
-{% if cfg.layout == 'banner' %}
-  <header class="banner">
-    <h1 class="name">{{ resume.name }}</h1>
-    {% if contact %}<div class="contact">{{ contact | join('   •   ') }}</div>{% endif %}
-  </header>
-  <main>
-    {{ summary_block() }}{{ skills_block() }}{{ experience_block() }}
-    {{ projects_block() }}{{ education_block() }}{{ certs_block() }}
-  </main>
+{% macro education_block() -%}
+  {% if resume.education %}<section>{{ section('Education') }}
+    {% for e in resume.education %}{{ entry(e.institution or e.degree, e.dates, e.degree if e.institution else None, none, none) }}{% endfor %}
+  </section>{% endif %}
+{%- endmacro %}
 
-{% elif cfg.layout == 'sidebar' %}
-  <div class="sheet">
-    <aside class="side">
-      <h1 class="name">{{ resume.name }}</h1>
-      {% if contact %}<div class="contact">{% for b in contact %}<div>{{ b }}</div>{% endfor %}</div>{% endif %}
-      {{ skills_block() }}{{ education_block() }}{{ certs_block() }}
-    </aside>
-    <main class="body">
-      {{ summary_block() }}{{ experience_block() }}{{ projects_block() }}
-    </main>
-  </div>
+{% macro certs_block() -%}
+  {% if resume.certifications %}<section>{{ section('Certifications') }}<ul class="bullets">{% for c in resume.certifications %}<li>{{ c }}</li>{% endfor %}</ul></section>{% endif %}
+{%- endmacro %}
 
+{% if cfg.accent == 'banner' %}
+  <header class="banner"><h1 class="name">{{ resume.name }}</h1>{% if contact %}<div class="contact">{{ contact | join('  •  ') }}</div>{% endif %}</header>
 {% else %}
-  <header class="masthead">
-    <h1 class="name">{{ resume.name }}</h1>
-    {% if contact %}<div class="contact">{{ contact | join('   •   ') }}</div>{% endif %}
-  </header>
-  <main>
-    {{ summary_block() }}{{ skills_block() }}{{ experience_block() }}
-    {{ projects_block() }}{{ education_block() }}{{ certs_block() }}
-  </main>
+  <header class="masthead"><h1 class="name">{{ resume.name }}</h1>{% if contact %}<div class="contact">{{ contact | join('  •  ') }}</div>{% endif %}</header>
+{% endif %}
+
+{% if cfg.two_col %}
+  <div class="sheet">
+    <aside class="side">{{ skills_block() }}{{ education_block() }}{{ certs_block() }}</aside>
+    <main class="body">{{ summary_block() }}{{ experience_block() }}{{ projects_block() }}</main>
+  </div>
+{% else %}
+  <main>{{ summary_block() }}{{ skills_block() }}{{ experience_block() }}{{ projects_block() }}{{ education_block() }}{{ certs_block() }}</main>
 {% endif %}
 
 </body></html>"""
@@ -158,84 +148,55 @@ _TEMPLATE_HTML = """<!DOCTYPE html>
 
 def _css(cfg, accent, font_family):
     base = 10.5
+    # In monochrome templates the rule + skill labels are black; accent only
+    # tints when the template opts in.
+    rule = accent if cfg["accent"] in ("rule", "banner") else "#000"
     return f"""
-@page {{ size: Letter; margin: 1.3cm 1.45cm; }}
+@page {{ size: Letter; margin: 1.15cm 1.4cm; }}
 * {{ box-sizing: border-box; }}
-body {{
-  font-family: {font_family};
-  font-size: {base}pt; line-height: 1.34; color: #1f2125; margin: 0;
-  --accent: {accent};
-  hyphens: manual;            /* never hyphenate brand names like "ServiceNow" */
-  overflow-wrap: break-word;  /* only break a token (e.g. long URL) if it can't fit */
-}}
-body.dens-compact {{ font-size: 9.5pt; line-height: 1.26; }}
+body {{ font-family: {font_family}; font-size: {base}pt; line-height: 1.3; color: #000; margin: 0;
+  hyphens: manual; overflow-wrap: break-word; }}
 
-/* ---- header ---- */
-.name {{ font-size: 25pt; font-weight: 700; letter-spacing: .4px; margin: 0 0 4px;
-        color: #15171a; line-height: 1.02; }}
-.contact {{ font-size: 8.7pt; color: #5c5f66; letter-spacing: .2px; }}
+.name {{ font-size: 21pt; font-weight: 700; letter-spacing: .6px; margin: 0 0 3px; text-transform: uppercase; }}
+.contact {{ font-size: 9.2pt; color: #222; }}
 .contact a {{ color: inherit; text-decoration: none; }}
-.masthead {{ text-align: left; padding-bottom: 8px; border-bottom: 2px solid #1f2125; margin-bottom: 4px; }}
+.masthead {{ margin-bottom: 2px; }}
 .head-center .masthead {{ text-align: center; }}
-.head-center .name {{ letter-spacing: 1.2px; }}
+.head-center .name {{ letter-spacing: 1.5px; }}
 
-/* dark banner header (bold template) */
-.banner {{ background: #16181c; color: #fff; padding: 16px 18px; margin: -2px -4px 12px; border-radius: 2px; }}
+.banner {{ background: #16181c; color: #fff; padding: 14px 16px; margin: -2px -4px 8px; }}
 .banner .name {{ color: #fff; }}
-.banner .contact {{ color: #c9cdd4; margin-top: 4px; }}
-.banner .name::after {{ content: ""; display: block; width: 46px; height: 3px;
-  background: var(--accent); margin-top: 8px; }}
+.banner .contact {{ color: #cfd3da; margin-top: 3px; }}
+.banner .name::after {{ content: ""; display: block; width: 44px; height: 3px; background: {accent}; margin-top: 7px; }}
 
-/* ---- section headings ---- */
-h2.sec {{ font-size: 10.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1.4px;
-  color: #2a2d31; margin: 15px 0 7px; padding-bottom: 3px; border-bottom: 1px solid #c9ccd1;
-  break-after: avoid; }}
-.hd-accent h2.sec {{ color: var(--accent); border-bottom: 2px solid var(--accent); }}
-.hd-hairline h2.sec {{ font-weight: 600; letter-spacing: 2px; border-bottom: 1px solid #e2e4e7; color: #33363a; }}
-.hd-smallcaps h2.sec {{ text-transform: none; font-variant: small-caps; letter-spacing: 1.6px;
-  border-bottom: 1px solid #b9744f; }}
-section {{ margin-bottom: 2px; }}
+h2.sec {{ font-size: 11pt; font-weight: 700; text-transform: uppercase; letter-spacing: .8px;
+  margin: 11px 0 3px; padding-bottom: 1.5px; border-bottom: 1px solid {rule}; break-after: avoid; }}
+.smallcaps h2.sec {{ text-transform: none; font-variant: small-caps; letter-spacing: 1px; }}
+section {{ margin-bottom: 1px; }}
 
-/* ---- entries ---- */
-.entry {{ margin: 0 0 9px; break-inside: avoid; }}
-.entry-top {{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }}
-.entry-title {{ font-weight: 700; font-size: {base + 0.5}pt; color: #16181c; }}
-.entry-dates {{ font-style: italic; font-size: 8.7pt; color: #6b6e74; white-space: nowrap; flex: none; }}
-.entry-sub {{ color: var(--accent); font-size: {base}pt; margin-top: 1px; }}
+.summary {{ margin: 2px 0 0; }}
+.skills p {{ margin: 1.5px 0; }}
+.skills .skcat {{ font-weight: 700; }}
 
-/* ---- bullets ----
-   Native list markers (in document flow) so the PDF text layer stays in reading
-   order for ATS parsers; ::marker only recolours the dot. */
-ul.bullets {{ margin: 4px 0 0; padding-left: 15px; list-style: disc; }}
-ul.bullets li {{ margin-bottom: 3px; padding-left: 2px; }}
-ul.bullets li::marker {{ color: var(--accent); }}
-.certs li {{ margin-bottom: 2px; }}
+.entry {{ margin: 0 0 6px; break-inside: avoid; }}
+.erow {{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }}
+.eprimary {{ font-weight: 700; }}
+.eright {{ font-weight: 700; white-space: nowrap; flex: none; }}
+.esub {{ margin-top: 0; }}
+.esec {{ font-style: italic; }}
+.eright2 {{ font-style: italic; white-space: nowrap; flex: none; font-size: 9.6pt; color: #222; }}
 
-.summary {{ margin: 0; }}
-.skills {{ margin: 0; color: #2c2f33; }}
+ul.bullets {{ margin: 2px 0 0; padding-left: 15px; list-style: disc; }}
+ul.bullets li {{ margin-bottom: 1.5px; padding-left: 2px; }}
+ul.bullets li::marker {{ color: {rule}; }}
 
-/* ---- sidebar layout ---- */
-.sheet {{ display: flex; gap: 18px; }}
-.side {{ width: 33%; flex: none; padding-right: 16px; border-right: 1px solid #cfd2d7; }}
+/* two-column (sidebar) */
+.sheet {{ display: flex; gap: 16px; }}
+.side {{ width: 31%; flex: none; padding-right: 14px; border-right: 1px solid #cfd2d7; }}
 .body {{ flex: 1; min-width: 0; }}
-.side .name {{ font-size: 19pt; }}
-.side .contact {{ margin-top: 6px; line-height: 1.5; }}
-.side .skills {{ font-size: {base - 0.5}pt; line-height: 1.5; }}
-.side h2.sec {{ margin-top: 13px; }}
-.side .entry-dates {{ display: block; white-space: normal; }}
+.side h2.sec {{ margin-top: 10px; }}
+.side .eright {{ font-weight: 400; font-size: 9pt; }}
 """
-
-
-def _render_html(resume, cfg, accent, font_family, density):
-    tmpl = _ENV.from_string(_TEMPLATE_HTML)
-    return tmpl.render(
-        resume=resume,
-        cfg=cfg,
-        css=_css(cfg, accent, font_family),
-        contact=_contact_bits(resume.get("contact", {}) or {}),
-        density=density,
-        skills_label="Core Competencies" if cfg["layout"] != "sidebar" else "Skills",
-    )
 
 
 def render_resume_pdf(resume, out_path, style=None):
@@ -249,8 +210,11 @@ def render_resume_pdf(resume, out_path, style=None):
     accent = _norm_accent(style.get("accent"))
     fam = FONT_OVERRIDES.get(style.get("font") or "", cfg["family"])
     font_family = FONT_STACKS[fam]
-    density = "compact" if (style.get("density") == "compact") else "comfortable"
-    html = _render_html(resume, cfg, accent, font_family, density)
+    html = _ENV.from_string(_TEMPLATE_HTML).render(
+        resume=resume, cfg=cfg, css=_css(cfg, accent, font_family),
+        contact=_contact_bits(resume.get("contact", {}) or {}),
+        groups=_skill_groups(resume.get("skills")),
+    )
     try:
         HTML(string=html).write_pdf(out_path)
     except Exception:

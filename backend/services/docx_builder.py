@@ -213,23 +213,44 @@ def _bullet(container, text, S, after=2.5, indent=0.22):
     tr = p.add_run(text); tr.font.size = Pt(S["base_size"]); tr.font.color.rgb = DARK
     return p
 
-def _entry(container, title, subtitle, dates, bullets, S, tab_pos=6.7):
-    """A job / project / education entry in the premium two-line layout:
-        **Title**                                   Dates (right-aligned)
-        Subtitle (company · location)
+def _skill_groups(skills):
+    """Normalise skills into [{'category': str|None, 'items': [str]}], accepting
+    the grouped shape, a dict, or a legacy flat list of strings."""
+    if not skills:
+        return []
+    if isinstance(skills, dict):
+        return [{"category": k, "items": v} for k, v in skills.items() if v]
+    if isinstance(skills, list) and skills and isinstance(skills[0], dict):
+        out = []
+        for g in skills:
+            items = g.get("items") or []
+            if items:
+                out.append({"category": (g.get("category") or "").strip() or None, "items": items})
+        return out
+    return [{"category": None, "items": [s for s in skills if s]}]
+
+
+def _entry(container, primary, topright, secondary, botright, bullets, S, tab_pos=6.7):
+    """The ATS-standard entry layout:
+        **Primary**                              Top-right (bold, e.g. location)
+        Secondary (italic)                       Bottom-right (italic, e.g. dates)
         • bullets
-    Two lines stop the date from wrapping under a long title+company string."""
-    head = container.add_paragraph(); _sp(head, before=8 * S["scale"], after=0, line=1.05)
-    if dates:
-        head.paragraph_format.tab_stops.add_tab_stop(Inches(tab_pos), WD_TAB_ALIGNMENT.RIGHT)
-    r = head.add_run(title or ""); r.bold = True
+    Used for experience (company/location, title/dates), projects and education."""
+    head = container.add_paragraph(); _sp(head, before=7 * S["scale"], after=0, line=1.05)
+    head.paragraph_format.tab_stops.add_tab_stop(Inches(tab_pos), WD_TAB_ALIGNMENT.RIGHT)
+    r = head.add_run(primary or ""); r.bold = True
     r.font.size = Pt(S["base_size"] + 0.5); r.font.color.rgb = DARK
-    if dates:
-        d = head.add_run(f"\t{dates}"); d.italic = True
-        d.font.size = Pt(S["base_size"] - 1.5); d.font.color.rgb = GREY
-    if subtitle:
-        sub = container.add_paragraph(); _sp(sub, after=3, line=1.05)
-        sr = sub.add_run(subtitle); sr.font.size = Pt(S["base_size"]); sr.font.color.rgb = S["heading_color"]
+    if topright:
+        tr = head.add_run(f"\t{topright}"); tr.bold = True
+        tr.font.size = Pt(S["base_size"]); tr.font.color.rgb = DARK
+    if secondary or botright:
+        sub = container.add_paragraph(); _sp(sub, after=2, line=1.05)
+        sub.paragraph_format.tab_stops.add_tab_stop(Inches(tab_pos), WD_TAB_ALIGNMENT.RIGHT)
+        if secondary:
+            sr = sub.add_run(secondary); sr.italic = True; sr.font.size = Pt(S["base_size"])
+        if botright:
+            br = sub.add_run(f"\t{botright}"); br.italic = True
+            br.font.size = Pt(S["base_size"] - 1.5); br.font.color.rgb = GREY
     for b in (bullets or []):
         _bullet(container, b, S)
 
@@ -300,8 +321,11 @@ def _cell_heading(cell, text, S, first=False):
     return p
 
 def _job_into(container, job, S, name_key="title", link_key="company"):
-    _entry(container, job.get(name_key, ""), job.get(link_key), job.get("dates"),
-           job.get("bullets") or [], S, tab_pos=4.0)
+    # Sidebar/right-cell experience: company (bold) / title (italic) + dates.
+    _entry(container, job.get(link_key) or job.get(name_key, ""),
+           job.get("location"),
+           job.get(name_key) if job.get(link_key) else None,
+           job.get("dates"), job.get("bullets") or [], S, tab_pos=4.0)
 
 def _build_resume_sidebar(resume, doc, S):
     """Two-column layout: tinted left column (contact, skills, education),
@@ -330,9 +354,11 @@ def _build_resume_sidebar(resume, doc, S):
 
     if resume.get("skills"):
         _cell_heading(left, "Skills", S)
-        # Comma-flow rather than one-per-line, so the sidebar stays compact.
-        sp = left.add_paragraph(); _sp(sp, after=2, line=1.25)
-        sr = sp.add_run(",  ".join(resume["skills"])); sr.font.size = Pt(S["base_size"] - 0.5)
+        for g in _skill_groups(resume["skills"]):
+            sp = left.add_paragraph(); _sp(sp, after=3, line=1.2)
+            if g["category"]:
+                cr = sp.add_run(f"{g['category']}\n"); cr.bold = True; cr.font.size = Pt(S["base_size"] - 0.5)
+            ir = sp.add_run(", ".join(g["items"])); ir.font.size = Pt(S["base_size"] - 0.5)
 
     if resume.get("education"):
         _cell_heading(left, "Education", S)
@@ -418,27 +444,31 @@ def build_resume(resume, out_path, style=None):
         p = doc.add_paragraph(resume["summary"]); _sp(p, after=2, line=1.12)
 
     if resume.get("skills"):
-        _heading(doc, "Core Competencies", S)
-        p = doc.add_paragraph(); _sp(p, after=2, line=1.2)
-        p.add_run(" • ".join(resume["skills"]))
+        _heading(doc, "Skills", S)
+        for g in _skill_groups(resume["skills"]):
+            p = doc.add_paragraph(); _sp(p, after=2, line=1.18)
+            if g["category"]:
+                cr = p.add_run(f"{g['category']}: "); cr.bold = True; cr.font.size = Pt(S["base_size"])
+            ir = p.add_run(", ".join(g["items"])); ir.font.size = Pt(S["base_size"])
 
     if resume.get("experience"):
-        _heading(doc, "Professional Experience", S)
+        _heading(doc, "Experience", S)
         for job in resume["experience"]:
-            _entry(doc, job.get("title", ""), job.get("company"), job.get("dates"),
+            _entry(doc, job.get("company") or job.get("title", ""), job.get("location"),
+                   job.get("title") if job.get("company") else None, job.get("dates"),
                    job.get("bullets") or [], S)
 
     if resume.get("projects"):
         _heading(doc, "Projects", S)
         for proj in resume["projects"]:
-            _entry(doc, proj.get("name", ""), proj.get("link"), proj.get("dates"),
-                   proj.get("bullets") or [], S)
+            _entry(doc, proj.get("name", ""), proj.get("dates"), proj.get("link"),
+                   None, proj.get("bullets") or [], S)
 
     if resume.get("education"):
         _heading(doc, "Education", S)
         for ed in resume["education"]:
-            _entry(doc, ed.get("degree", ""), ed.get("institution"), ed.get("dates"),
-                   [], S)
+            _entry(doc, ed.get("institution") or ed.get("degree", ""), ed.get("dates"),
+                   ed.get("degree") if ed.get("institution") else None, None, [], S)
 
     if resume.get("certifications"):
         _heading(doc, "Certifications", S)

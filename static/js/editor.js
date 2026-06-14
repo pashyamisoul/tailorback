@@ -391,11 +391,29 @@
     return `<button type="button" class="refine-btn" data-refine="${kind}" data-ref="${ref || ""}">✦ ${esc(label)}</button>`;
   }
 
+  function skillGroups(skills) {
+    // Normalise to [{category, items:[...]}] for grouped editing; accepts the
+    // grouped shape, a {category: [items]} dict, or a legacy flat string list.
+    if (!skills) return [];
+    if (!Array.isArray(skills)) {
+      if (typeof skills === "object") {
+        return Object.entries(skills).map(([category, items]) =>
+          ({ category: category || "", items: Array.isArray(items) ? items : [] }));
+      }
+      return [];
+    }
+    if (skills.length && typeof skills[0] === "object" && skills[0] !== null) {
+      return skills.map(g => ({ category: (g && g.category) || "",
+        items: Array.isArray(g && g.items) ? g.items : [] }));
+    }
+    return [{ category: "", items: skills.filter(s => typeof s === "string") }];
+  }
+
   function resumeHtml(r) {
     r = r || {};
     const c = r.contact || {};
     const links = (c.links || []);
-    const skills = (r.skills || []);
+    const skGroups = (r.skills = skillGroups(r.skills));
     const exp = (r.experience || []);
     const projects = (r.projects || []);
     const edu = (r.education || []);
@@ -418,10 +436,10 @@
         ${ed("summary", r.summary, "doc-summary", "p")}
       </section>`;
     const skillsSec = `<section class="doc-sec">
-        ${sectionHead("Core Competencies", refineBtn("Refine", "skills"))}
-        <div class="doc-skills" data-list="skills">
-          ${skills.map((s, i) => skillChip(s, i)).join("")}
-          <button class="mini-add chip-add" data-act="add-skill" title="Add skill">+</button>
+        ${sectionHead("Skills", refineBtn("Refine", "skills"))}
+        <div data-list="skills">
+          ${skGroups.map((g, gi) => skillGroupHtml(g, gi)).join("")}
+          <button class="mini-add row-add" data-act="add-skill-group">+ Add category</button>
         </div>
       </section>`;
     const expSec = `<section class="doc-sec">
@@ -476,8 +494,18 @@
     </div>`;
   }
 
-  function skillChip(s, i) {
-    return `<span class="skill-chip">${ed("skills." + i, s, "")}<button class="mini-x" data-act="del-skill" data-i="${i}" title="Remove">×</button></span>`;
+  function skillGroupHtml(g, gi) {
+    const items = (g.items || []);
+    return `<div class="doc-skill-group" data-skgroup="${gi}">
+      <div class="skgroup-head">
+        ${ed("skills." + gi + ".category", g.category, "skgroup-cat")}
+        <button class="mini-x" data-act="del-skill-group" data-i="${gi}" title="Remove category">×</button>
+      </div>
+      <div class="doc-skills">
+        ${items.map((s, si) => `<span class="skill-chip">${ed("skills." + gi + ".items." + si, s, "")}<button class="mini-x" data-act="del-skill" data-g="${gi}" data-i="${si}" title="Remove">×</button></span>`).join("")}
+        <button class="mini-add chip-add" data-act="add-skill" data-g="${gi}" title="Add skill">+</button>
+      </div>
+    </div>`;
   }
 
   function jobHtml(j, i, total) {
@@ -489,6 +517,7 @@
         <div class="job-title-row">
           ${ed("experience." + i + ".title", j.title, "job-title")}
           <span class="job-co">| ${ed("experience." + i + ".company", j.company, "job-company")}</span>
+          <span class="job-loc">${ed("experience." + i + ".location", j.location, "job-location")}</span>
         </div>
         <div class="job-meta">
           ${ed("experience." + i + ".dates", j.dates, "job-dates")}
@@ -612,9 +641,12 @@
     const i = act.dataset.i != null ? parseInt(act.dataset.i, 10) : null;
     const jobIdx = act.dataset.job != null ? parseInt(act.dataset.job, 10) : null;
     const projIdx = act.dataset.project != null ? parseInt(act.dataset.project, 10) : null;
+    const grpIdx = act.dataset.g != null ? parseInt(act.dataset.g, 10) : null;
     switch (act.dataset.act) {
-      case "add-skill": (r.skills = r.skills || []).push("New skill"); break;
-      case "del-skill": r.skills.splice(i, 1); break;
+      case "add-skill-group": (r.skills = r.skills || []).push({ category: "New category", items: ["New skill"] }); break;
+      case "del-skill-group": r.skills.splice(i, 1); break;
+      case "add-skill": if (grpIdx != null) { (r.skills[grpIdx].items = r.skills[grpIdx].items || []).push("New skill"); } break;
+      case "del-skill": if (grpIdx != null) { r.skills[grpIdx].items.splice(i, 1); } break;
       case "add-link": (r.contact = r.contact || {}, r.contact.links = r.contact.links || []).push("link"); break;
       case "del-link": r.contact.links.splice(i, 1); break;
       case "add-job": (r.experience = r.experience || []).push({ title: "Job title", company: "Company", dates: "", bullets: ["Describe an achievement"] }); break;

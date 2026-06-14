@@ -349,10 +349,16 @@ def generate_all(cv_text, jd_text, on_status=None, usage_sink=None):
         "KEYWORD COVERAGE (CRITICAL): The tailored resume must cover the job's relevant "
         "keywords AT LEAST as well as the candidate's current resume - never fewer. "
         "Retain EVERY job-relevant skill, tool, technology, and term the candidate already "
-        "lists; do not drop one or swap it for a vaguer synonym. In 'skills', include all "
-        "of the candidate's job-relevant hard skills using the job's exact wording where "
-        "the candidate truthfully has it, and weave those exact terms naturally into the "
-        "summary and experience bullets too.\n\n"
+        "lists; do not drop one or swap it for a vaguer synonym. Use the job's exact "
+        "wording where the candidate truthfully has it, and weave those exact terms "
+        "naturally into the summary and experience bullets too.\n\n"
+        "SKILLS GROUPING: Output 'skills' as 3-6 labelled groups, each {\"category\": "
+        "a short category label (e.g. 'Languages', 'Cloud & DevOps', 'Identity & Access', "
+        "'Tools'), \"items\": [the specific skills in that group]}. Group by theme so a "
+        "recruiter can scan capabilities fast. Include every job-relevant skill the "
+        "candidate truly has; do not invent categories with no real skills.\n"
+        "EXPERIENCE LOCATION: For each role set 'location' to its city/country if the "
+        "candidate's resume states it, else null. Never invent a location.\n\n"
         "Write naturally and specifically (concrete tools, real numbers) so the prose "
         "reads as genuine human writing, not generic filler.\n\n"
         "PUNCTUATION: Never use em dashes (the long dash). Use commas, periods, "
@@ -366,7 +372,8 @@ def generate_all(cv_text, jd_text, on_status=None, usage_sink=None):
         "Respond with ONLY JSON, no prose, no markdown fences. Schema:\n"
         "{\"resume\": {\"name\": str, \"contact\": {\"email\": str|null, \"phone\": "
         "str|null, \"location\": str|null, \"links\": [str]}, \"summary\": str, "
-        "\"skills\": [str], \"experience\": [{\"title\": str, \"company\": str, "
+        "\"skills\": [{\"category\": str, \"items\": [str]}], "
+        "\"experience\": [{\"title\": str, \"company\": str, \"location\": str|null, "
         "\"dates\": str, \"bullets\": [str]}], \"projects\": [{\"name\": str, "
         "\"link\": str|null, \"dates\": str|null, \"bullets\": [str]}], "
         "\"education\": [{\"degree\": str, "
@@ -419,7 +426,7 @@ _TONE_GUIDANCE = {
 
 _REFINE_SCHEMAS = {
     "summary": "{\"summary\": str}",
-    "skills": "{\"skills\": [str]}",
+    "skills": "{\"skills\": [{\"category\": str, \"items\": [str]}]}",
     "bullets": "{\"bullets\": [str]}",
     "cover_letter": "{\"greeting\": str, \"body_paragraphs\": [str], \"closing\": str}",
 }

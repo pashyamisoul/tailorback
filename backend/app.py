@@ -485,6 +485,47 @@ def _clean_str_list(v, limit=60, item_limit=600):
     return out
 
 
+def _skill_groups(skills):
+    """Normalise skills into [{'category': str|None, 'items': [str]}], accepting
+    the grouped shape, a dict, or a legacy flat list of strings."""
+    if not skills:
+        return []
+    if isinstance(skills, dict):
+        return [{"category": k, "items": v} for k, v in skills.items() if v]
+    if isinstance(skills, list) and skills and isinstance(skills[0], dict):
+        out = []
+        for g in skills:
+            if not isinstance(g, dict):
+                continue
+            items = g.get("items") or []
+            if items:
+                out.append({"category": (g.get("category") or "").strip() or None, "items": items})
+        return out
+    return [{"category": None, "items": [s for s in skills if s]}]
+
+
+def _flatten_skills(skills):
+    flat = []
+    for g in _skill_groups(skills):
+        flat.extend(g["items"])
+    return flat
+
+
+def _clean_skills(skills):
+    """Sanitize skills, preserving grouped structure when present."""
+    groups = _skill_groups(skills)
+    if not groups:
+        return []
+    if len(groups) == 1 and groups[0]["category"] is None:
+        return _clean_str_list(groups[0]["items"], limit=60, item_limit=120)
+    out = []
+    for g in groups[:8]:
+        items = _clean_str_list(g["items"], limit=40, item_limit=120)
+        if items:
+            out.append({"category": _clean_str(g["category"], 60), "items": items})
+    return out
+
+
 def _sanitize_resume(resume):
     """Structurally validate/coerce an edited resume payload before building."""
     resume = resume if isinstance(resume, dict) else {}
@@ -496,6 +537,7 @@ def _sanitize_resume(resume):
         experience.append({
             "title": _clean_str(job.get("title"), 200),
             "company": _clean_str(job.get("company"), 200),
+            "location": _clean_str(job.get("location"), 200),
             "dates": _clean_str(job.get("dates"), 120),
             "bullets": _clean_str_list(job.get("bullets"), limit=20, item_limit=1000),
         })
@@ -527,7 +569,7 @@ def _sanitize_resume(resume):
             "links": _clean_str_list(contact.get("links"), limit=10, item_limit=300),
         },
         "summary": _clean_str(resume.get("summary"), 3000),
-        "skills": _clean_str_list(resume.get("skills"), limit=60, item_limit=120),
+        "skills": _clean_skills(resume.get("skills")),
         "experience": experience,
         "projects": projects,
         "education": education,
@@ -550,11 +592,12 @@ def _resume_to_text(resume):
     if resume.get("summary"):
         parts.append("Summary\n" + resume["summary"])
     if resume.get("skills"):
-        parts.append("Skills\n" + ", ".join(resume["skills"]))
+        parts.append("Skills\n" + ", ".join(_flatten_skills(resume["skills"])))
     if resume.get("experience"):
         parts.append("Experience")
         for j in resume["experience"]:
-            parts.append(f"{j.get('title','')} - {j.get('company','')} ({j.get('dates','')})")
+            loc = f", {j.get('location')}" if j.get("location") else ""
+            parts.append(f"{j.get('title','')} - {j.get('company','')}{loc} ({j.get('dates','')})")
             parts.extend("• " + b for b in (j.get("bullets") or []))
     if resume.get("projects"):
         parts.append("Projects")
@@ -1557,7 +1600,7 @@ def refine_section():
     if kind == "summary":
         out = _clean_str(refined.get("summary"), 3000)
     elif kind == "skills":
-        out = _clean_str_list(refined.get("skills"), limit=60, item_limit=120)
+        out = _clean_skills(refined.get("skills"))
     elif kind == "bullets":
         out = _clean_str_list(refined.get("bullets"), limit=20, item_limit=1000)
     else:
