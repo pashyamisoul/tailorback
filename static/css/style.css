@@ -488,6 +488,7 @@ html[data-theme="terminal"] .go .gicon { display: none; }
   padding: 1.1rem;
   border-radius: 14px;
 }
+.credits-menu { position: relative; display: inline-flex; }
 .nav-credits {
   display: inline-flex;
   align-items: baseline;
@@ -496,11 +497,27 @@ html[data-theme="terminal"] .go .gicon { display: none; }
   border-radius: 999px;
   padding: .36rem .62rem;
   color: var(--ink-soft);
+  background: transparent;
+  cursor: pointer;
   font-family: "Spline Sans Mono", monospace;
   font-size: .68rem;
   text-transform: uppercase;
   letter-spacing: .04em;
   white-space: nowrap;
+}
+.nav-credits:hover { border-color: var(--ink-soft); }
+.credits-popover {
+  position: absolute; top: calc(100% + 10px); right: 0; width: 220px;
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: var(--radius, 10px); z-index: 50; padding: 12px 14px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.12);
+}
+.credits-popover[hidden] { display: none; }
+.credits-popover::before {
+  content: ""; position: absolute; top: -7px; right: 22px;
+  width: 13px; height: 13px; background: var(--paper);
+  border-left: 1px solid var(--line); border-top: 1px solid var(--line);
+  border-top-left-radius: 3px; transform: rotate(45deg);
 }
 .nav-credits strong {
   color: var(--ink);
@@ -2080,7 +2097,7 @@ html[data-theme="terminal"] .loader::before{ content:"$ tailorback --run"; displ
 .account-menu {
   position: absolute; top: calc(100% + 10px); right: 0; width: 260px;
   background: var(--paper); border: 1px solid var(--line);
-  border-radius: var(--radius); overflow: hidden; z-index: 50;
+  border-radius: var(--radius); z-index: 50;
   box-shadow: 0 8px 28px rgba(0,0,0,.12);
 }
 .account-menu[hidden] { display: none; }
@@ -2097,8 +2114,19 @@ html[data-theme="terminal"] .loader::before{ content:"$ tailorback --run"; displ
 .account-signout {
   display: block; padding: 12px 16px; font-size: .9rem;
   color: var(--ink); text-decoration: none;
+  border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius);
 }
 .account-signout:hover { background: var(--paper-2); }
+
+/* Speech-bubble caret connecting each popover to its trigger button. */
+.pro-popover::before, .account-menu::before {
+  content: ""; position: absolute; top: -7px;
+  width: 13px; height: 13px; background: var(--paper);
+  border-left: 1px solid var(--line); border-top: 1px solid var(--line);
+  border-top-left-radius: 3px; transform: rotate(45deg);
+}
+.pro-popover::before { right: 44px; }
+.account-menu::before { right: 16px; }
 
 /* ============================================================================
    STUDIO — live document editor
