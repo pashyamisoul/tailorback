@@ -3,13 +3,20 @@
 FROM python:3.12-slim
 
 # System deps:
-#   libreoffice-writer  -> docx -> pdf conversion (docx_builder.to_pdfs)
-#   fonts-*             -> readable, consistent PDF rendering
+#   libreoffice-writer  -> docx -> pdf + editable .docx (docx_builder)
+#   libpango*, libffi   -> WeasyPrint HTML/CSS -> PDF text layout (pdf_builder)
+#   fonts-*             -> consistent PDF rendering (Open Sans = the UI sans stack)
 #   curl                -> container health check
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libreoffice-writer \
+        libpango-1.0-0 \
+        libpangoft2-1.0-0 \
+        libpangocairo-1.0-0 \
+        libffi8 \
+        shared-mime-info \
         fonts-liberation \
         fonts-dejavu \
+        fonts-open-sans \
         curl \
     && rm -rf /var/lib/apt/lists/*
 

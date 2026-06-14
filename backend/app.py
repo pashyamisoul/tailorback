@@ -44,7 +44,7 @@ from flask_sqlalchemy import SQLAlchemy
 from authlib.integrations.flask_client import OAuth
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from services import cv_parser, jd_source, llm, docx_builder, scoring, provider_billing
+from services import cv_parser, jd_source, llm, docx_builder, scoring, provider_billing, pdf_builder
 
 load_dotenv()
 
@@ -579,6 +579,18 @@ def _sanitize_cover(cover):
     }
 
 
+def _render_pdfs(resume, resume_path, cover_path, style=None):
+    """Résumé PDF via the HTML/CSS engine (designer-grade, ATS-clean); cover
+    letter via the docx -> LibreOffice path. Falls back to LibreOffice for the
+    résumé too if WeasyPrint isn't available on the host."""
+    resume_pdf = os.path.splitext(resume_path)[0] + ".pdf"
+    if pdf_builder.render_resume_pdf(resume, resume_pdf, style=style):
+        cover_pdf = docx_builder.to_pdfs([cover_path]).get(cover_path)
+        return resume_pdf, cover_pdf
+    pdfs = docx_builder.to_pdfs([resume_path, cover_path])
+    return pdfs.get(resume_path), pdfs.get(cover_path)
+
+
 def _build_documents(user, job_id, resume, cover, style, job=None):
     """Build resume + cover-letter docx/pdf for a job, register them, and return
     download URLs. Replaces any previously generated files for this job_id."""
@@ -605,8 +617,8 @@ def _build_documents(user, job_id, resume, cover, style, job=None):
     docx_builder.build_cover_letter(
         cover, resume.get("name", ""), cover_path,
         contact_line=contact_line, links=c.get("links") or [], style=style)
-    pdfs = docx_builder.to_pdfs([resume_path, cover_path])
-    for path in (resume_path, cover_path, pdfs.get(resume_path), pdfs.get(cover_path)):
+    resume_pdf, cover_pdf = _render_pdfs(resume, resume_path, cover_path, style)
+    for path in (resume_path, cover_path, resume_pdf, cover_pdf):
         _register_generated_file(user, job_id, path)
     return _download_urls_for_job(user.id, job_id)
 
@@ -1292,9 +1304,7 @@ def generate():
             result.get("cover_letter", {}), resume.get("name", ""), cover_path,
             contact_line=_contact_line, links=_c.get("links") or [])
         on_status("converting_documents")
-        pdfs = docx_builder.to_pdfs([resume_path, cover_path])
-        resume_pdf = pdfs.get(resume_path)
-        cover_pdf = pdfs.get(cover_path)
+        resume_pdf, cover_pdf = _render_pdfs(resume, resume_path, cover_path)
         for path in (resume_path, cover_path, resume_pdf, cover_pdf):
             _register_generated_file(current_user, job_id, path)
         run = GenerationRun(
