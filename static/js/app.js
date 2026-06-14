@@ -1106,12 +1106,23 @@ document.addEventListener('click', async (e) => {
 });
 
 // TailorBack Pro dropdown.
+// Close every masthead popover except the one being opened, so they never stack.
+function closeFloatingMenus(keepId) {
+  ["proPopover", "creditsPopover", "accountMenu"].forEach((id) => {
+    if (id === keepId) return;
+    const el = document.getElementById(id);
+    if (el) el.hidden = true;
+  });
+}
+
 const proTrigger = document.getElementById('proTrigger');
 const proPopover = document.getElementById('proPopover');
 if (proTrigger && proPopover) {
   proTrigger.addEventListener('click', (e) => {
     e.stopPropagation();
-    proPopover.hidden = !proPopover.hidden;
+    const open = proPopover.hidden;
+    closeFloatingMenus('proPopover');
+    proPopover.hidden = !open;
   });
   proPopover.addEventListener('click', (e) => e.stopPropagation());
   document.addEventListener('click', () => {
@@ -1170,7 +1181,9 @@ function bindAccountDropdown() {
   btn.dataset.bound = "true";
   btn.addEventListener("click", (e) => {
     e.stopPropagation();
-    menu.hidden = !menu.hidden;
+    const open = menu.hidden;
+    closeFloatingMenus(menu.id);
+    menu.hidden = !open;
   });
 }
 
@@ -1182,7 +1195,9 @@ function bindCreditsDropdown() {
   btn.dataset.bound = "true";
   btn.addEventListener("click", (e) => {
     e.stopPropagation();
-    menu.hidden = !menu.hidden;
+    const open = menu.hidden;
+    closeFloatingMenus(menu.id);
+    menu.hidden = !open;
   });
 }
 bindCreditsDropdown();
