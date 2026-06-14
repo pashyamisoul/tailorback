@@ -225,9 +225,9 @@ def _render_sidebar(r, cfg, ac, font):
 @page{{size:Letter;margin:1.1cm 1.3cm}}
 .mast .name{{font-size:20pt;font-weight:700;text-transform:uppercase;letter-spacing:.5px}}
 .mast .hl{{color:{ac};font-weight:600;font-size:9.5pt}}
-.sheet{{display:flex;gap:16px;margin-top:8px}}
-.side{{width:31%;flex:none;padding-right:14px;border-right:1px solid #cfd2d7}}
-.body{{flex:1;min-width:0}}
+.sheet{{display:table;width:100%;table-layout:fixed;margin-top:8px}}
+.side{{display:table-cell;width:32%;vertical-align:top;padding-right:15px;border-right:1px solid #cfd2d7}}
+.body{{display:table-cell;vertical-align:top;padding-left:16px}}
 h2{{font-size:10.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:{ac};
   margin:11px 0 4px;padding-bottom:1.5px;border-bottom:2px solid {ac}}}
 .side h2:first-child{{margin-top:0}}
@@ -330,9 +330,9 @@ def _render_solid_sidebar(r, cfg, ac, font, side_bg):
     base = _BASE % {"font": font, "ac": ac}
     css = base + f"""
 @page{{size:Letter;margin:0}}
-.wrap{{display:flex;min-height:27.94cm}}
-.main{{flex:1;padding:0.55in 0.4in 0.55in 0.55in}}
-.aside{{width:2.5in;flex:none;background:{side_bg};color:#dfe6f0;padding:0.55in 0.34in}}
+.wrap{{display:table;width:100%;table-layout:fixed;min-height:25.6cm}}
+.main{{display:table-cell;width:67%;vertical-align:top;padding:0.55in 0.4in 0.55in 0.55in}}
+.aside{{display:table-cell;width:33%;vertical-align:top;background:{side_bg};color:#dfe6f0;padding:0.55in 0.34in}}
 .name{{font-size:23pt;font-weight:800;color:{side_bg};letter-spacing:1px;text-transform:uppercase}}
 .hl{{color:{ac};font-weight:700;font-size:10pt;margin:2px 0 8px}}
 .main h2{{font-size:11pt;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:{side_bg};
@@ -370,9 +370,9 @@ def _render_tint_sidebar(r, cfg, ac, font):
     base = _BASE % {"font": font, "ac": ac}
     css = base + f"""
 @page{{size:Letter;margin:0}}
-.wrap{{display:flex;min-height:27.94cm}}
-.aside{{width:2.45in;flex:none;background:{ac}14;padding:0.5in 0.32in;border-right:3px solid {ac}}}
-.main{{flex:1;padding:0.5in 0.45in}}
+.wrap{{display:table;width:100%;table-layout:fixed;min-height:25.6cm}}
+.aside{{display:table-cell;width:33%;vertical-align:top;background:{ac}14;padding:0.5in 0.32in;border-right:3px solid {ac}}}
+.main{{display:table-cell;width:67%;vertical-align:top;padding:0.5in 0.45in}}
 .mono{{width:66px;height:66px;border-radius:50%;background:{ac};color:#fff;font-size:20pt;font-weight:800;
   display:flex;align-items:center;justify-content:center;margin-bottom:10px}}
 .aside h2{{font-size:9.5pt;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:{ac};
