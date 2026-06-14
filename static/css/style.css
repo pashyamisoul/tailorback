@@ -2273,6 +2273,9 @@ html[data-theme="terminal"] .loader::before{ content:"$ tailorback --run"; displ
 .tmpl-modern .doc-head-t, .tmpl-compact .doc-head-t { color: var(--doc-accent); }
 .tmpl-editorial .doc-name, .tmpl-classic .doc-name { text-align: center; }
 .tmpl-editorial .doc-contact, .tmpl-classic .doc-contact { justify-content: center; }
+/* Headline must follow the centered name/contact (not sit left) */
+.tmpl-editorial .doc-headline-wrap, .tmpl-classic .doc-headline-wrap,
+.tmpl-serif .doc-headline-wrap { text-align: center; }
 .tmpl-classic .doc-head { border-bottom-color: #000; }
 .tmpl-classic .doc-head-t { color: #000; }
 /* serif executive: centered serif name, small-caps centered headings */
