@@ -1,0 +1,22 @@
+# Keep the image small and never ship secrets / local state.
+.git
+.gitignore
+venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+*.db
+tailorback.db
+node_modules/
+browser-extension/
+docs/
+*.md
+!README.md
+.claude/
+.DS_Store
+uploads/
+generated/
+tmp/
+/tmp/

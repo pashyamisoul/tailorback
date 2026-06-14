@@ -1,0 +1,80 @@
+# Render Blueprint for TailorBack.
+# In the Render dashboard: New > Blueprint > pick this repo. It reads this file,
+# creates the web service + a free Postgres database, and prompts you for every
+# secret marked "sync: false". Nothing secret is stored in this file or the repo.
+#
+# Docs: https://render.com/docs/blueprint-spec
+
+databases:
+  - name: tailorback-db
+    plan: free
+    databaseName: tailorback
+    user: tailorback
+
+services:
+  - type: web
+    name: tailorback
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      # --- wiring done for you ---
+      - key: DATABASE_URL          # injected from the database above
+        fromDatabase:
+          name: tailorback-db
+          property: connectionString
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_SECRET_KEY      # Render generates a strong random value once
+        generateValue: true
+
+      # --- you paste these in the dashboard (Environment tab) ---
+      # Admin login
+      - key: TAILORBACK_ADMIN_USER
+        sync: false
+      - key: TAILORBACK_ADMIN_PASSWORD
+        sync: false
+
+      # AI providers (at least one; order is OpenAI -> Gemini -> Claude)
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      # Google sign-in (optional — leave blank to use email/password only)
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+
+      # Email sending (Resend)
+      - key: SMTP_HOST
+        value: smtp.resend.com
+      - key: SMTP_PORT
+        value: "465"
+      - key: SMTP_USE_SSL
+        value: "1"
+      - key: SMTP_USER
+        value: resend
+      - key: SMTP_PASSWORD          # your Resend API key
+        sync: false
+      - key: SMTP_FROM
+        value: noreply@tailorback.com
+      - key: SMTP_FROM_NAME
+        value: TailorBack
+
+      # Payments (optional — leave all blank to launch free; add later to enable Pro)
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_STARTER
+        sync: false
+      - key: STRIPE_PRICE_HUNT
+        sync: false
+      - key: STRIPE_PRICE_SPRINT
+        sync: false

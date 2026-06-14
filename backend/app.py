@@ -103,10 +103,14 @@ app = Flask(__name__,
             static_folder=os.path.join(BASE, "static"))
 app.config["MAX_CONTENT_LENGTH"] = MAX_BYTES
 
-# --- Database (SQLite for local dev; swap DATABASE_URL for Postgres on deploy) ---
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
-    "DATABASE_URL", "sqlite:///" + os.path.join(BASE, "tailorback.db"))
+# --- Database (SQLite for local dev; DATABASE_URL for Postgres on deploy) ---
+_db_url = os.environ.get("DATABASE_URL", "sqlite:///" + os.path.join(BASE, "tailorback.db"))
+# Managed Postgres (Render/Heroku/Supabase) hand out postgres://; SQLAlchemy needs postgresql://.
+if _db_url.startswith("postgres://"):
+    _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+app.config["SQLALCHEMY_DATABASE_URI"] = _db_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True}  # survive idle DB drops
 db = SQLAlchemy(app)
 
 # --- Session secret (required for OAuth login state) ---
@@ -115,6 +119,17 @@ if not app.secret_key:
     if os.environ.get("FLASK_ENV") == "production":
         raise RuntimeError("FLASK_SECRET_KEY must be set in production.")
     app.secret_key = "dev-only-change-me"
+
+# --- Production hardening: trust the platform's TLS proxy + secure cookies ---
+if os.environ.get("FLASK_ENV") == "production":
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+    app.config.update(
+        SESSION_COOKIE_SECURE=True,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+        PREFERRED_URL_SCHEME="https",
+    )
 
 # --- OAuth (Google) ---
 oauth = OAuth(app)
