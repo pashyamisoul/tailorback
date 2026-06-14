@@ -14,14 +14,17 @@
 
   const TEMPLATES = [
     { id: "editorial", name: "Editorial", hint: "Centered · classic" },
-    { id: "modern", name: "Modern", hint: "Left · accent heads" },
     { id: "classic", name: "Classic", hint: "Serif · refined" },
-    { id: "compact", name: "Compact", hint: "Dense · one page" },
     { id: "serif", name: "Serif executive", hint: "Centered serif · small-caps" },
-    { id: "bold", name: "Bold header", hint: "Dark banner · accent rules" },
     { id: "minimal", name: "Minimalist", hint: "Airy · hairline rules" },
     { id: "sidebar", name: "Sidebar", hint: "Two-column · skills left" },
+    { id: "skyline", name: "Skyline", hint: "Timeline · teal · monogram" },
+    { id: "executive", name: "Executive", hint: "Dark sidebar · gold" },
+    { id: "aurora", name: "Aurora", hint: "Teal sidebar · monogram" },
+    { id: "spotlight", name: "Spotlight", hint: "Colour header band" },
   ];
+  // Rich templates carry a curated colour (used unless the user picks a swatch).
+  const TEMPLATE_ACCENT = { skyline: "3d8b7d", executive: "b8893f", aurora: "2f8f7d", spotlight: "5f8d6e" };
   const ACCENTS = ["c8462e", "1f6feb", "0f766e", "7c3aed", "be123c", "b45309", "0369a1", "111827"];
   const FONTS = ["Calibri", "Georgia", "Arial", "Garamond", "Helvetica", "Times New Roman"];
   const FONT_STACK = {
@@ -374,7 +377,9 @@
     if (!page) return;
     const coverCls = ST.activeDoc === "cover" ? " cover" : "";
     page.className = `doc-page tmpl-${ST.style.template} density-${ST.style.density}${coverCls}`;
-    page.style.setProperty("--doc-accent", `#${ST.style.accent}`);
+    const acc = (TEMPLATE_ACCENT[ST.style.template] && ST.style.accent === "c8462e")
+      ? TEMPLATE_ACCENT[ST.style.template] : ST.style.accent;
+    page.style.setProperty("--doc-accent", `#${acc}`);
     page.style.setProperty("--doc-font", FONT_STACK[ST.style.font] || FONT_STACK.Calibri);
   }
 
@@ -426,8 +431,18 @@
       ...links.map((l, i) => `<span class="c-link">${ed("contact.links." + i, l, "c-item")}<button class="mini-x" data-act="del-link" data-i="${i}" title="Remove">×</button></span>`),
     ].join('<span class="c-dot">•</span>');
 
+    const langs = (r.languages = (Array.isArray(r.languages) ? r.languages : []));
+
     // Build each section as a fragment so layouts can arrange them differently.
     const nameEl = ed("name", r.name, "doc-name", "h1");
+    const headlineEl = `<div class="doc-headline-wrap">${ed("headline", r.headline, "doc-headline", "div")}</div>`;
+    const langsSec = `<section class="doc-sec">
+        ${sectionHead("Languages")}
+        <div class="doc-langs" data-list="languages">
+          ${langs.map((l, i) => `<span class="lang-chip">${ed("languages." + i + ".name", (l && l.name) || "", "")}<span class="lang-lvl">${ed("languages." + i + ".level", (l && l.level) || "", "")}</span><button class="mini-x" data-act="del-lang" data-i="${i}" title="Remove">×</button></span>`).join("")}
+          <button class="mini-add chip-add" data-act="add-lang" title="Add language">+</button>
+        </div>
+      </section>`;
     const contactEl = `<div class="doc-contact">${contactParts}
         <button class="mini-add" data-act="add-link" title="Add link">+ link</button>
       </div>`;
@@ -471,26 +486,28 @@
       </section>` : "";
 
     const cls = `doc-page tmpl-${ST.style.template} density-${ST.style.density}`;
+    const TWO_COL = ["sidebar", "executive", "aurora"];
 
-    if (ST.style.template === "sidebar") {
-      // Two columns: contact/skills/education on the left, the rest on the right.
+    if (TWO_COL.includes(ST.style.template)) {
+      // Two columns: contact/skills/education/languages left, the rest right.
       return `
       <div class="${cls}">
-        <div class="doc-side">${nameEl}${contactEl}${skillsSec}${eduSec}${certsSec}</div>
+        <div class="doc-side">${nameEl}${headlineEl}${contactEl}${skillsSec}${eduSec}${langsSec}${certsSec}</div>
         <div class="doc-main">${summarySec}${expSec}${projSec}</div>
       </div>`;
     }
 
+    // Single column (incl. skyline timeline + spotlight band — themed via CSS).
     return `
     <div class="${cls}">
-      ${nameEl}
-      ${contactEl}
+      <header class="doc-masthead">${nameEl}${headlineEl}${contactEl}</header>
       ${summarySec}
       ${skillsSec}
       ${expSec}
       ${projSec}
       ${eduSec}
       ${certsSec}
+      ${langsSec}
     </div>`;
   }
 
@@ -647,6 +664,8 @@
       case "del-skill-group": r.skills.splice(i, 1); break;
       case "add-skill": if (grpIdx != null) { (r.skills[grpIdx].items = r.skills[grpIdx].items || []).push("New skill"); } break;
       case "del-skill": if (grpIdx != null) { r.skills[grpIdx].items.splice(i, 1); } break;
+      case "add-lang": (r.languages = r.languages || []).push({ name: "Language", level: "" }); break;
+      case "del-lang": r.languages.splice(i, 1); break;
       case "add-link": (r.contact = r.contact || {}, r.contact.links = r.contact.links || []).push("link"); break;
       case "del-link": r.contact.links.splice(i, 1); break;
       case "add-job": (r.experience = r.experience || []).push({ title: "Job title", company: "Company", dates: "", bullets: ["Describe an achievement"] }); break;

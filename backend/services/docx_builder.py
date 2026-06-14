@@ -38,16 +38,16 @@ TEMPLATES = {
         "heading_border_accent": False,
         "contact_align": WD_ALIGN_PARAGRAPH.CENTER,
     },
-    "modern": {
+    "skyline": {
         "font": "Calibri",
         "name_align": WD_ALIGN_PARAGRAPH.LEFT,
         "name_size": 21,
-        "name_color": None,             # filled with accent at resolve time
-        "name_uses_accent": True,
+        "name_color": BLACK,
         "heading_uses_accent": True,
-        "heading_border": None,         # filled with accent
+        "heading_border": None,
         "heading_border_accent": True,
         "contact_align": WD_ALIGN_PARAGRAPH.LEFT,
+        "default_accent": "3d8b7d",
     },
     "classic": {
         "font": "Georgia",
@@ -60,16 +60,29 @@ TEMPLATES = {
         "heading_border_accent": False,
         "contact_align": WD_ALIGN_PARAGRAPH.CENTER,
     },
-    "compact": {
+    "executive": {
         "font": "Calibri",
         "name_align": WD_ALIGN_PARAGRAPH.LEFT,
         "name_size": 18,
-        "name_color": None,
-        "name_uses_accent": True,
+        "name_color": BLACK,
         "heading_uses_accent": True,
         "heading_border": None,
         "heading_border_accent": True,
         "contact_align": WD_ALIGN_PARAGRAPH.LEFT,
+        "sidebar": True,
+        "default_accent": "b8893f",
+    },
+    "aurora": {
+        "font": "Calibri",
+        "name_align": WD_ALIGN_PARAGRAPH.LEFT,
+        "name_size": 18,
+        "name_color": BLACK,
+        "heading_uses_accent": True,
+        "heading_border": None,
+        "heading_border_accent": True,
+        "contact_align": WD_ALIGN_PARAGRAPH.LEFT,
+        "sidebar": True,
+        "default_accent": "2f8f7d",
     },
     "serif": {
         "font": "Georgia",
@@ -84,16 +97,18 @@ TEMPLATES = {
         "heading_align": WD_ALIGN_PARAGRAPH.CENTER,
         "heading_small_caps": True,
     },
-    "bold": {
+    "spotlight": {
         "font": "Calibri",
         "name_align": WD_ALIGN_PARAGRAPH.LEFT,
         "name_size": 22,
-        "name_color": WHITE,            # white on the dark banner
+        "name_color": WHITE,            # white on the coloured banner
         "heading_uses_accent": True,
         "heading_border": None,
         "heading_border_accent": True,
         "contact_align": WD_ALIGN_PARAGRAPH.LEFT,
-        "banner": True,                 # render name + contact in a dark banner
+        "banner": True,
+        "banner_uses_accent": True,     # band filled with the accent colour
+        "default_accent": "5f8d6e",
     },
     "minimal": {
         "font": "Calibri",
@@ -139,7 +154,12 @@ def _resolve_style(style):
     style = style or {}
     name = (style.get("template") or DEFAULT_TEMPLATE).lower()
     tmpl = TEMPLATES.get(name, TEMPLATES[DEFAULT_TEMPLATE])
-    accent = _rgb(style.get("accent"), fallback=RGBColor(0xc8, 0x46, 0x2e))
+    # Rich templates carry a curated accent; use it unless the user changed the swatch.
+    picked = (style.get("accent") or "").lstrip("#")
+    if tmpl.get("default_accent") and (not picked or picked == "c8462e"):
+        accent = _rgb(tmpl["default_accent"], fallback=RGBColor(0xc8, 0x46, 0x2e))
+    else:
+        accent = _rgb(style.get("accent"), fallback=RGBColor(0xc8, 0x46, 0x2e))
     font = style.get("font") or tmpl["font"]
     density = (style.get("density") or "comfortable").lower()
     scale = 0.78 if density == "compact" else 1.0
@@ -172,6 +192,8 @@ def _resolve_style(style):
         "heading_align": tmpl.get("heading_align", WD_ALIGN_PARAGRAPH.LEFT),
         "heading_small_caps": tmpl.get("heading_small_caps", False),
         "banner": tmpl.get("banner", False),
+        "banner_bg": ("%02x%02x%02x" % (accent[0], accent[1], accent[2])
+                      if tmpl.get("banner_uses_accent") else BANNER_BG),
         "sidebar": tmpl.get("sidebar", False),
     }
 
@@ -230,6 +252,16 @@ def _skill_groups(skills):
     return [{"category": None, "items": [s for s in skills if s]}]
 
 
+def _doc_languages(resume):
+    out = []
+    for l in (resume.get("languages") or []):
+        if isinstance(l, dict) and l.get("name"):
+            out.append((l["name"], l.get("level") or ""))
+        elif isinstance(l, str) and l.strip():
+            out.append((l.strip(), ""))
+    return out
+
+
 def _entry(container, primary, topright, secondary, botright, bullets, S, tab_pos=6.7):
     """The ATS-standard entry layout:
         **Primary**                              Top-right (bold, e.g. location)
@@ -281,16 +313,19 @@ def _cell_edge_border(cell, edge="right", color="cfcabf", size=8):
     e.set(qn("w:space"), "0"); e.set(qn("w:color"), color)
     borders.append(e); tcPr.append(borders)
 
-def _banner(doc, name, contact, S):
-    """Dark full-width banner holding the name + contact (the 'bold' template)."""
+def _banner(doc, name, contact, S, headline=""):
+    """Full-width coloured banner holding the name + headline + contact."""
     table = doc.add_table(rows=1, cols=1)
     _no_table_borders(table)
     cell = table.cell(0, 0)
-    _shade(cell, BANNER_BG)
+    _shade(cell, S.get("banner_bg", BANNER_BG))
     # tighten cell margins a touch via the single paragraph spacing
     np = cell.paragraphs[0]; _sp(np, before=2, after=2)
     nr = np.add_run((name or "").upper())
     nr.bold = True; nr.font.size = Pt(S["name_size"]); nr.font.color.rgb = WHITE; _track(nr, TRACK_NAME)
+    if headline:
+        hp = cell.add_paragraph(); _sp(hp, before=0, after=2)
+        hr = hp.add_run(headline); hr.font.size = Pt(10); hr.font.color.rgb = WHITE; hr.bold = True
     if contact:
         cp = cell.add_paragraph(); _sp(cp, before=2, after=2)
         cr = cp.add_run(contact); cr.font.size = Pt(9); cr.font.color.rgb = BANNER_CONTACT
@@ -425,14 +460,17 @@ def build_resume(resume, out_path, style=None):
     bits = [c.get("email"), c.get("phone"), c.get("location"), *(c.get("links") or [])]
     contact = "    •    ".join(b for b in bits if b)
 
+    headline = (resume.get("headline") or "").strip()
     if S.get("banner"):
-        # Dark full-width banner with name + contact (the "bold" template).
-        _banner(doc, resume.get("name", ""), contact, S)
+        _banner(doc, resume.get("name", ""), contact, S, headline=headline)
     else:
         name_p = doc.add_paragraph(); name_p.alignment = S["name_align"]
-        _sp(name_p, after=3)
+        _sp(name_p, after=1 if headline else 3)
         nr = name_p.add_run((resume.get("name","") or "").upper())
         nr.bold = True; nr.font.size = Pt(S["name_size"]); nr.font.color.rgb = S["name_color"]; _track(nr, TRACK_NAME)
+        if headline:
+            hp = doc.add_paragraph(); hp.alignment = S["name_align"]; _sp(hp, after=4)
+            hr = hp.add_run(headline); hr.bold = True; hr.font.size = Pt(10.5); hr.font.color.rgb = S["heading_color"]
         if contact:
             cp = doc.add_paragraph(); cp.alignment = S["contact_align"]
             _sp(cp, after=6); cr = cp.add_run(contact)
@@ -474,6 +512,18 @@ def build_resume(resume, out_path, style=None):
         _heading(doc, "Certifications", S)
         for cert in resume["certifications"]:
             _bullet(doc, cert, S)
+
+    langs = _doc_languages(resume)
+    if langs:
+        _heading(doc, "Languages", S)
+        p = doc.add_paragraph(); _sp(p, after=2, line=1.2)
+        for i, (nm, lv) in enumerate(langs):
+            if i:
+                p.add_run("     ").font.size = Pt(S["base_size"])
+            r1 = p.add_run(nm); r1.font.size = Pt(S["base_size"])
+            if lv:
+                r2 = p.add_run(f"  {lv}"); r2.bold = True; r2.font.size = Pt(S["base_size"])
+                r2.font.color.rgb = S["heading_color"]
     doc.save(out_path); return out_path
 
 def build_cover_letter(letter, applicant_name, out_path, contact_line="", links=None, style=None):

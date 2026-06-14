@@ -60,8 +60,8 @@ FREE_LIMIT = int(os.environ.get("FREE_GENERATION_LIMIT", "2"))
 GENERATED_RETENTION_DAYS = int(os.environ.get("GENERATED_RETENTION_DAYS", "7"))
 
 # --- Document style gallery (drives docx_builder + the in-app editor) ---
-ALLOWED_TEMPLATES = {"editorial", "modern", "classic", "compact",
-                     "serif", "bold", "minimal", "sidebar"}
+ALLOWED_TEMPLATES = {"editorial", "classic", "serif", "minimal", "sidebar",
+                     "skyline", "executive", "aurora", "spotlight"}
 ALLOWED_FONTS = {"Calibri", "Georgia", "Arial", "Garamond", "Helvetica", "Times New Roman"}
 ALLOWED_DENSITY = {"comfortable", "compact"}
 _DEFAULT_DOC_STYLE = {
@@ -560,8 +560,17 @@ def _sanitize_resume(resume):
             "institution": _clean_str(ed.get("institution"), 200),
             "dates": _clean_str(ed.get("dates"), 120),
         })
+    languages = []
+    for lng in (resume.get("languages") or [])[:15]:
+        if isinstance(lng, dict) and _clean_str(lng.get("name"), 60):
+            languages.append({"name": _clean_str(lng.get("name"), 60),
+                              "level": _clean_str(lng.get("level"), 40)})
+        elif isinstance(lng, str) and lng.strip():
+            languages.append({"name": _clean_str(lng, 60), "level": ""})
     return {
         "name": _clean_str(resume.get("name"), 200),
+        "headline": _clean_str(resume.get("headline"), 200),
+        "languages": languages,
         "contact": {
             "email": _clean_str(contact.get("email"), 200),
             "phone": _clean_str(contact.get("phone"), 80),
