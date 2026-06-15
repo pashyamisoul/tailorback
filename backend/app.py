@@ -58,6 +58,8 @@ ALLOWED = {".pdf", ".docx"}
 MAX_BYTES = 8 * 1024 * 1024
 FREE_LIMIT = int(os.environ.get("FREE_GENERATION_LIMIT", "2"))
 GENERATED_RETENTION_DAYS = int(os.environ.get("GENERATED_RETENTION_DAYS", "7"))
+# After this many days, personal free-text in generation records is purged (GDPR).
+GENERATION_RETENTION_DAYS = int(os.environ.get("GENERATION_RETENTION_DAYS", "90"))
 
 # --- Document style gallery (drives docx_builder + the in-app editor) ---
 ALLOWED_TEMPLATES = {"editorial", "classic", "serif", "minimal", "sidebar",
@@ -462,6 +464,24 @@ def _cleanup_generated():
             pass
         db.session.delete(doc)
     db.session.commit()
+    _purge_old_generation_data()
+
+
+def _purge_old_generation_data():
+    """GDPR retention: after GENERATION_RETENTION_DAYS, strip the personal free
+    text (CV, job description, tailored documents) from old generation records,
+    keeping only the lightweight application-tracker fields (company/role/status).
+    Idempotent — only touches rows not already purged."""
+    cutoff = datetime.utcnow() - timedelta(days=GENERATION_RETENTION_DAYS)
+    try:
+        (db.session.query(GenerationRun)
+         .filter(GenerationRun.created_at < cutoff, GenerationRun.cv_text != "")
+         .update({GenerationRun.cv_text: "", GenerationRun.jd_text: "",
+                  GenerationRun.resume_json: None, GenerationRun.cover_letter_json: None,
+                  GenerationRun.analysis_json: None}, synchronize_session=False))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 
 import re as _re
