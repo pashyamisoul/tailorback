@@ -38,7 +38,11 @@
               </div>
               <div class="pro-buy">
                 <span>{{ pack.price }}</span>
-                {% if user_email %}
+                {% if not billing_enabled %}
+                <button type="button" class="buy-pack" disabled title="Purchases open soon">
+                  Soon
+                </button>
+                {% elif user_email %}
                 <button type="button" class="buy-pack" data-pack-id="{{ pack.id }}">
                   Buy
                 </button>

@@ -844,8 +844,18 @@ let currentJobId = null;
 
 const checkoutState = new URLSearchParams(window.location.search).get('checkout');
 if (checkoutState === 'success') {
-  toast('Payment received. Your credits will appear once Stripe confirms the checkout.');
+  toast('Payment received — adding your credits…');
   window.history.replaceState({}, document.title, window.location.pathname);
+  // Poll for the webhook-granted credits so the balance updates without a manual refresh.
+  (function pollCredits(tries) {
+    fetch('/api/account').then(r => r.ok ? r.json() : null).then(d => {
+      if (d && Number.isFinite(d.credits_remaining)) {
+        updateAccountCredits(d.credits_remaining, d.credits_limit);
+      }
+      if ((!d || !d.paid_credits) && tries < 10) setTimeout(() => pollCredits(tries + 1), 3000);
+      else if (d && d.paid_credits) toast('Credits added. Happy tailoring!');
+    }).catch(() => { if (tries < 10) setTimeout(() => pollCredits(tries + 1), 3000); });
+  })(0);
 } else if (checkoutState === 'cancelled') {
   toast('Checkout cancelled. No credits were purchased.', true);
   window.history.replaceState({}, document.title, window.location.pathname);
@@ -877,6 +887,18 @@ form.addEventListener('submit', async e => {
         if (data.field === 'jd') { setMode('jd', 'paste'); document.querySelector('[name=jd_text]').focus(); }
         if (data.field === 'cv') { setMode('cv', 'paste'); document.querySelector('[name=cv_text]').focus(); }
         toast(data.message, true);
+        return;
+      }
+      if (res.status === 402) {
+        // Out of credits — surface the buy options instead of dead-ending in a toast.
+        toast(data.message || "You're out of generations.", true);
+        const proPop = document.getElementById('proPopover');
+        const proTrig = document.getElementById('proTrigger');
+        if (proPop && proTrig) {
+          closeFloatingMenus('proPopover');
+          proPop.hidden = false;
+          proPop.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
         return;
       }
       toast(data.message || 'Something went wrong.', true);
