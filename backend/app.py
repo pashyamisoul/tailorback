@@ -1391,114 +1391,123 @@ def generate():
             yield f"data: {_json.dumps({'type': 'error', 'message': holder['error']})}\n\n"
             return
 
-        result = holder["result"]
-        provider, model_name = _model_from_stages(stages)
-        generation_seconds = round(time.perf_counter() - generation_started_at, 2)
-        analysis = scoring.score_resume(cv_text, jd_text, result.get("analysis", {}))
-        job_id = uuid.uuid4().hex[:10]
-        resume = result.get("resume", {})
-        # Re-score the tailored resume so the UI can show the before→after lift.
-        tailored_analysis = scoring.score_resume(_resume_to_text(resume), jd_text)
-        score_before = analysis.get("overall_score")
-        score_after = tailored_analysis.get("overall_score")
-
-        def _slug(*parts):
-            import re
-            out = []
-            for p in parts:
-                if not p:
-                    continue
-                s = re.sub(r"[^A-Za-z0-9]+", "-", str(p)).strip("-")
-                if s:
-                    out.append(s)
-            return "-".join(out)
-
-        _job = result.get("job", {}) or {}
-        _full = (resume.get("name", "") or "").strip()
-        _last = _full.split()[-1] if _full else ""
-        _stem = _slug(_last, _job.get("company")) or "tailorback"
-        resume_path = os.path.join(GENERATED, f"{job_id}__{_stem}_resume.docx")
-        cover_path = os.path.join(GENERATED, f"{job_id}__{_stem}_coverletter.docx")
-        on_status("building_documents")
-        docx_builder.build_resume(resume, resume_path)
-        _c = resume.get("contact", {}) or {}
-        _contact_line = "   •   ".join(
-            x for x in (_c.get("email"), _c.get("phone"), _c.get("location")) if x)
-        docx_builder.build_cover_letter(
-            result.get("cover_letter", {}), resume.get("name", ""), cover_path,
-            contact_line=_contact_line, links=_c.get("links") or [])
-        on_status("converting_documents")
-        resume_pdf, cover_pdf = _render_pdfs(resume, resume_path, cover_path)
-        for path in (resume_path, cover_path, resume_pdf, cover_pdf):
-            _register_generated_file(current_user, job_id, path)
-        run = GenerationRun(
-            job_id=job_id,
-            user_id=current_user.id,
-            jd_source_type="link" if (request.form.get("jd_url") or "").strip() else "paste",
-            jd_url=(request.form.get("jd_url") or "").strip() or None,
-            jd_text=jd_text,
-            cv_source_type="upload" if request.files.get("cv_file") else "paste",
-            cv_text=cv_text,
-            resume_json=_json.dumps(result.get("resume", {})),
-            cover_letter_json=_json.dumps(result.get("cover_letter", {})),
-            analysis_json=_json.dumps(analysis),
-            model_status=",".join(stages[-8:]),
-            model_provider=provider,
-            model_name=model_name,
-            generation_seconds=generation_seconds,
-            prompt_tokens=usage.get("prompt_tokens"),
-            completion_tokens=usage.get("completion_tokens"),
-            total_tokens=usage.get("total_tokens"),
-            est_cost_usd=usage.get("est_cost_usd"),
-            company=(_job.get("company") or None),
-            role=(_job.get("role") or None),
-            status="not_applied",
-        )
-        db.session.add(run)
-        db.session.commit()
-
-        # Charge the credit ONLY now that the result is fully built and saved.
-        # Doing it here (not earlier) means a refresh, disconnect, or failure
-        # mid-generation never costs a credit with nothing to show: a credit is
-        # spent if and only if a reopenable generation exists in the user's history.
         try:
-            current_user.generations_used += 1
+            result = holder["result"]
+            provider, model_name = _model_from_stages(stages)
+            generation_seconds = round(time.perf_counter() - generation_started_at, 2)
+            analysis = scoring.score_resume(cv_text, jd_text, result.get("analysis", {}))
+            job_id = uuid.uuid4().hex[:10]
+            resume = result.get("resume", {})
+            # Re-score the tailored resume so the UI can show the before→after lift.
+            tailored_analysis = scoring.score_resume(_resume_to_text(resume), jd_text)
+            score_before = analysis.get("overall_score")
+            score_after = tailored_analysis.get("overall_score")
+
+            def _slug(*parts):
+                import re
+                out = []
+                for p in parts:
+                    if not p:
+                        continue
+                    s = re.sub(r"[^A-Za-z0-9]+", "-", str(p)).strip("-")
+                    if s:
+                        out.append(s)
+                return "-".join(out)
+
+            _job = result.get("job", {}) or {}
+            _full = (resume.get("name", "") or "").strip()
+            _last = _full.split()[-1] if _full else ""
+            _stem = _slug(_last, _job.get("company")) or "tailorback"
+            resume_path = os.path.join(GENERATED, f"{job_id}__{_stem}_resume.docx")
+            cover_path = os.path.join(GENERATED, f"{job_id}__{_stem}_coverletter.docx")
+            on_status("building_documents")
+            docx_builder.build_resume(resume, resume_path)
+            _c = resume.get("contact", {}) or {}
+            _contact_line = "   •   ".join(
+                x for x in (_c.get("email"), _c.get("phone"), _c.get("location")) if x)
+            docx_builder.build_cover_letter(
+                result.get("cover_letter", {}), resume.get("name", ""), cover_path,
+                contact_line=_contact_line, links=_c.get("links") or [])
+            on_status("converting_documents")
+            resume_pdf, cover_pdf = _render_pdfs(resume, resume_path, cover_path)
+            for path in (resume_path, cover_path, resume_pdf, cover_pdf):
+                _register_generated_file(current_user, job_id, path)
+            run = GenerationRun(
+                job_id=job_id,
+                user_id=current_user.id,
+                jd_source_type="link" if (request.form.get("jd_url") or "").strip() else "paste",
+                jd_url=(request.form.get("jd_url") or "").strip() or None,
+                jd_text=jd_text,
+                cv_source_type="upload" if request.files.get("cv_file") else "paste",
+                cv_text=cv_text,
+                resume_json=_json.dumps(result.get("resume", {})),
+                cover_letter_json=_json.dumps(result.get("cover_letter", {})),
+                analysis_json=_json.dumps(analysis),
+                model_status=",".join(stages[-8:]),
+                model_provider=provider,
+                model_name=model_name,
+                generation_seconds=generation_seconds,
+                prompt_tokens=usage.get("prompt_tokens"),
+                completion_tokens=usage.get("completion_tokens"),
+                total_tokens=usage.get("total_tokens"),
+                est_cost_usd=usage.get("est_cost_usd"),
+                company=(_job.get("company") or None),
+                role=(_job.get("role") or None),
+                status="not_applied",
+            )
+            db.session.add(run)
             db.session.commit()
-        except Exception:
-            db.session.rollback()
-        credits = _credits_payload(current_user)
 
-        def _url(path):
-            return f"/download/{os.path.basename(path)}" if path else None
+            # Charge the credit ONLY now that the result is fully built and saved.
+            # Doing it here (not earlier) means a refresh, disconnect, or failure
+            # mid-generation never costs a credit with nothing to show: a credit is
+            # spent if and only if a reopenable generation exists in the user's history.
+            try:
+                current_user.generations_used += 1
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+            credits = _credits_payload(current_user)
 
-        payload = {
-            "type": "done",
-            "result": {
-                "status": "ok",
-                "resume_docx_url": _url(resume_path),
-                "cover_docx_url": _url(cover_path),
-                "resume_pdf_url": _url(resume_pdf),
-                "cover_pdf_url": _url(cover_pdf),
-                "job_id": job_id,
-                "expires_in_days": GENERATED_RETENTION_DAYS,
-                "gaps": result.get("gaps", []),
-                "match": result.get("match_summary", {}),
-                "analysis": analysis,
-                "score_before": score_before,
-                "score_after": score_after,
-                **credits,
-                "resume": resume,
-                "cover_letter": result.get("cover_letter", {}),
-                "job": _job,
-                "style": _DEFAULT_DOC_STYLE,
-                "preview": {
-                    "name": resume.get("name", ""),
-                    "summary": resume.get("summary", ""),
-                    "skills": resume.get("skills", []),
+            def _url(path):
+                return f"/download/{os.path.basename(path)}" if path else None
+
+            payload = {
+                "type": "done",
+                "result": {
+                    "status": "ok",
+                    "resume_docx_url": _url(resume_path),
+                    "cover_docx_url": _url(cover_path),
+                    "resume_pdf_url": _url(resume_pdf),
+                    "cover_pdf_url": _url(cover_pdf),
+                    "job_id": job_id,
+                    "expires_in_days": GENERATED_RETENTION_DAYS,
+                    "gaps": result.get("gaps", []),
+                    "match": result.get("match_summary", {}),
+                    "analysis": analysis,
+                    "score_before": score_before,
+                    "score_after": score_after,
+                    **credits,
+                    "resume": resume,
+                    "cover_letter": result.get("cover_letter", {}),
+                    "job": _job,
+                    "style": _DEFAULT_DOC_STYLE,
+                    "preview": {
+                        "name": resume.get("name", ""),
+                        "summary": resume.get("summary", ""),
+                        "skills": resume.get("skills", []),
+                    },
                 },
-            },
-        }
-        yield f"data: {_json.dumps(payload)}\n\n"
+            }
+            yield f"data: {_json.dumps(payload)}\n\n"
+        except Exception:
+            app.logger.exception("Post-generation processing failed")
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            yield f"data: {_json.dumps({'type': 'error', 'message': 'Something went wrong while building your documents. Please try again.'})}\n\n"
+            return
 
     return Response(stream_with_context(event_stream()),
                     mimetype="text/event-stream",
