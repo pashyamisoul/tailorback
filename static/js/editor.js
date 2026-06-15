@@ -82,14 +82,36 @@
   function markDirty() {
     ST.dirty = true;
     ST.exported = false;
-    setSaveState("Unsaved changes");
+    ST.draftSaved = false;
+    setSaveState("Saving…");
     scheduleRescore();
+    scheduleAutosave();
   }
 
-  // Warn before navigating away with unsaved edits (edits live in memory until
-  // a download/export persists them, so a refresh would otherwise lose them).
+  // ---- autosave: persist edits server-side so a refresh never loses them ----
+  let _autosaveTimer = null;
+  function scheduleAutosave() {
+    if (!ST.jobId) return;            // sample / unsaved generation: nothing to save
+    clearTimeout(_autosaveTimer);
+    _autosaveTimer = setTimeout(autosaveDraft, 1500);
+  }
+  async function autosaveDraft() {
+    if (!ST.jobId) return;
+    try {
+      const res = await fetch("/api/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: ST.jobId, resume: ST.resume,
+                               cover_letter: ST.cover, style: ST.style }),
+      });
+      if (res.ok) { ST.draftSaved = true; setSaveState("Saved", true); }
+      else { setSaveState("Unsaved changes"); }
+    } catch (e) { setSaveState("Unsaved changes"); }
+  }
+
+  // Warn before leaving only if there are edits not yet autosaved.
   window.addEventListener("beforeunload", (e) => {
-    if (ST.dirty && !ST.exported) { e.preventDefault(); e.returnValue = ""; }
+    if (ST.dirty && !ST.draftSaved) { e.preventDefault(); e.returnValue = ""; }
   });
 
   // ---- Phase 12: live re-scoring ------------------------------------------

@@ -1892,6 +1892,32 @@ def interview_prep():
     return jsonify({"status": "ok", "questions": questions})
 
 
+@app.route("/api/draft", methods=["POST"])
+@rate_limit(120, 600)
+def save_draft():
+    """Autosave edited content WITHOUT rebuilding documents (cheap), so a refresh
+    or closed tab never loses edits — reopening the generation restores them.
+    Owner-scoped; no credit cost."""
+    current_user = _current_user()
+    if not current_user:
+        return jsonify({"status": "error", "message": "Please sign in."}), 401
+    data = request.get_json(silent=True) or {}
+    job_id = (data.get("job_id") or "").strip()
+    run = GenerationRun.query.filter_by(job_id=job_id, user_id=current_user.id).first()
+    if not run:
+        return jsonify({"status": "error", "message": "Unknown document."}), 404
+    try:
+        run.resume_json = _json.dumps(_sanitize_resume(data.get("resume")))
+        run.cover_letter_json = _json.dumps(_sanitize_cover(data.get("cover_letter")))
+        run.style_json = _json.dumps(_sanitize_style(data.get("style")))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Draft save failed")
+        return jsonify({"status": "error", "message": "Could not save."}), 500
+    return jsonify({"status": "ok"})
+
+
 @app.route("/api/export", methods=["POST"])
 def export_documents():
     """Rebuild resume + cover-letter docx/pdf from edited content and a chosen
@@ -2570,6 +2596,10 @@ def _security_headers(resp):
     # left to the production reverse proxy so they can't break local previews.
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
     resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    # Force static JS/CSS to revalidate so a deploy's frontend changes reach users
+    # immediately (ETag makes this a cheap 304 when unchanged) — no stale app.js.
+    if request.path.startswith("/static/"):
+        resp.headers["Cache-Control"] = "no-cache"
     return resp
 
 
