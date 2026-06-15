@@ -1104,6 +1104,10 @@ def auth_signup_email():
     db.session.add(user)
     db.session.commit()
     activation_url = _send_activation_email(user)
+    # Remember which email this browser is awaiting activation for, so the
+    # "check your email" screen can poll and auto-advance once it's activated
+    # (even when the link is opened on another device).
+    session["pending_activation_email"] = user.email
     payload = {
         "status": "verification_required",
         "message": "Account created. Check your email to activate your account.",
@@ -1111,6 +1115,21 @@ def auth_signup_email():
     if os.environ.get("FLASK_ENV") != "production":
         payload["activation_url"] = activation_url
     return jsonify(payload)
+
+
+@app.route("/api/auth/activation-status")
+def activation_status():
+    """Poll target for the 'check your email' screen: has the account this
+    browser just signed up with been activated yet (possibly on another device)?
+    Reads the email from the session, so it can't be used to probe other emails."""
+    email = session.get("pending_activation_email")
+    if not email:
+        return jsonify({"activated": False})
+    user = User.query.filter_by(email=email).first()
+    if user and user.email_verified:
+        session.pop("pending_activation_email", None)
+        return jsonify({"activated": True, "email": email})
+    return jsonify({"activated": False})
 
 
 @app.route("/auth/activate/<token>")

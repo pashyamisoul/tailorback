@@ -124,6 +124,7 @@ function openModal(modal) {
 function closeModal(modal) {
   if (!modal) return;
   modal.classList.add('hidden');
+  if (typeof stopActivationPoll === 'function') stopActivationPoll();
   if (_modalLastFocus && typeof _modalLastFocus.focus === 'function') {
     _modalLastFocus.focus();
   }
@@ -159,6 +160,7 @@ function switchAuthTab(tab) {
   document.getElementById('forgotForm')?.classList.remove('hidden');
   document.getElementById('forgotCheck')?.classList.add('hidden');
   document.getElementById('signupForm')?.reset?.();
+  if (tab !== 'signup' && typeof stopActivationPoll === 'function') stopActivationPoll();
 }
 
 // Forgot-password: request a reset link.
@@ -226,6 +228,20 @@ function showSignedInUi(user) {
   window.location.reload();
 }
 
+let _activationPoll = null;
+function stopActivationPoll() {
+  if (_activationPoll) { clearInterval(_activationPoll); _activationPoll = null; }
+}
+function onAccountActivated(email) {
+  stopActivationPoll();
+  switchAuthTab('signin');   // also resets the signup view
+  const emailInput = document.querySelector('#signinForm input[name="email"]');
+  if (emailInput && email) emailInput.value = email;
+  document.querySelector('#signinForm input[name="password"]')?.focus();
+  if (typeof authModal !== 'undefined' && authModal) openModal(authModal);
+  toast('Your account is activated! Sign in to continue.');
+}
+
 function showActivationNotice(data) {
   switchAuthTab('signup');
   signupForm?.classList.add('hidden');
@@ -234,6 +250,16 @@ function showActivationNotice(data) {
     devActivationLink.href = data.activation_url;
     devActivationLink.classList.remove('hidden');
   }
+  // Poll so this screen auto-advances once the account is activated — even when
+  // the activation link is opened on a different device (phone).
+  stopActivationPoll();
+  _activationPoll = setInterval(async () => {
+    try {
+      const r = await fetch('/api/auth/activation-status', { headers: { Accept: 'application/json' } });
+      const d = await r.json().catch(() => ({}));
+      if (d && d.activated) onAccountActivated(d.email || '');
+    } catch (_) { /* keep polling */ }
+  }, 4000);
 }
 
 document.getElementById('openSignin')?.addEventListener('click', () => openAuth('signin'));
