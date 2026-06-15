@@ -771,6 +771,33 @@ def rate_limit(max_calls, per_seconds):
     return decorator
 
 
+# --- CSRF: same-origin enforcement on state-changing requests ----------------
+# The frontend is same-origin fetch/forms, so a cross-site attacker page cannot
+# set a matching Origin/Referer. Server-to-server POSTs (Stripe webhook) are
+# exempt — they carry their own signature verification instead.
+_CSRF_EXEMPT_PATHS = {"/stripe/webhook"}
+
+
+@app.before_request
+def _csrf_protect():
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return
+    if request.path in _CSRF_EXEMPT_PATHS:
+        return
+    from urllib.parse import urlparse
+    host = request.host
+    origin = request.headers.get("Origin")
+    if origin:
+        if urlparse(origin).netloc != host:
+            abort(403)
+        return
+    referer = request.headers.get("Referer")
+    if referer and urlparse(referer).netloc == host:
+        return
+    # No trustworthy same-origin signal on a mutating request — reject.
+    abort(403)
+
+
 def _mail_configured():
     """True when an email transport is available (Resend API key or SMTP host)."""
     sp = os.environ.get("SMTP_PASSWORD") or ""
@@ -2051,10 +2078,21 @@ def _admin_ok():
     return bool(session.get("admin_ok"))
 
 
+_DEFAULT_ADMIN_PASSWORD = "tailorback-admin"
+
+
 @app.route("/admin", methods=["GET", "POST"])
+@rate_limit(8, 900)   # throttle brute-force on the admin login
 def admin_portal():
     admin_user = os.environ.get("TAILORBACK_ADMIN_USER", "admin")
-    admin_password = os.environ.get("TAILORBACK_ADMIN_PASSWORD", "tailorback-admin")
+    admin_password = os.environ.get("TAILORBACK_ADMIN_PASSWORD", _DEFAULT_ADMIN_PASSWORD)
+    # SECURITY: never expose the admin panel with the default password in
+    # production. If the operator hasn't set a real password, lock it out.
+    if os.environ.get("FLASK_ENV") == "production" and (
+            not os.environ.get("TAILORBACK_ADMIN_PASSWORD")
+            or admin_password == _DEFAULT_ADMIN_PASSWORD):
+        app.logger.error("Admin portal disabled: TAILORBACK_ADMIN_PASSWORD not set in production.")
+        abort(503)
     error = None
     if request.method == "POST":
         username = (request.form.get("username") or "").strip()
@@ -2062,6 +2100,7 @@ def admin_portal():
         if hmac.compare_digest(username, admin_user) and hmac.compare_digest(password, admin_password):
             session["admin_ok"] = True
             return redirect(url_for("admin_portal"))
+        app.logger.warning("Failed admin login attempt from %s", _rl_identity())
         error = "Invalid admin credentials."
     if not _admin_ok():
         return render_template("admin_login.html", error=error)
