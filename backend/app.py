@@ -21,6 +21,7 @@ import threading
 import queue as _queue
 import hashlib
 import hmac
+import secrets
 import time
 from datetime import datetime, timedelta
 
@@ -773,7 +774,7 @@ def _safe_user_payload(user):
 
 
 def _make_email_verification_token():
-    return uuid.uuid4().hex + uuid.uuid4().hex
+    return secrets.token_urlsafe(32)
 
 
 # ---- lightweight in-memory rate limiting (single-instance friendly) ----
@@ -915,7 +916,8 @@ def _send_activation_email(user):
             app.logger.exception("Failed to send activation email to %s", user.email)
     else:
         # No mail provider configured: log the link so dev/self-host can still activate.
-        app.logger.warning("SMTP not configured; activation link for %s: %s", user.email, activation_url)
+        if os.environ.get("FLASK_ENV") != "production":
+            app.logger.warning("SMTP not configured; activation link for %s: %s", user.email, activation_url)
     return activation_url
 
 
@@ -935,7 +937,8 @@ def _send_password_reset_email(user):
         except Exception:
             app.logger.exception("Failed to send password reset email to %s", user.email)
     else:
-        app.logger.warning("SMTP not configured; reset link for %s: %s", user.email, reset_url)
+        if os.environ.get("FLASK_ENV") != "production":
+            app.logger.warning("SMTP not configured; reset link for %s: %s", user.email, reset_url)
     return reset_url
 
 
@@ -1155,8 +1158,8 @@ def auth_signup_email():
         return jsonify({"status": "error", "message": "Enter your full name."}), 400
     if not email or "@" not in email:
         return jsonify({"status": "error", "message": "Enter a valid email address."}), 400
-    if len(password) < 8:
-        return jsonify({"status": "error", "message": "Password must be at least 8 characters."}), 400
+    if not (8 <= len(password) <= 128):
+        return jsonify({"status": "error", "message": "Password must be 8 to 128 characters."}), 400
     if password != repeat:
         return jsonify({"status": "error", "message": "Passwords do not match."}), 400
     if not data.get("agree_terms"):
@@ -1290,9 +1293,9 @@ def auth_reset_password():
     data = request.get_json(silent=True) or {}
     token = (data.get("token") or "").strip()
     password = data.get("password") or ""
-    if len(password) < 8:
+    if not (8 <= len(password) <= 128):
         return jsonify({"status": "error",
-                        "message": "Password must be at least 8 characters."}), 400
+                        "message": "Password must be 8 to 128 characters."}), 400
     user = User.query.filter_by(password_reset_token=token).first() if token else None
     if not user or not user.password_reset_expires or user.password_reset_expires < datetime.utcnow():
         return jsonify({"status": "error",
@@ -1303,6 +1306,7 @@ def auth_reset_password():
     user.email_verified = True  # completing reset proves they control the inbox
     db.session.commit()
     app.logger.info("Password reset completed for %s", user.email)
+    _send_password_changed_email(user)   # security notice (same as the in-app change)
     return jsonify({"status": "ok",
                     "message": "Your password has been reset. You can now sign in."})
 
@@ -1945,8 +1949,8 @@ def change_account_password():
     repeat_password = data.get("repeat_password") or ""
     if not check_password_hash(current_user.password_hash, current_password):
         return jsonify({"status": "error", "message": "Current password is incorrect."}), 401
-    if len(new_password) < 8:
-        return jsonify({"status": "error", "message": "New password must be at least 8 characters."}), 400
+    if not (8 <= len(new_password) <= 128):
+        return jsonify({"status": "error", "message": "New password must be 8 to 128 characters."}), 400
     if new_password != repeat_password:
         return jsonify({"status": "error", "message": "New passwords do not match."}), 400
     if check_password_hash(current_user.password_hash, new_password):
@@ -2541,4 +2545,4 @@ def _security_headers(resp):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=os.environ.get("FLASK_DEBUG") == "1", port=5000)

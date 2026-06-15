@@ -86,6 +86,12 @@
     scheduleRescore();
   }
 
+  // Warn before navigating away with unsaved edits (edits live in memory until
+  // a download/export persists them, so a refresh would otherwise lose them).
+  window.addEventListener("beforeunload", (e) => {
+    if (ST.dirty && !ST.exported) { e.preventDefault(); e.returnValue = ""; }
+  });
+
   // ---- Phase 12: live re-scoring ------------------------------------------
   let _rescoreTimer = null;
   function scheduleRescore() {
