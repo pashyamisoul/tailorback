@@ -1121,7 +1121,7 @@ def activate_email(token):
     user.email_verified = True
     user.email_verification_token = None
     db.session.commit()
-    _login_user(user)
+    # Do NOT auto-login: send the user to the sign-in screen with a confirmation.
     return redirect(url_for("index", auth="activated"))
 
 

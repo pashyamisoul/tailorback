@@ -430,8 +430,13 @@ signupForm?.addEventListener('submit', async e => {
 
 const authState = new URLSearchParams(window.location.search).get('auth');
 if (authState === 'activated') {
-  toast('Account activated. You are signed in.');
   window.history.replaceState({}, document.title, window.location.pathname);
+  toast('Your account is activated! Please sign in.');
+  // Open the sign-in form so the user can log in right away.
+  if (typeof authModal !== 'undefined' && authModal) {
+    openModal(authModal);
+    switchAuthTab('signin');
+  }
 } else if (authState === 'invalid_activation') {
   toast('That activation link is invalid or has already been used.', true);
   window.history.replaceState({}, document.title, window.location.pathname);
