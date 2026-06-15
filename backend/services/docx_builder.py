@@ -379,9 +379,13 @@ def _build_resume_sidebar(resume, doc, S):
     c = resume.get("contact", {}) or {}
 
     # ---- left column ----
-    np = left.paragraphs[0]; _sp(np, after=5)
+    np = left.paragraphs[0]; _sp(np, after=2 if (resume.get("headline") or "").strip() else 5)
     nr = np.add_run((resume.get("name", "") or "").upper())
     nr.bold = True; nr.font.size = Pt(S["name_size"]); nr.font.color.rgb = BLACK; _track(nr, TRACK_NAME)
+    headline = (resume.get("headline") or "").strip()
+    if headline:
+        hp = left.add_paragraph(); _sp(hp, after=5)
+        hr = hp.add_run(headline); hr.font.size = Pt(9); hr.bold = True; hr.font.color.rgb = S["heading_color"]
     for v in [c.get("email"), c.get("phone"), c.get("location"), *(c.get("links") or [])]:
         if v:
             cp = left.add_paragraph(); _sp(cp, after=1, line=1.05)
@@ -410,6 +414,15 @@ def _build_resume_sidebar(resume, doc, S):
         for cert in resume["certifications"]:
             cp = left.add_paragraph(); _sp(cp, after=2)
             cp.add_run(cert).font.size = Pt(9)
+
+    langs = _doc_languages(resume)
+    if langs:
+        _cell_heading(left, "Languages", S)
+        for nm, lv in langs:
+            lp = left.add_paragraph(); _sp(lp, after=1)
+            lr = lp.add_run(nm); lr.font.size = Pt(9)
+            if lv:
+                vr = lp.add_run(f" — {lv}"); vr.font.size = Pt(8.5); vr.font.color.rgb = GREY
 
     # ---- right column ----
     first = True
