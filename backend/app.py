@@ -124,6 +124,9 @@ if not app.secret_key:
         raise RuntimeError("FLASK_SECRET_KEY must be set in production.")
     app.secret_key = "dev-only-change-me"
 
+# Sessions expire after 14 days of issuance (logins are marked permanent).
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=14)
+
 # --- Production hardening: trust the platform's TLS proxy + secure cookies ---
 if os.environ.get("FLASK_ENV") == "production":
     from werkzeug.middleware.proxy_fix import ProxyFix
@@ -157,6 +160,8 @@ class User(db.Model):
     email_verification_token = db.Column(db.String(64), unique=True, nullable=True)
     password_reset_token = db.Column(db.String(128), unique=True, nullable=True)
     password_reset_expires = db.Column(db.DateTime, nullable=True)
+    # Bumped on password change/reset to invalidate all existing sessions.
+    session_version = db.Column(db.Integer, default=0, nullable=False)
     country = db.Column(db.String(120), nullable=True)
     zip_code = db.Column(db.String(32), nullable=True)
     current_pack = db.Column(db.String(64), nullable=True)
@@ -266,6 +271,7 @@ def _ensure_schema():
             "email_verification_token": "VARCHAR(64)",
             "password_reset_token": "VARCHAR(128)",
             "password_reset_expires": "DATETIME",
+            "session_version": "INTEGER DEFAULT 0",
             "country": "VARCHAR(120)",
             "zip_code": "VARCHAR(32)",
             "current_pack": "VARCHAR(64)",
@@ -309,6 +315,10 @@ def _ensure_schema_postgres():
     widen = {
         "generation_run": ["model_status"],
     }
+    # New columns added after the table already existed in production.
+    add_columns = {
+        "user": [("session_version", "INTEGER NOT NULL DEFAULT 0")],
+    }
     with db.engine.connect() as conn:
         for table, cols in widen.items():
             for col in cols:
@@ -319,6 +329,14 @@ def _ensure_schema_postgres():
                 if row and row[0] != "text":
                     conn.exec_driver_sql(
                         f"ALTER TABLE {table} ALTER COLUMN {col} TYPE TEXT")
+        for table, cols in add_columns.items():
+            for col, ddl in cols:
+                exists = conn.exec_driver_sql(
+                    "SELECT 1 FROM information_schema.columns "
+                    f"WHERE table_name = '{table}' AND column_name = '{col}'"
+                ).fetchone()
+                if not exists:
+                    conn.exec_driver_sql(f'ALTER TABLE "{table}" ADD COLUMN {col} {ddl}')
         conn.commit()
 
 
@@ -380,6 +398,12 @@ def _current_user():
     user = db.session.get(User, uid)
     if not user:
         session.clear()
+        return None
+    # Session invalidation: a password change/reset bumps session_version, so
+    # cookies issued before it (including a stolen one) stop authenticating.
+    if session.get("sv") != (user.session_version or 0):
+        session.clear()
+        return None
     return user
 
 
@@ -743,6 +767,8 @@ def _credit_pack(pack_id):
 def _login_user(user):
     session["user_id"] = user.id
     session["email"] = user.email
+    session["sv"] = user.session_version or 0
+    session.permanent = True
 
 
 def _display_name(user):
@@ -1304,6 +1330,7 @@ def auth_reset_password():
     user.password_reset_token = None
     user.password_reset_expires = None
     user.email_verified = True  # completing reset proves they control the inbox
+    user.session_version = (user.session_version or 0) + 1  # invalidate any existing sessions
     db.session.commit()
     app.logger.info("Password reset completed for %s", user.email)
     _send_password_changed_email(user)   # security notice (same as the in-app change)
@@ -1956,7 +1983,9 @@ def change_account_password():
     if check_password_hash(current_user.password_hash, new_password):
         return jsonify({"status": "error", "message": "Choose a new password that is different."}), 400
     current_user.password_hash = generate_password_hash(new_password, method="pbkdf2:sha256")
+    current_user.session_version = (current_user.session_version or 0) + 1  # invalidate other sessions
     db.session.commit()
+    session["sv"] = current_user.session_version   # keep THIS session valid
     _send_password_changed_email(current_user)
     return jsonify({"status": "ok", "message": "Password updated."})
 
