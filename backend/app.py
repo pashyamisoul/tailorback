@@ -1818,6 +1818,26 @@ def account_summary():
     return jsonify({"status": "ok", "user": _safe_user_payload(current_user)})
 
 
+def _send_password_changed_email(user):
+    """Security notice sent after a password change (from noreply@tailorback.com)."""
+    first = (user.full_name or "").split()[0] if user.full_name else ""
+    body = (
+        f"Hi{(' ' + first) if first else ''},\n\n"
+        "The password for your TailorBack account was just changed.\n\n"
+        "If this was you, no action is needed.\n"
+        "If you did NOT make this change, reset your password right away from the "
+        "sign-in screen (\"Forgot password?\") and let us know at "
+        f"{OPERATOR_EMAIL}.\n\n"
+        "— TailorBack"
+    )
+    if _mail_configured():
+        try:
+            _smtp_send(user.email, "Your TailorBack password was changed", body)
+            app.logger.info("Password-changed email sent to %s", user.email)
+        except Exception:
+            app.logger.exception("Failed to send password-changed email to %s", user.email)
+
+
 @app.route("/api/account/password", methods=["POST"])
 def change_account_password():
     current_user = _current_user()
@@ -1842,6 +1862,7 @@ def change_account_password():
         return jsonify({"status": "error", "message": "Choose a new password that is different."}), 400
     current_user.password_hash = generate_password_hash(new_password, method="pbkdf2:sha256")
     db.session.commit()
+    _send_password_changed_email(current_user)
     return jsonify({"status": "ok", "message": "Password updated."})
 
 
