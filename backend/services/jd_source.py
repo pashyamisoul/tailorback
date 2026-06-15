@@ -15,6 +15,8 @@ We attempt a plain fetch only and expect to fall back. We do NOT try to defeat
 their bot protection.
 """
 from urllib.parse import urlparse
+import ipaddress
+import socket
 import httpx
 import trafilatura
 
@@ -34,9 +36,45 @@ def _domain(url: str) -> str:
     return urlparse(url).netloc.lower()
 
 
+def _is_public_url(url: str) -> bool:
+    """SSRF guard: only allow fetching public http(s) hosts. Rejects non-http(s)
+    schemes and any hostname that resolves to a private/loopback/link-local/
+    reserved address (e.g. cloud metadata 169.254.169.254, 127.0.0.1, 10.x)."""
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False
+    if parsed.scheme not in ("http", "https"):
+        return False
+    host = parsed.hostname
+    if not host:
+        return False
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except Exception:
+        return False
+    for info in infos:
+        addr = info[4][0]
+        try:
+            ip = ipaddress.ip_address(addr)
+        except ValueError:
+            return False
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+            return False
+    return True
+
+
 def _simple_fetch(url: str) -> str | None:
     try:
-        r = httpx.get(url, headers={"User-Agent": UA}, follow_redirects=True, timeout=15)
+        # No auto-redirects: a public URL must not bounce us to an internal host.
+        r = httpx.get(url, headers={"User-Agent": UA}, follow_redirects=False, timeout=15)
+        if r.is_redirect:
+            target = str(r.headers.get("location") or "")
+            if target and _is_public_url(target):
+                r = httpx.get(target, headers={"User-Agent": UA}, follow_redirects=False, timeout=15)
+            else:
+                return None
         if r.status_code == 200 and r.text:
             return r.text
     except Exception:
@@ -117,6 +155,8 @@ def fetch_jd(url: str) -> tuple[str, bool]:
     Return (jd_text, ok). ok=False means the caller should ask the user to
     paste the description instead.
     """
+    if not _is_public_url(url):
+        return "", False
     domain = _domain(url)
 
     # LinkedIn / Indeed: attempt simple fetch only; expect to fall back.
