@@ -332,6 +332,31 @@ def _paid_credits(user):
     return int(total or 0)
 
 
+def _reserve_generation(user):
+    """Atomically claim one generation credit. Concurrency-safe: a conditional
+    UPDATE prevents two simultaneous requests both spending the last credit.
+    Returns True if a credit was reserved, False if out of credits."""
+    limit = FREE_LIMIT + _paid_credits(user)
+    updated = (db.session.query(User)
+               .filter(User.id == user.id, User.generations_used < limit)
+               .update({User.generations_used: User.generations_used + 1},
+                       synchronize_session=False))
+    db.session.commit()
+    if updated:
+        db.session.refresh(user)
+        return True
+    return False
+
+
+def _refund_generation(user):
+    """Give back a reserved credit when a generation fails."""
+    (db.session.query(User)
+     .filter(User.id == user.id, User.generations_used > 0)
+     .update({User.generations_used: User.generations_used - 1}, synchronize_session=False))
+    db.session.commit()
+    db.session.refresh(user)
+
+
 def _credits_payload(user):
     used = user.generations_used if user else 0
     paid = _paid_credits(user)
@@ -1359,6 +1384,14 @@ def generate():
                         "message": "Server missing an LLM API key. Add OPENAI_API_KEY, "
                                    "GEMINI_API_KEY, or ANTHROPIC_API_KEY."}), 500
 
+    # Reserve one credit atomically now (inputs are valid). This is the real
+    # concurrency-safe gate — the check above is just a fast pre-filter. The
+    # credit is refunded inside the stream if generation fails.
+    if not _reserve_generation(current_user):
+        return jsonify({"status": "error",
+                        "message": "You're out of generations. Buy a credit pack to keep tailoring.",
+                        **_credits_payload(current_user)}), 402
+
     def event_stream():
         q = _queue.Queue()
         stages = []
@@ -1392,6 +1425,7 @@ def generate():
         t.join()
 
         if "error" in holder:
+            _refund_generation(current_user)   # generation failed — give the credit back
             yield f"data: {_json.dumps({'type': 'error', 'message': holder['error']})}\n\n"
             return
 
@@ -1462,15 +1496,8 @@ def generate():
             db.session.add(run)
             db.session.commit()
 
-            # Charge the credit ONLY now that the result is fully built and saved.
-            # Doing it here (not earlier) means a refresh, disconnect, or failure
-            # mid-generation never costs a credit with nothing to show: a credit is
-            # spent if and only if a reopenable generation exists in the user's history.
-            try:
-                current_user.generations_used += 1
-                db.session.commit()
-            except Exception:
-                db.session.rollback()
+            # The credit was already reserved atomically before generation started
+            # (refunded on failure), so nothing to charge here.
             credits = _credits_payload(current_user)
 
             def _url(path):
@@ -1510,6 +1537,7 @@ def generate():
                 db.session.rollback()
             except Exception:
                 pass
+            _refund_generation(current_user)   # nothing usable was saved — refund
             yield f"data: {_json.dumps({'type': 'error', 'message': 'Something went wrong while building your documents. Please try again.'})}\n\n"
             return
 
