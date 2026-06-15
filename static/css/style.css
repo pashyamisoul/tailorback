@@ -944,6 +944,20 @@ html[data-theme="terminal"] .go .gicon { display: none; }
   text-decoration: none;
   font-weight: 800;
 }
+.auth-go-signin {
+  display: block;
+  width: 100%;
+  margin-top: .85rem;
+  padding: .7rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: #f4f0ea;
+  color: #201f1d;
+  font-weight: 800;
+  font-size: .95rem;
+  cursor: pointer;
+}
+.auth-go-signin:hover { background: #fff; }
 .history-card { max-width: 900px; }
 .account-profile {
   display: flex;
