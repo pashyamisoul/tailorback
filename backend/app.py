@@ -771,16 +771,42 @@ def rate_limit(max_calls, per_seconds):
     return decorator
 
 
+def _mail_configured():
+    """True when an email transport is available (Resend API key or SMTP host)."""
+    sp = os.environ.get("SMTP_PASSWORD") or ""
+    return bool(os.environ.get("RESEND_API_KEY") or sp.startswith("re_")
+                or os.environ.get("SMTP_HOST"))
+
+
 def _smtp_send(to_email, subject, body):
-    """Send a plain-text email via SMTP using env config. Raises on failure."""
+    """Send a plain-text email. Prefers the Resend HTTPS API because PaaS hosts
+    (Render, Heroku, ...) block outbound SMTP ports (25/465/587). Falls back to
+    SMTP only when no Resend key is present (local dev). Raises on failure."""
+    sender = os.environ.get("SMTP_FROM") or "noreply@tailorback.com"
+    from_name = os.environ.get("SMTP_FROM_NAME", "TailorBack")
+    from_header = f"{from_name} <{sender}>" if from_name else sender
+    # Resend API key may be set explicitly, or reused from SMTP_PASSWORD (re_...).
+    sp = os.environ.get("SMTP_PASSWORD") or ""
+    resend_key = os.environ.get("RESEND_API_KEY") or (sp if sp.startswith("re_") else None)
+    if resend_key:
+        import requests
+        resp = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {resend_key}"},
+            json={"from": from_header, "to": [to_email], "subject": subject,
+                  "text": body, "reply_to": OPERATOR_EMAIL},
+            timeout=20)
+        if resp.status_code >= 300:
+            raise RuntimeError(f"Resend API {resp.status_code}: {resp.text[:300]}")
+        return
+
+    # --- SMTP fallback (local dev / self-hosted relay) ---
     import smtplib
     from email.message import EmailMessage
     host = os.environ["SMTP_HOST"]
     port = int(os.environ.get("SMTP_PORT", "587"))
     user = os.environ.get("SMTP_USER")
     password = os.environ.get("SMTP_PASSWORD")
-    sender = os.environ.get("SMTP_FROM") or user or "noreply@tailorback.com"
-    from_name = os.environ.get("SMTP_FROM_NAME", "TailorBack")
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = f"{from_name} <{sender}>" if from_name else sender
@@ -809,7 +835,7 @@ def _send_activation_email(user):
         "If you did not sign up, you can ignore this email.\n\n"
         f"Need help? Email us at {OPERATOR_EMAIL}."
     )
-    if os.environ.get("SMTP_HOST"):
+    if _mail_configured():
         try:
             _smtp_send(user.email, "Activate your TailorBack account", body)
             app.logger.info("Activation email sent to %s", user.email)
@@ -830,7 +856,7 @@ def _send_password_reset_email(user):
         "If you did not request this, ignore this email, your password will not change.\n\n"
         f"Need help? Email us at {OPERATOR_EMAIL}."
     )
-    if os.environ.get("SMTP_HOST"):
+    if _mail_configured():
         try:
             _smtp_send(user.email, "Reset your TailorBack password", body)
             app.logger.info("Password reset email sent to %s", user.email)
@@ -1150,7 +1176,7 @@ def auth_forgot_password():
         db.session.commit()
         reset_url = _send_password_reset_email(user)
         # Dev convenience: when no mailer is configured, surface the link.
-        if not os.environ.get("SMTP_HOST") and os.environ.get("FLASK_ENV") != "production":
+        if not _mail_configured() and os.environ.get("FLASK_ENV") != "production":
             return jsonify({**generic, "reset_url": reset_url})
     return jsonify(generic)
 
