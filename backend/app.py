@@ -1668,6 +1668,7 @@ def delete_generated(job_id):
 
 
 @app.route("/api/refine", methods=["POST"])
+@rate_limit(40, 600)   # generous for real editing; blocks scripted LLM-spend abuse
 def refine_section():
     """Regenerate a single resume/cover-letter section. Does not consume credits —
     iterating on a generation you already paid for stays free."""
@@ -1708,6 +1709,7 @@ def refine_section():
 
 
 @app.route("/api/writing-check", methods=["POST"])
+@rate_limit(20, 600)
 def writing_check():
     """Phase 9: grammar / writing-quality suggestions for the resume. Free."""
     current_user = _current_user()
@@ -1760,6 +1762,7 @@ def rescore():
 
 
 @app.route("/api/interview-prep", methods=["POST"])
+@rate_limit(20, 600)
 def interview_prep():
     """Phase 11: likely interview questions for a past generation. Owner-scoped, free."""
     current_user = _current_user()
