@@ -837,7 +837,11 @@
     if (contact.length) push(contact.join("  |  "));
     if (links.length) push(links.join("  |  "));
     if (r.summary) { push(""); push("SUMMARY"); push(r.summary); }
-    if ((r.skills || []).length) { push(""); push("SKILLS"); push(r.skills.join(", ")); }
+    const skillGs = skillGroups(r.skills);
+    if (skillGs.length) {
+      push(""); push("SKILLS");
+      skillGs.forEach(g => push((g.category ? g.category + ": " : "") + (g.items || []).join(", ")));
+    }
     if ((r.experience || []).length) {
       push(""); push("EXPERIENCE");
       r.experience.forEach(x => {

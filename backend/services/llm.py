@@ -89,21 +89,33 @@ def _json_call(system: str, user: str, max_retries: int = 2, on_status=None, usa
         if on_status:
             on_status(stage)
 
+    has_gemini = bool(os.environ.get("GEMINI_API_KEY"))
+    has_claude = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    last_err = None
+
     if os.environ.get("OPENAI_API_KEY"):
         try:
             return _openai_call(system, user, on_status=on_status, usage_sink=usage_sink)
-        except Exception:
-            _say("switching_to_gemini")
+        except Exception as exc:
+            last_err = exc
+            _say("switching_to_gemini" if has_gemini else "switching_to_claude")
 
-    if os.environ.get("GEMINI_API_KEY"):
+    if has_gemini:
         try:
             return _gemini_call(system, user, max_retries=max_retries, on_status=on_status, usage_sink=usage_sink)
-        except Exception:
-            if not os.environ.get("ANTHROPIC_API_KEY"):
-                raise
-            _say("switching_to_claude")
+        except Exception as exc:
+            last_err = exc
+            if has_claude:
+                _say("switching_to_claude")
 
-    return _claude_call(system, user, on_status=on_status, usage_sink=usage_sink)
+    if has_claude:
+        try:
+            return _claude_call(system, user, on_status=on_status, usage_sink=usage_sink)
+        except Exception as exc:
+            last_err = exc
+
+    # Every configured provider failed (or none configured) — surface the real error.
+    raise last_err or RuntimeError("No LLM provider is configured.")
 
 
 def _parse_json_text(raw: str) -> dict:
@@ -137,7 +149,7 @@ def _openai_call(system: str, user: str, max_retries: int = 2, on_status=None, u
         "instructions": system + "\n\nRespond with ONLY valid JSON.",
         "input": user,
         "temperature": 0,
-        "max_output_tokens": 8000,
+        "max_output_tokens": 16000,   # one call does resume+cover+gaps+analysis; avoid truncation
         "text": {"format": {"type": "json_object"}},
     }
     headers = {
@@ -212,7 +224,7 @@ def _claude_call(system: str, user: str, max_retries: int = 3, on_status=None, u
     """Fallback engine: Claude Opus 4.8. Same JSON-in/JSON-out contract."""
     body = {
         "model": CLAUDE_MODEL,
-        "max_tokens": 8000,
+        "max_tokens": 16000,
         "system": system + "\n\nRespond with ONLY valid JSON, no markdown fences.",
         "messages": [{"role": "user", "content": user}],
     }

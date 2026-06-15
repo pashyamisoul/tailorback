@@ -1046,6 +1046,10 @@ def auth_google_callback():
     sub = info.get("sub")
     if not email:
         return "Login failed: no email returned.", 400
+    # Only trust a Google-verified email — otherwise it could be used to link to
+    # or hijack an existing email/password account with the same address.
+    if info.get("email_verified") is False:
+        return "Login failed: your Google email is not verified.", 400
     user = User.query.filter_by(email=email).first()
     if not user:
         user = User(
