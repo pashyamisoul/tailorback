@@ -152,6 +152,13 @@ function switchAuthTab(tab) {
   signinView?.classList.toggle('hidden', tab !== 'signin');
   signupView?.classList.toggle('hidden', tab !== 'signup');
   forgotView?.classList.toggle('hidden', tab !== 'forgot');
+  // Reset transient "check your email" confirmations so the forms show fresh
+  // when the user navigates back (otherwise signup stays stuck on the check).
+  document.getElementById('signupForm')?.classList.remove('hidden');
+  document.getElementById('signupCheck')?.classList.add('hidden');
+  document.getElementById('forgotForm')?.classList.remove('hidden');
+  document.getElementById('forgotCheck')?.classList.add('hidden');
+  document.getElementById('signupForm')?.reset?.();
 }
 
 // Forgot-password: request a reset link.
