@@ -1611,8 +1611,11 @@ footer {
   .masthead nav {
     grid-area: nav;
     gap: .4rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
-  #themeToggle { display: none; }
+  /* Keep the theme toggle on mobile, just compact. */
+  #themeToggle { display: inline-flex; padding: .34rem .5rem; font-size: .62rem; }
   .pro-trigger { padding: .4rem .55rem; font-size: .72rem; }
   .pro-trigger .pro-star { display: none; }
   .nav-credits { display: none; }
@@ -1641,6 +1644,10 @@ footer {
   .account-profile-meta { justify-content: flex-start; }
   .history-item { align-items: flex-start; }
   .match-grid { grid-template-columns: 1fr; }
+  /* Footer: stack copyright + links left-aligned instead of a cramped row. */
+  .site-footer { flex-direction: column; align-items: flex-start; gap: .55rem; }
+  .site-footer .footer-copy { margin-right: 0; white-space: normal; }
+  .footer-links { row-gap: .35rem; }
 }
 
 @media (max-width: 640px) {
