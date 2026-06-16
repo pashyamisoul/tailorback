@@ -59,12 +59,8 @@
     .adt-sec { display: none; }
     .adt-sec.on { display: block; }
 
-    @media (max-width: 760px) {
-      .admin-layout { grid-template-columns: 1fr; }
-      .admin-side { position: static; height: auto; flex-direction: column; }
-      .adt-bar { flex-direction: row; flex-wrap: wrap; }
-      .adt-bar button { width: auto; }
-    }
+    /* (mobile rules consolidated at the end of this <style> block,
+       after the desktop base rules, so they actually win.) */
 
     /* --- command prompt flourish --- */
     .adm-prompt { color: var(--ink-soft); font-size: .82rem; margin: .2rem 0 1.1rem; font-family: "JetBrains Mono", monospace; }
@@ -151,6 +147,30 @@
     .admin-deldata-btn:hover { background: var(--warn); color: #0d1117; border-color: var(--warn); }
     .admin-erase-btn { color: #f85149; border: 1px solid color-mix(in srgb, #f85149 45%, var(--line)); }
     .admin-erase-btn:hover { background: #f85149; color: #fff; border-color: #f85149; }
+
+    /* ============================================================
+       MOBILE — placed last so it overrides the desktop base rules
+       above (api-tiles 3-col, fixed shell, etc.) regardless of
+       source order. Keeps the internal dashboard usable on a phone.
+       ============================================================ */
+    @media (max-width: 760px) {
+      .admin-layout { grid-template-columns: 1fr; }
+      .admin-side { position: static; height: auto; flex-direction: column; }
+      .adt-bar { flex-direction: row; flex-wrap: wrap; }
+      .adt-bar button { width: auto; }
+      .admin-shell { padding: 1.2rem 1rem 2.4rem; min-width: 0; max-width: 100%; }
+      .api-tiles { grid-template-columns: 1fr 1fr; }
+      .admin-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .admin-table { min-width: 0; }
+      .run-grid { grid-template-columns: 1fr; }
+      .run-grid pre { overflow-x: auto; }
+      .admin-erase-form { flex-direction: column; align-items: stretch; }
+    }
+    @media (max-width: 540px) {
+      .api-tiles { grid-template-columns: 1fr; }
+      .admin-section-head { flex-direction: column; align-items: flex-start; gap: .5rem; }
+      .admin-brand-row { flex-wrap: wrap; gap: .5rem; }
+    }
   </style>
 </head>
 <body class="admin-body">

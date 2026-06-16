@@ -2904,3 +2904,37 @@ html[data-theme="terminal"] .ar-more { border-color: rgba(255,255,255,.22); colo
 html[data-theme="terminal"] .hi-status { background: var(--paper-2); }
 html[data-theme="terminal"] .hi-status.status-not_applied { border-color: rgba(255,255,255,.28); color: var(--ink); }
 html[data-theme="terminal"] .hi-notes { border-color: rgba(255,255,255,.22); background: var(--paper-2); }
+
+/* ============================================================================
+   MOBILE OVERRIDES — keep this block LAST in the file.
+   Earlier @media blocks are scattered before the desktop base rules they try
+   to override, so the later base rules (e.g. `.ar-main strong { white-space:
+   nowrap }` further down the file) silently win. Anything that needs to beat a
+   base rule on phones lives here, after every base rule, so source order is on
+   our side. Verified at 430px (iPhone 14 Pro Max) with the live overflow scan.
+   ==========================================================================*/
+@media (max-width: 640px) {
+  /* Account → Applications: long "Company · Role" titles must wrap instead of
+     forcing the row (and the whole modal card) wider than the screen. */
+  .ar-line { flex-direction: column; align-items: stretch; gap: .55rem; }
+  .ar-main { min-width: 0; }
+  .ar-main strong {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+  }
+  .ar-actions { flex-wrap: wrap; }
+  .ar-actions .hi-status { flex: 1 1 auto; min-width: 0; }
+
+  /* Defensive: never let an unbreakable string (URL, email, long token) push
+     the page sideways on a phone. */
+  .acct-id-text span,
+  .history-meta,
+  .ar-links a { overflow-wrap: anywhere; word-break: break-word; }
+}
+
+@media (max-width: 540px) {
+  /* Editor template picker: 4-up is too cramped at phone width — show 2-up. */
+  .tpl-grid { grid-template-columns: 1fr 1fr; }
+}
