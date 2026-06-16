@@ -686,6 +686,10 @@ html[data-theme="terminal"] .go .gicon { display: none; }
 .modal-card {
   position: relative;
   width: min(100%, 920px);
+  /* A grid item defaults to min-width:auto and can grow past the viewport when
+     its content is wide — pin it so the card never overflows the screen. */
+  min-width: 0;
+  max-width: 100%;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 18px;
