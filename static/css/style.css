@@ -1690,6 +1690,13 @@ footer {
   .history-summary strong {
     font-size: 1.1rem;
   }
+  /* History rows: stack title above actions so a long title wraps instead of
+     pushing the row (and card) past the screen edge. */
+  .ar-line { flex-direction: column; align-items: stretch; gap: .55rem; }
+  .ar-main { min-width: 0; }
+  .ar-main strong { white-space: normal; overflow: visible; }
+  .ar-actions { flex-wrap: wrap; }
+  .ar-actions .hi-status { flex: 1; min-width: 0; }
   .settings-card {
     padding: .75rem;
   }
