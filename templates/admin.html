@@ -78,12 +78,51 @@
     .admin-panel, .admin-card { background: var(--paper-2); border: 1px solid var(--line); box-shadow: none; }
     .admin-section-head h2 { color: var(--ink); }
     .admin-section-head p { color: var(--ink-soft); }
+    .admin-section-head.compact { margin-bottom: .65rem; }
     .admin-table-wrap { border: 1px solid var(--line); }
     .admin-table th { background: var(--paper-2); color: var(--ink-soft); }
     .admin-table th, .admin-table td { border-bottom: 1px solid var(--line); }
     .admin-table td { color: var(--ink); }
     .admin-success { color: var(--good); }
     .admin-shell .form-error { color: #f85149; }
+    .admin-muted { color: var(--ink-soft); }
+    .admin-empty { color: var(--ink-soft); border: 1px dashed var(--line); border-radius: 8px; padding: .85rem; }
+    .admin-chipline { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .admin-chipline span, .data-pill {
+      border: 1px solid var(--line); color: var(--ink-soft); border-radius: 999px;
+      padding: .28rem .55rem; font-size: .72rem;
+    }
+    .admin-link-btn {
+      border: 1px solid var(--line); background: transparent; color: var(--accent);
+      border-radius: 6px; padding: .35rem .65rem; font: inherit; font-size: .78rem;
+      cursor: pointer; font-weight: 700;
+    }
+    .admin-link-btn:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+    .admin-dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr); gap: 1rem; align-items: start; }
+    .admin-attention-list, .admin-mini-list { display: grid; gap: .65rem; }
+    .admin-attention-item, .admin-mini-row {
+      border: 1px solid var(--line); border-radius: 8px; padding: .75rem; background: var(--paper);
+      display: grid; gap: .35rem;
+    }
+    .admin-attention-item.warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+    .admin-attention-item.info { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+    .admin-attention-top, .admin-mini-top { display: flex; justify-content: space-between; gap: .75rem; align-items: center; }
+    .admin-attention-top strong, .admin-mini-top strong { color: var(--ink); }
+    .admin-mini-row small { color: var(--ink-soft); }
+    .admin-disclosure summary { cursor: pointer; list-style-position: inside; font-weight: 800; color: var(--ink); }
+    .admin-disclosure summary span { color: var(--ink-soft); font-weight: 400; margin-left: .4rem; }
+    .admin-disclosure[open] summary { margin-bottom: .9rem; }
+    .admin-toolbar {
+      display: grid; grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(140px, auto));
+      gap: .55rem; margin: 0 0 1rem; align-items: center;
+    }
+    .admin-toolbar input, .admin-toolbar select {
+      border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+      border-radius: 7px; padding: .6rem .7rem; font: inherit; min-width: 0;
+    }
+    .admin-toolbar input[data-table-filter] { grid-column: 1 / -1; }
+    .admin-toolbar input::placeholder { color: var(--ink-soft); }
+    .is-hidden { display: none !important; }
 
     /* --- API & usage alert / tiles --- */
     .api-alert { display: flex; gap: .7rem; align-items: flex-start; background: color-mix(in srgb, var(--warn) 14%, transparent); border-left: 3px solid var(--warn); border-radius: 6px; padding: .8rem 1rem; margin-bottom: 1.2rem; font-size: .9rem; }
@@ -115,7 +154,7 @@
     .muted-note { color: var(--ink-soft); font-size: .82rem; margin-top: .6rem; }
 
     /* --- users tab --- */
-    .admin-user-card { background: var(--paper-2); border: 1px solid var(--line); }
+    .admin-user-card { background: var(--paper-2); border: 1px solid var(--line); grid-template-columns: minmax(220px, .9fr) 130px minmax(320px, 1.25fr); }
     .admin-user-main strong { color: var(--ink); }
     .admin-user-main span, .admin-credit-summary span, .admin-credit-summary small { color: var(--ink-soft); }
     .admin-badges b { border: 1px solid var(--line); color: var(--ink-soft); }
@@ -126,17 +165,40 @@
     .admin-credit-form select, .admin-credit-form input { background: var(--paper); border: 1px solid var(--line); color: var(--ink); }
     .admin-credit-form button { background: var(--accent); color: #0d1117; }
     .admin-credit-form button:hover { background: var(--accent-deep); }
+    .admin-user-tools { display: grid; gap: .65rem; grid-column: 1 / -1; }
+    .admin-danger-zone {
+      border: 1px solid var(--line); border-radius: 8px; padding: .55rem .7rem;
+      background: color-mix(in srgb, #f85149 4%, transparent);
+    }
+    .admin-danger-zone summary { cursor: pointer; color: var(--ink-soft); font-weight: 700; }
+    .admin-danger-zone[open] summary { color: #f85149; margin-bottom: .55rem; }
+    .admin-danger-copy { color: var(--ink-soft); font-size: .78rem; margin: 0 0 .55rem; }
+    .admin-privacy-actions { display: flex; gap: .4rem; flex-wrap: wrap; }
 
     /* --- generations audit --- */
     .run-card { background: var(--paper-2); border: 1px solid var(--line); }
+    .run-card.is-open { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+    .run-card-head { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, 1.45fr) auto; gap: 1rem; align-items: center; }
     .run-card summary span { color: var(--ink-soft); }
     .run-card summary strong { color: var(--ink); }
+    .run-card-head strong, .run-card-head span { display: block; }
+    .run-card-head span { color: var(--ink-soft); font-size: .82rem; }
     .run-summary-meta span { border: 1px solid var(--line); color: var(--ink-soft); }
     .run-meta { background: var(--paper); border: 1px solid var(--line); }
     .run-meta a, .run-card summary::marker { color: var(--accent); }
     .run-section { border-top: 1px solid var(--line); }
     .run-grid pre { background: #0d1117; border: 1px solid var(--line); color: var(--ink); }
     .admin-warning { border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line)); background: color-mix(in srgb, var(--warn) 12%, transparent); color: var(--warn); }
+    .run-detail-btn {
+      border: 1px solid var(--accent); background: transparent; color: var(--accent);
+      border-radius: 7px; padding: .48rem .7rem; font: inherit; font-size: .78rem;
+      font-weight: 800; cursor: pointer; white-space: nowrap;
+    }
+    .run-detail-btn:hover { background: var(--accent); color: #0d1117; }
+    .run-detail { margin-top: .9rem; }
+    .run-detail-actions { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .75rem; }
+    .run-detail-actions a { color: var(--accent); border: 1px solid var(--line); border-radius: 6px; padding: .35rem .55rem; text-decoration: none; font-size: .78rem; }
+    .run-detail-status { color: var(--ink-soft); border: 1px dashed var(--line); border-radius: 8px; padding: .8rem; }
 
     /* --- per-user data actions (terminal-bright variants) --- */
     .admin-erase-form { margin-top: .5rem; display: flex; gap: .4rem; flex-wrap: wrap; }
@@ -160,6 +222,11 @@
       .adt-bar button { width: auto; }
       .admin-shell { padding: 1.2rem 1rem 2.4rem; min-width: 0; max-width: 100%; }
       .api-tiles { grid-template-columns: 1fr 1fr; }
+      .admin-dashboard-grid { grid-template-columns: 1fr; }
+      .admin-toolbar { grid-template-columns: 1fr; }
+      .run-card-head { grid-template-columns: 1fr; }
+      .admin-user-card { grid-template-columns: 1fr; }
+      .admin-credit-summary { border-left: 0; border-top: 1px solid var(--line); padding-left: 0; padding-top: .75rem; }
       .admin-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
       .admin-table { min-width: 0; }
       .run-grid { grid-template-columns: 1fr; }
@@ -216,6 +283,40 @@
       {% if api_usage.refill_needed %}
       <div class="api-alert"><span>&#9888;&#65039;</span><div><b>Refill recommended:</b> {% for rp in api_usage.refill_needed %}{{ pretty[rp] }}{% if not loop.last %}, {% endif %}{% endfor %}. See the <b>API &amp; usage</b> tab for balances and days remaining.</div></div>
       {% endif %}
+      <div class="admin-dashboard-grid">
+        <section class="admin-panel">
+          <div class="admin-section-head compact"><div><h2>Needs attention</h2><p>Operational items worth checking before they become support work.</p></div></div>
+          <div class="admin-attention-list">
+            {% for item in attention_items %}
+            <article class="admin-attention-item {{ item.level }}">
+              <div class="admin-attention-top">
+                <strong>{{ item.title }}</strong>
+                <button type="button" class="admin-link-btn" data-tab-jump="{{ item.tab }}">Open</button>
+              </div>
+              <span class="admin-muted">{{ item.detail }}</span>
+            </article>
+            {% else %}
+            <div class="admin-empty">No urgent admin items right now.</div>
+            {% endfor %}
+          </div>
+        </section>
+        <section class="admin-panel">
+          <div class="admin-section-head compact"><div><h2>Recent runs</h2><p>Latest generated documents, without loading sensitive payloads.</p></div></div>
+          <div class="admin-mini-list">
+            {% for run in recent_runs %}
+            <article class="admin-mini-row">
+              <div class="admin-mini-top">
+                <strong>{{ run.resume_name or run.role or "Tailored documents" }}</strong>
+                <button type="button" class="admin-link-btn" data-tab-jump="generations">Audit</button>
+              </div>
+              <small>{{ run.user_email }} &middot; {{ run.created_at[:19].replace("T", " ") }} &middot; {{ run.model_provider or "unknown" }}{% if run.generation_seconds %} &middot; {{ run.generation_seconds }}s{% endif %}</small>
+            </article>
+            {% else %}
+            <div class="admin-empty">No generations yet.</div>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
     </section>
 
     <!-- API & USAGE -->
@@ -247,8 +348,9 @@
         {% endfor %}
       </div>
 
-      <div class="admin-panel budget-form">
-        <div class="admin-section-head"><div><h2>Track refills</h2>
+      <details class="admin-panel admin-disclosure budget-form">
+        <summary>Budget/refill settings <span>Set balances and alert thresholds</span></summary>
+        <div class="admin-section-head compact"><div><h2>Track refills</h2>
           <p>Enter what each provider's balance is <strong>right now</strong>. We subtract estimated spend from that point and warn you when it dips below your alert level. Leave blank to not track a provider. <strong>Saving re-snapshots the balance as of now</strong> (do it each time you top up).</p></div></div>
         <form method="post" action="/admin/budgets">
           <table>
@@ -266,10 +368,11 @@
           <button type="submit">Save</button>
         </form>
         <p class="muted-note">Spend is <strong>estimated</strong> from token counts &times; list prices, not billed amounts. The usage counts and per-provider split above are exact.</p>
-      </div>
+      </details>
 
-      <div class="admin-panel" id="billingSync">
-        <div class="admin-section-head"><div><h2>Official provider billing</h2>
+      <details class="admin-panel admin-disclosure" id="billingSync">
+        <summary>Official billing sync <span>Compare estimated spend with provider billing APIs</span></summary>
+        <div class="admin-section-head compact"><div><h2>Official provider billing</h2>
           <p>Cross-check the estimate above against each provider's billed total (last 30 days). Needs an admin API key set in the environment. Gemini has no billing API, so it stays estimate-only.</p></div></div>
         <div class="admin-table-wrap">
           <table class="admin-table">
@@ -289,15 +392,32 @@
         </div>
         <button type="button" id="syncBtn" style="margin-top:.9rem">Sync now</button>
         <span id="syncStatus" class="muted-note" style="margin-left:.7rem"></span>
-      </div>
+      </details>
     </section>
 
     <!-- USERS -->
     <section class="adt-sec" data-tab="users">
       <div class="admin-section-head"><div><h2>Users and limits</h2><p>Registered users, verification state, credits, and manual adjustments.</p></div></div>
+      <div class="admin-toolbar" data-filter-scope="users">
+        <input id="userSearch" type="search" placeholder="Search name or email" aria-label="Search users" />
+        <select id="userProvider" aria-label="Filter by provider">
+          <option value="">All providers</option>
+          <option value="email">Email</option>
+          <option value="google">Google</option>
+          <option value="both">Both</option>
+        </select>
+        <select id="userVerified" aria-label="Filter by verification">
+          <option value="">All verification</option>
+          <option value="verified">Verified</option>
+          <option value="unverified">Unverified</option>
+        </select>
+      </div>
       <div class="admin-user-grid">
         {% for user in users %}
-        <article class="admin-user-card">
+        <article class="admin-user-card" data-user-card
+          data-search="{{ (user.full_name or '')|lower }} {{ user.email|lower }}"
+          data-provider="{{ user.provider }}"
+          data-verified="{% if user.email_verified %}verified{% else %}unverified{% endif %}">
           <div class="admin-user-main">
             <strong>{{ user.full_name or user.email }}</strong>
             <span>{{ user.email }}</span>
@@ -321,30 +441,64 @@
             <input name="note" placeholder="Reason" aria-label="Reason" />
             <button type="submit">Apply</button>
           </form>
-          <div class="admin-erase-form">
-            <a class="admin-export-btn" href="/admin/users/{{ user.id }}/export"
-               title="Download everything we hold on this user as JSON (GDPR data-access request)">Export data</a>
-            <form method="post" action="/admin/users/{{ user.id }}/delete-data" style="display:inline;"
-                  onsubmit="return confirm('Delete all documents and generations for {{ user.email }}? The account, credits, and reviews stay, only the content they have generated is removed. This cannot be undone.');">
-              <button type="submit" class="admin-deldata-btn" title="Delete only the documents/generations this user produced (keeps the account)">Delete data</button>
-            </form>
-            <form method="post" action="/admin/users/{{ user.id }}/erase" style="display:inline;"
-                  onsubmit="return confirm('Permanently delete the ENTIRE account for {{ user.email }} and ALL their data (generations, files, feedback, credits)? This cannot be undone. Use only for a full deletion request.');">
-              <button type="submit" class="admin-erase-btn" title="Right-to-erasure: delete this user account and all their data">Delete account</button>
-            </form>
+          <div class="admin-user-tools">
+            <div class="admin-chipline">
+              <span>{{ user.created_at.strftime("%Y-%m-%d") }}</span>
+              {% if user.country %}<span>{{ user.country }}</span>{% endif %}
+              {% if user.zip_code %}<span>{{ user.zip_code }}</span>{% endif %}
+            </div>
+            <details class="admin-danger-zone">
+              <summary>Privacy &amp; danger zone</summary>
+              <p class="admin-danger-copy">Use these only for data-access requests, generation cleanup, or a confirmed right-to-erasure request.</p>
+              <div class="admin-privacy-actions">
+                <a class="admin-export-btn" href="/admin/users/{{ user.id }}/export"
+                   title="Download everything we hold on this user as JSON (GDPR data-access request)">Export data</a>
+                <form method="post" action="/admin/users/{{ user.id }}/delete-data" style="display:inline;"
+                      onsubmit="return confirm('Delete all documents and generations for {{ user.email }}? The account, credits, and reviews stay, only the content they have generated is removed. This cannot be undone.');">
+                  <button type="submit" class="admin-deldata-btn" title="Delete only the documents/generations this user produced (keeps the account)">Delete data</button>
+                </form>
+                <form method="post" action="/admin/users/{{ user.id }}/erase" style="display:inline;"
+                      onsubmit="return confirm('Permanently delete the ENTIRE account for {{ user.email }} and ALL their data (generations, files, feedback, credits)? This cannot be undone. Use only for a full deletion request.');">
+                  <button type="submit" class="admin-erase-btn" title="Right-to-erasure: delete this user account and all their data">Delete account</button>
+                </form>
+              </div>
+            </details>
           </div>
         </article>
         {% else %}<p>No users yet.</p>{% endfor %}
+        <p class="admin-empty is-hidden" id="userNoResults">No users match those filters.</p>
       </div>
     </section>
 
     <!-- GENERATIONS -->
     <section class="adt-sec" data-tab="generations">
       <div class="admin-section-head"><div><h2>Generation audit</h2><p>Inputs, model, tokens, cost, downloads, and outputs for recent runs.</p></div></div>
+      <div class="admin-toolbar" data-filter-scope="runs">
+        <input id="runSearch" type="search" placeholder="Search email, job ID, company, role" aria-label="Search generations" />
+        <select id="runProvider" aria-label="Filter by provider">
+          <option value="">All providers</option>
+          <option value="openai">OpenAI</option>
+          <option value="gemini">Gemini</option>
+          <option value="claude">Claude</option>
+          <option value="anthropic">Anthropic</option>
+          <option value="unknown">Unknown</option>
+        </select>
+        <select id="runSource" aria-label="Filter by source">
+          <option value="">All sources</option>
+          <option value="paste">Paste</option>
+          <option value="link">Link</option>
+          <option value="upload">Upload</option>
+        </select>
+      </div>
       <div class="run-list">
         {% for run in runs %}
-        <details class="run-card">
-          <summary>
+        <article class="run-card" data-run-card
+          data-job-id="{{ run.job_id }}"
+          data-provider="{{ run.model_provider or 'unknown' }}"
+          data-jd-source="{{ run.jd_source_type }}"
+          data-cv-source="{{ run.cv_source_type }}"
+          data-search="{{ (run.user_email ~ ' ' ~ (run.resume_name or '') ~ ' ' ~ (run.company or '') ~ ' ' ~ (run.role or '') ~ ' ' ~ run.job_id)|lower }}">
+          <div class="run-card-head">
             <div><strong>{{ run.user_email }}</strong><span>{{ run.resume_name or "Tailored documents" }}</span></div>
             <div class="run-summary-meta">
               <span>{{ run.created_at[:19].replace("T", " ") }}</span>
@@ -353,11 +507,13 @@
               <span>{% if run.est_cost_usd is not none %}${{ "%.4f"|format(run.est_cost_usd) }}{% else %}cost n/a{% endif %}</span>
               <span>{% if run.generation_seconds %}{{ run.generation_seconds }}s{% else %}time unknown{% endif %}</span>
             </div>
-          </summary>
+            <button type="button" class="run-detail-btn" data-job-id="{{ run.job_id }}">Load details</button>
+          </div>
           <div class="run-meta">
             <span><strong>Job ID:</strong> {{ run.job_id }}</span>
             <span><strong>JD:</strong> {{ run.jd_source_type }}</span>
             <span><strong>CV:</strong> {{ run.cv_source_type }}</span>
+            {% if run.company or run.role %}<span><strong>Target:</strong> {{ run.role or "Role" }}{% if run.company %} at {{ run.company }}{% endif %}</span>{% endif %}
             {% if run.jd_url %}<span><strong>Job link:</strong> <a href="{{ run.jd_url }}" target="_blank" rel="noreferrer">{{ run.jd_url }}</a></span>{% endif %}
             <span><strong>Downloads:</strong>
               {% if run.downloads.resume_docx_url %}<a href="{{ run.downloads.resume_docx_url }}">ATS CV DOCX</a>{% endif %}
@@ -366,25 +522,19 @@
               {% if run.downloads.cover_pdf_url %}<a href="{{ run.downloads.cover_pdf_url }}">Cover PDF</a>{% endif %}
             </span>
           </div>
-          <div class="admin-warning">Sensitive user data below. Use for support, abuse review, and debugging only.</div>
-          <div class="run-section"><h3>User inputs</h3><div class="run-grid">
-            <div><h4>Job description</h4><pre>{{ run.jd_text }}</pre></div>
-            <div><h4>CV text</h4><pre>{{ run.cv_text }}</pre></div>
-          </div></div>
-          <div class="run-section"><h3>Raw LLM JSON</h3><div class="run-grid">
-            <div><h4>Resume JSON</h4><pre>{{ run.resume | tojson(indent=2) }}</pre></div>
-            <div><h4>Cover letter JSON</h4><pre>{{ run.cover_letter | tojson(indent=2) }}</pre></div>
-          </div></div>
-        </details>
+          <div class="run-detail is-hidden" id="run-detail-{{ run.job_id }}" aria-live="polite"></div>
+        </article>
         {% else %}<p>No generations yet.</p>{% endfor %}
+        <p class="admin-empty is-hidden" id="runNoResults">No generations match those filters.</p>
       </div>
     </section>
 
     <!-- FEEDBACK -->
     <section class="adt-sec" data-tab="feedback">
       <div class="admin-section-head"><div><h2>Feedback and reviews</h2><p>User ratings and comments. "Live" reviews (consented, rated 4+) appear as landing testimonials.</p></div></div>
+      <div class="admin-toolbar"><input type="search" data-table-filter="#feedbackTable" placeholder="Search feedback" aria-label="Search feedback" /></div>
       <div class="admin-table-wrap">
-        <table class="admin-table">
+        <table class="admin-table" id="feedbackTable">
           <thead><tr><th>Date</th><th>User</th><th>Rating</th><th>Comment</th><th>Publish</th><th>Shown as</th></tr></thead>
           <tbody>
             {% for fb in feedback %}
@@ -405,8 +555,9 @@
     <!-- MESSAGES -->
     <section class="adt-sec" data-tab="messages">
       <div class="admin-section-head"><div><h2>Contact messages</h2><p>Submissions from the public Contact form.</p></div></div>
+      <div class="admin-toolbar"><input type="search" data-table-filter="#messagesTable" placeholder="Search messages" aria-label="Search messages" /></div>
       <div class="admin-table-wrap">
-        <table class="admin-table">
+        <table class="admin-table" id="messagesTable">
           <thead><tr><th>Date</th><th>Name</th><th>Email</th><th>Mobile</th><th>Message</th></tr></thead>
           <tbody>
             {% for msg in messages %}
@@ -426,8 +577,9 @@
     <!-- BILLING -->
     <section class="adt-sec" data-tab="billing">
       <div class="admin-section-head"><div><h2>Invoices and credit grants</h2><p>Stripe purchases and manual admin credit changes.</p></div></div>
+      <div class="admin-toolbar"><input type="search" data-table-filter="#billingTable" placeholder="Search credit grants" aria-label="Search credit grants" /></div>
       <div class="admin-table-wrap">
-        <table class="admin-table">
+        <table class="admin-table" id="billingTable">
           <thead><tr><th>Date</th><th>User</th><th>Credits</th><th>Source</th><th>Pack</th><th>Note / session</th></tr></thead>
           <tbody>
             {% for grant in grants %}
@@ -450,16 +602,152 @@
   <script>
     (function () {
       var bar = document.getElementById("adtBar");
+      function openTab(tab) {
+        var b = bar.querySelector('button[data-tab="' + tab + '"]');
+        if (!b) return;
+        var activeTab = b.dataset.tab;
+        bar.querySelectorAll("button").forEach(function (x) { x.classList.toggle("on", x === b); });
+        document.querySelectorAll(".adt-sec").forEach(function (s) { s.classList.toggle("on", s.dataset.tab === activeTab); });
+        if (history.replaceState) history.replaceState(null, "", "#" + activeTab);
+      }
       bar.addEventListener("click", function (e) {
         var b = e.target.closest("button[data-tab]"); if (!b) return;
-        var tab = b.dataset.tab;
-        bar.querySelectorAll("button").forEach(function (x) { x.classList.toggle("on", x === b); });
-        document.querySelectorAll(".adt-sec").forEach(function (s) { s.classList.toggle("on", s.dataset.tab === tab); });
-        if (history.replaceState) history.replaceState(null, "", "#" + tab);
+        openTab(b.dataset.tab);
+      });
+      document.addEventListener("click", function (e) {
+        var jump = e.target.closest("[data-tab-jump]");
+        if (!jump) return;
+        openTab(jump.dataset.tabJump);
       });
       // open the tab from the URL hash, if present
       var hash = (location.hash || "").replace("#", "");
-      if (hash) { var t = bar.querySelector('button[data-tab="' + hash + '"]'); if (t) t.click(); }
+      if (hash) openTab(hash);
+
+      function esc(v) {
+        return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) {
+          return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c];
+        });
+      }
+      function pretty(v) {
+        try { return JSON.stringify(v || {}, null, 2); }
+        catch (_) { return "{}"; }
+      }
+      function applyUserFilters() {
+        var userSearch = document.getElementById("userSearch");
+        var userProvider = document.getElementById("userProvider");
+        var userVerified = document.getElementById("userVerified");
+        var q = ((userSearch && userSearch.value) || "").trim().toLowerCase();
+        var provider = (userProvider && userProvider.value) || "";
+        var verified = (userVerified && userVerified.value) || "";
+        var shown = 0;
+        document.querySelectorAll("[data-user-card]").forEach(function (card) {
+          var ok = (!q || (card.dataset.search || "").includes(q))
+            && (!provider || card.dataset.provider === provider)
+            && (!verified || card.dataset.verified === verified);
+          card.classList.toggle("is-hidden", !ok);
+          if (ok) shown += 1;
+        });
+        var empty = document.getElementById("userNoResults");
+        if (empty) empty.classList.toggle("is-hidden", shown !== 0);
+      }
+      ["userSearch", "userProvider", "userVerified"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener("input", applyUserFilters);
+        if (el) el.addEventListener("change", applyUserFilters);
+      });
+
+      function applyRunFilters() {
+        var runSearch = document.getElementById("runSearch");
+        var runProvider = document.getElementById("runProvider");
+        var runSource = document.getElementById("runSource");
+        var q = ((runSearch && runSearch.value) || "").trim().toLowerCase();
+        var provider = (runProvider && runProvider.value) || "";
+        var source = (runSource && runSource.value) || "";
+        var shown = 0;
+        document.querySelectorAll("[data-run-card]").forEach(function (card) {
+          var sourceOk = !source || card.dataset.jdSource === source || card.dataset.cvSource === source;
+          var ok = (!q || (card.dataset.search || "").includes(q))
+            && (!provider || card.dataset.provider === provider)
+            && sourceOk;
+          card.classList.toggle("is-hidden", !ok);
+          if (ok) shown += 1;
+        });
+        var empty = document.getElementById("runNoResults");
+        if (empty) empty.classList.toggle("is-hidden", shown !== 0);
+      }
+      ["runSearch", "runProvider", "runSource"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener("input", applyRunFilters);
+        if (el) el.addEventListener("change", applyRunFilters);
+      });
+
+      document.querySelectorAll("[data-table-filter]").forEach(function (input) {
+        input.addEventListener("input", function () {
+          var table = document.querySelector(input.dataset.tableFilter);
+          if (!table) return;
+          var q = input.value.trim().toLowerCase();
+          table.querySelectorAll("tbody tr").forEach(function (row) {
+            row.classList.toggle("is-hidden", q && !row.innerText.toLowerCase().includes(q));
+          });
+        });
+      });
+
+      function downloadLinks(downloads) {
+        var labels = [
+          ["resume_docx_url", "Resume DOCX"],
+          ["resume_pdf_url", "Resume PDF"],
+          ["cover_docx_url", "Cover DOCX"],
+          ["cover_pdf_url", "Cover PDF"],
+        ];
+        return labels.filter(function (x) { return downloads && downloads[x[0]]; })
+          .map(function (x) { return '<a href="' + esc(downloads[x[0]]) + '">' + x[1] + "</a>"; })
+          .join("");
+      }
+      function renderRunDetail(box, gen) {
+        box.innerHTML =
+          '<div class="admin-warning">Sensitive user data below. Use for support, abuse review, and debugging only.</div>' +
+          '<div class="run-detail-actions">' + (downloadLinks(gen.downloads) || '<span class="admin-muted">No downloads available.</span>') + '</div>' +
+          '<div class="run-section"><h3>User inputs</h3><div class="run-grid">' +
+            '<div><h4>Job description</h4><pre>' + esc(gen.jd_text || "") + '</pre></div>' +
+            '<div><h4>CV text</h4><pre>' + esc(gen.cv_text || "") + '</pre></div>' +
+          '</div></div>' +
+          '<div class="run-section"><h3>Raw LLM JSON</h3><div class="run-grid">' +
+            '<div><h4>Resume JSON</h4><pre>' + esc(pretty(gen.resume)) + '</pre></div>' +
+            '<div><h4>Cover letter JSON</h4><pre>' + esc(pretty(gen.cover_letter)) + '</pre></div>' +
+          '</div></div>';
+      }
+      document.addEventListener("click", async function (e) {
+        var btn = e.target.closest(".run-detail-btn");
+        if (!btn) return;
+        var jobId = btn.dataset.jobId;
+        var card = btn.closest("[data-run-card]");
+        var box = document.getElementById("run-detail-" + jobId);
+        if (!box || !jobId) return;
+        if (!box.classList.contains("is-hidden") && box.dataset.loaded === "1") {
+          box.classList.add("is-hidden");
+          if (card) card.classList.remove("is-open");
+          btn.textContent = "Load details";
+          return;
+        }
+        box.classList.remove("is-hidden");
+        if (card) card.classList.add("is-open");
+        btn.textContent = box.dataset.loaded === "1" ? "Hide details" : "Loading...";
+        if (box.dataset.loaded === "1") return;
+        box.innerHTML = '<div class="run-detail-status">Loading sensitive generation details...</div>';
+        try {
+          var r = await fetch("/admin/api/generation/" + encodeURIComponent(jobId), {
+            headers: { Accept: "application/json" },
+          });
+          var d = await r.json();
+          if (!r.ok || d.status !== "ok") throw new Error(d.message || "Could not load details.");
+          renderRunDetail(box, d.generation || {});
+          box.dataset.loaded = "1";
+          btn.textContent = "Hide details";
+        } catch (err) {
+          box.innerHTML = '<div class="run-detail-status">' + esc(err.message || "Could not load details.") + '</div>';
+          btn.textContent = "Retry details";
+        }
+      });
 
       // Official billing sync
       var syncBtn = document.getElementById("syncBtn");

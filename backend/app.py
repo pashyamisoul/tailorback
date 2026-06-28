@@ -149,6 +149,10 @@ oauth.register(
 )
 
 
+def _google_auth_enabled():
+    return bool(os.environ.get("GOOGLE_CLIENT_ID") and os.environ.get("GOOGLE_CLIENT_SECRET"))
+
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     full_name = db.Column(db.String(255), nullable=True)
@@ -464,7 +468,9 @@ def _generation_payload(run, include_inputs=False):
         payload["match_score"] = None
     if include_inputs:
         letter_parts = [
+            cover.get("greeting"),
             cover.get("salutation"),
+            *(cover.get("body_paragraphs") or []),
             *(cover.get("paragraphs") or []),
             cover.get("closing"),
         ]
@@ -1054,6 +1060,7 @@ def _inject_globals():
         "operator_email": OPERATOR_EMAIL,
         "finance_email": FINANCE_EMAIL,
         "supervisory_authority": SUPERVISORY_AUTHORITY,
+        "google_auth_enabled": _google_auth_enabled(),
     }
 
 
@@ -1103,6 +1110,8 @@ def index():
 
 @app.route("/auth/google")
 def auth_google():
+    if not _google_auth_enabled():
+        abort(503)
     if request.args.get("popup"):
         session["login_popup"] = True
     redirect_uri = url_for("auth_google_callback", _external=True)
@@ -2248,7 +2257,7 @@ def admin_portal():
     run_rows = []
     for run in runs:
         user = db.session.get(User, run.user_id)
-        row = _generation_payload(run, include_inputs=True)
+        row = _generation_payload(run, include_inputs=False)
         row["user_email"] = user.email if user else "deleted-user"
         run_rows.append(row)
     grant_rows = []
@@ -2286,9 +2295,43 @@ def admin_portal():
     verified_users = sum(1 for row in user_rows if row["email_verified"])
     paid_credit_grants = sum(max(0, row["credits"]) for row in grant_rows)
     avg_seconds_values = [row["generation_seconds"] for row in run_rows if row.get("generation_seconds") is not None]
+    api_usage = _api_usage_stats()
+    unverified_users = len(user_rows) - verified_users
+    fallback_runs = sum(1 for row in run_rows if row.get("model_provider") in ("gemini", "claude"))
+    attention_items = []
+    if api_usage["refill_needed"]:
+        attention_items.append({
+            "level": "warn",
+            "tab": "api",
+            "title": "Provider refill recommended",
+            "detail": ", ".join(api_usage["refill_needed"]),
+        })
+    if unverified_users:
+        attention_items.append({
+            "level": "warn",
+            "tab": "users",
+            "title": "Unverified users",
+            "detail": f"{unverified_users} account(s) need email verification.",
+        })
+    if contact_rows:
+        attention_items.append({
+            "level": "info",
+            "tab": "messages",
+            "title": "Contact messages",
+            "detail": f"{len(contact_rows)} message(s) in the inbox.",
+        })
+    if fallback_runs:
+        attention_items.append({
+            "level": "info",
+            "tab": "generations",
+            "title": "Fallback provider usage",
+            "detail": f"{fallback_runs} recent run(s) used Gemini or Claude.",
+        })
+
     stats = {
         "total_users": len(user_rows),
         "verified_users": verified_users,
+        "unverified_users": unverified_users,
         "total_generations": GenerationRun.query.count(),
         "visible_generations": len(run_rows),
         "credits_remaining": total_credits_remaining,
@@ -2296,21 +2339,39 @@ def admin_portal():
         "avg_generation_seconds": round(sum(avg_seconds_values) / len(avg_seconds_values), 1) if avg_seconds_values else None,
         "feedback_count": len(feedback_rows),
         "avg_rating": round(sum(r["rating"] for r in feedback_rows) / len(feedback_rows), 1) if feedback_rows else None,
+        "fallback_runs": fallback_runs,
     }
     return render_template(
         "admin.html",
         users=user_rows,
         runs=run_rows,
+        recent_runs=run_rows[:5],
         grants=grant_rows,
         feedback=feedback_rows,
         messages=contact_rows,
-        api_usage=_api_usage_stats(),
+        api_usage=api_usage,
         billing_sync={
             "openai": provider_billing.openai_admin_configured(),
             "anthropic": provider_billing.anthropic_admin_configured(),
         },
         stats=stats,
+        attention_items=attention_items,
     )
+
+
+@app.route("/admin/api/generation/<job_id>")
+def admin_generation_detail(job_id):
+    """Fetch sensitive generation details on demand instead of embedding every
+    CV/JD/LLM payload in the initial admin page."""
+    if not _admin_ok():
+        abort(403)
+    run = GenerationRun.query.filter_by(job_id=job_id).first()
+    if not run:
+        return jsonify({"status": "error", "message": "Generation not found."}), 404
+    user = db.session.get(User, run.user_id)
+    row = _generation_payload(run, include_inputs=True)
+    row["user_email"] = user.email if user else "deleted-user"
+    return jsonify({"status": "ok", "generation": row})
 
 
 @app.route("/admin/api/sync")

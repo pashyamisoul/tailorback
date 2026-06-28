@@ -13,9 +13,8 @@ you're viewing and sends it to TailorBack to tailor your résumé.
    extractors for **LinkedIn, Indeed, Greenhouse, and Lever**, with a generic
    fallback for any other site.
 2. Shows you what it found (role / company / source / a preview).
-3. **Tailor this job** copies the description to your clipboard and opens
-   TailorBack so you can paste it into the Job Description box, pick a CV, and
-   Run.
+3. **Tailor this job** opens TailorBack with the Job Description box already
+   filled in, and also copies the description to your clipboard as a fallback.
 
 Only **on-screen** text is read (via `activeTab` + `scripting`, on click). The
 extension declares no broad host permissions and stores nothing about you;
@@ -40,10 +39,6 @@ the only saved setting is your TailorBack URL.
    → **Tailor this job**.
 
 ## Roadmap / not done yet
-- **Deep pre-fill hand-off.** Today the hand-off is clipboard + paste (needs no
-  backend). A future version could POST the job to a TailorBack endpoint keyed
-  to a short-lived token and open the builder already pre-filled. That needs a
-  new app endpoint plus auth/CORS work.
 - **Signed-in status / credits** in the popup (needs the app endpoint above).
 - Per-site selectors will drift as these sites change their markup; revisit
   periodically. Everything still falls back to the generic extractor.

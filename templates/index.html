@@ -438,6 +438,7 @@
           <p class="auth-forgot"><button type="button" data-auth-tab="forgot">Forgot password?</button></p>
           <button type="submit" class="go">Sign In</button>
         </form>
+        {% if google_auth_enabled %}
         <div class="or-line"><span>or</span></div>
         <a href="#" onclick="startPopupLogin(); return false;" class="signin-google google-wide">
           <svg class="google-icon" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
@@ -448,6 +449,7 @@
           </svg>
           <span>Continue with Google</span>
         </a>
+        {% endif %}
         <p class="auth-switch">New to TailorBack? <button type="button" data-auth-tab="signup">Create an account</button></p>
       </section>
 
@@ -505,6 +507,7 @@
           </label>
           <button type="submit" class="go">Create account</button>
         </form>
+        {% if google_auth_enabled %}
         <div class="or-line"><span>or</span></div>
         <a href="#" onclick="startPopupLogin(); return false;" class="signin-google google-wide">
           <svg class="google-icon" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
@@ -515,6 +518,7 @@
           </svg>
           <span>Continue with Google</span>
         </a>
+        {% endif %}
         <p class="auth-switch">Already have an account? <button type="button" data-auth-tab="signin">Sign in</button></p>
         <p class="auth-legal"><a href="/terms" target="_blank" rel="noopener">Terms of Use</a><span>|</span><a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a></p>
       </section>
