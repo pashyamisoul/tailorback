@@ -1,15 +1,10 @@
 # Render Blueprint for TailorBack.
 # In the Render dashboard: New > Blueprint > pick this repo. It reads this file,
-# creates the web service + a free Postgres database, and prompts you for every
-# secret marked "sync: false". Nothing secret is stored in this file or the repo.
+# creates the web service, and prompts you for every secret marked "sync: false".
+# Production Postgres is hosted on Neon Free; paste the Neon connection string as
+# DATABASE_URL in Render. Nothing secret is stored in this file or the repo.
 #
 # Docs: https://render.com/docs/blueprint-spec
-
-databases:
-  - name: tailorback-db
-    plan: free
-    databaseName: tailorback
-    user: tailorback
 
 services:
   - type: web
@@ -20,11 +15,11 @@ services:
     healthCheckPath: /
     autoDeploy: true
     envVars:
-      # --- wiring done for you ---
-      - key: DATABASE_URL          # injected from the database above
-        fromDatabase:
-          name: tailorback-db
-          property: connectionString
+      # --- database ---
+      # Neon Free Postgres connection string, e.g.
+      # postgresql://USER:PASSWORD@HOST/neondb?sslmode=require
+      - key: DATABASE_URL
+        sync: false
       - key: FLASK_ENV
         value: production
       - key: FLASK_SECRET_KEY      # Render generates a strong random value once

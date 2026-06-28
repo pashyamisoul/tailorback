@@ -9,3 +9,4 @@ generated/*
 .DS_Store
 tailorback.db
 *.backup
+*.bak

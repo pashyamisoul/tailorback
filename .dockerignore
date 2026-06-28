@@ -8,6 +8,8 @@ __pycache__/
 .env.*
 !.env.example
 *.db
+*.bak
+*.backup
 tailorback.db
 node_modules/
 browser-extension/

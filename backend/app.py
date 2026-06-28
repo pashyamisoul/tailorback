@@ -823,11 +823,15 @@ def _rl_identity():
     return ip
 
 
-def rate_limit(max_calls, per_seconds):
+def rate_limit(max_calls, per_seconds, methods=None):
     """Throttle a route to max_calls per per_seconds, keyed by user or client IP."""
+    method_set = {m.upper() for m in methods} if methods else None
+
     def decorator(fn):
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
+            if method_set and request.method.upper() not in method_set:
+                return fn(*args, **kwargs)
             now = time.time()
             key = f"{fn.__name__}:{_rl_identity()}"
             with _rl_lock:
@@ -2214,7 +2218,7 @@ _DEFAULT_ADMIN_PASSWORD = "tailorback-admin"
 
 
 @app.route("/admin", methods=["GET", "POST"])
-@rate_limit(8, 900)   # throttle brute-force on the admin login
+@rate_limit(8, 900, methods={"POST"})   # throttle brute-force on admin login attempts, not page loads
 def admin_portal():
     admin_user = os.environ.get("TAILORBACK_ADMIN_USER", "admin")
     admin_password = os.environ.get("TAILORBACK_ADMIN_PASSWORD", _DEFAULT_ADMIN_PASSWORD)
