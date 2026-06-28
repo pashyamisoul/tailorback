@@ -15,6 +15,8 @@ only when the user deliberately changes the swatch away from the app default.
 import os
 import html as _html
 
+from services.link_utils import external_link_target
+
 try:
     from weasyprint import HTML
     _WEASY_OK = True
@@ -64,8 +66,19 @@ def e(s):
     return _html.escape(str(s)) if s is not None else ""
 
 
+def _a(text):
+    target = external_link_target(text)
+    if not target:
+        return e(text)
+    return f"<a href='{e(target)}'>{e(text)}</a>"
+
+
 def _contact_bits(c):
     return [b for b in [c.get("location"), c.get("phone"), c.get("email"), *(c.get("links") or [])] if b]
+
+
+def _contact_join(bits, sep="  •  "):
+    return e(sep).join(_a(b) for b in bits if b)
 
 
 def _skill_groups(skills):
@@ -124,7 +137,7 @@ def _canon_entries(items, accent):
     for primary, topright, secondary, botright, bullets in items:
         sub = ""
         if secondary or botright:
-            sub = (f"<div class='er'><span class='esec'>{e(secondary)}</span>"
+            sub = (f"<div class='er'><span class='esec'>{_a(secondary)}</span>"
                    f"<span class='er2'>{e(botright)}</span></div>")
         out += (f"<div class='entry'><div class='er'><span class='ep'>{e(primary)}</span>"
                 f"<span class='ert'>{e(topright)}</span></div>{sub}{_ul(bullets, accent)}</div>")
@@ -168,6 +181,7 @@ def _doc(css, body):
 _BASE = """
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:%(font)s;font-size:9.6pt;line-height:1.32;color:#2b2e33}
+a{color:inherit;text-decoration:none}
 .entry{margin-bottom:6px}
 .er{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
 .ep{font-weight:700;color:#16181c}.ert{font-weight:700;white-space:nowrap;flex:none}
@@ -198,7 +212,7 @@ h2{{font-size:11pt;font-weight:700;text-transform:uppercase;letter-spacing:.9px;
     contact = _contact_bits(r.get("contact", {}) or {})
     parts = [f"<div class='mast'><div class='name'>{e(r.get('name'))}</div>"
              f"{('<div class=hl>'+e(hl)+'</div>') if hl else ''}"
-             f"{('<div class=ct>'+e('  •  '.join(contact))+'</div>') if contact else ''}</div>"]
+             f"{('<div class=ct>'+_contact_join(contact)+'</div>') if contact else ''}</div>"]
     if r.get("summary"):
         parts.append(f"<h2>Summary</h2><p>{e(r['summary'])}</p>")
     if groups:
@@ -239,7 +253,7 @@ h2{{font-size:10.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.9p
     hl = _headline(r)
     contact = _contact_bits(r.get("contact", {}) or {})
     langs = _languages(r)
-    side = [f"<h2>Contact</h2>" + "".join(f"<div class=ci>{e(c)}</div>" for c in contact)]
+    side = [f"<h2>Contact</h2>" + "".join(f"<div class=ci>{_a(c)}</div>" for c in contact)]
     if groups:
         side.append("<h2>Skills</h2>" + _skills_side(groups))
     if r.get("education"):
@@ -307,7 +321,7 @@ h2{{font-size:11.5pt;font-weight:800;text-transform:uppercase;letter-spacing:.6p
     langs = _languages(r)
     parts = [f"<div class='top'><div><div class='name'>{e(r.get('name'))}</div>"
              f"{('<div class=hl>'+e(hl)+'</div>') if hl else ''}"
-             f"<div class='ct'>{''.join('<span>'+e(c)+'</span>' for c in contact)}</div></div>"
+             f"<div class='ct'>{''.join('<span>'+_a(c)+'</span>' for c in contact)}</div></div>"
              f"<div class='mono'>{e(_monogram(r.get('name')))}</div></div>"]
     if r.get("summary"):
         parts.append(f"<h2>Summary</h2><p>{e(r['summary'])}</p>")
@@ -358,7 +372,7 @@ def _render_solid_sidebar(r, cfg, ac, font, side_bg):
         main.append(f"<h2>Projects</h2>{_canon_entries(_proj_canon(r), ac)}")
     if r.get("education"):
         main.append(f"<h2>Education</h2>{_canon_entries(_edu_canon(r), ac)}")
-    aside = ["<h2>Contact</h2>" + "".join(f"<div class=ci>{e(c)}</div>" for c in contact)]
+    aside = ["<h2>Contact</h2>" + "".join(f"<div class=ci>{_a(c)}</div>" for c in contact)]
     if groups:
         aside.append("<h2>Skills</h2>" + _skills_side(groups))
     if r.get("certifications"):
@@ -393,7 +407,7 @@ def _render_tint_sidebar(r, cfg, ac, font):
     groups = _skill_groups(r.get("skills"))
     hl = _headline(r); contact = _contact_bits(r.get("contact", {}) or {}); langs = _languages(r)
     aside = [f"<div class='mono'>{e(_monogram(r.get('name')))}</div>",
-             "<h2>Contact</h2>" + "".join(f"<div class=ci>{e(c)}</div>" for c in contact)]
+             "<h2>Contact</h2>" + "".join(f"<div class=ci>{_a(c)}</div>" for c in contact)]
     if groups:
         aside.append("<h2>Skills</h2>" + _skills_side(groups))
     if langs:
@@ -434,7 +448,7 @@ h2:first-child{{margin-top:0}}
     hl = _headline(r); contact = _contact_bits(r.get("contact", {}) or {}); langs = _languages(r)
     band = (f"<div class='band'><div><div class='name'>{e(r.get('name'))}</div>"
             f"{('<div class=hl>'+e(hl)+'</div>') if hl else ''}"
-            f"{('<div class=ct>'+e('  •  '.join(contact))+'</div>') if contact else ''}</div>"
+            f"{('<div class=ct>'+_contact_join(contact)+'</div>') if contact else ''}</div>"
             f"<div class='mono'>{e(_monogram(r.get('name')))}</div></div>")
     body = []
     if r.get("summary"):
