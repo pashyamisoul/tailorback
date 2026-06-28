@@ -4,6 +4,9 @@ from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
+
+from services.link_utils import external_link_target
 
 BLACK = RGBColor(0, 0, 0)
 DARK = RGBColor(0x1a, 0x1a, 0x1a)
@@ -214,6 +217,68 @@ def _track(run, val):
     rPr = run._element.get_or_add_rPr(); s = OxmlElement("w:spacing")
     s.set(qn("w:val"), str(val)); rPr.append(s)
 
+def _rgb_hex(color):
+    if color is None:
+        return None
+    return "%02X%02X%02X" % (color[0], color[1], color[2])
+
+def _run_text(paragraph, text, size=None, color=None, bold=False, italic=False):
+    run = paragraph.add_run(text)
+    if size is not None:
+        run.font.size = Pt(size)
+    if color is not None:
+        run.font.color.rgb = color
+    run.bold = bool(bold)
+    run.italic = bool(italic)
+    return run
+
+def _hyperlink(paragraph, text, target, size=None, color=None, bold=False, italic=False):
+    """Add an external hyperlink while preserving the document's visual style."""
+    rel_id = paragraph.part.relate_to(target, RT.HYPERLINK, is_external=True)
+    hyperlink = OxmlElement("w:hyperlink")
+    hyperlink.set(qn("r:id"), rel_id)
+
+    run = OxmlElement("w:r")
+    rpr = OxmlElement("w:rPr")
+    if bold:
+        rpr.append(OxmlElement("w:b"))
+    if italic:
+        rpr.append(OxmlElement("w:i"))
+    if size is not None:
+        sz = OxmlElement("w:sz")
+        sz.set(qn("w:val"), str(int(size * 2)))
+        rpr.append(sz)
+    if color is not None:
+        c = OxmlElement("w:color")
+        c.set(qn("w:val"), _rgb_hex(color))
+        rpr.append(c)
+    # Keep links visually consistent with the resume style while still clickable.
+    underline = OxmlElement("w:u")
+    underline.set(qn("w:val"), "none")
+    rpr.append(underline)
+    run.append(rpr)
+
+    t = OxmlElement("w:t")
+    t.text = text
+    run.append(t)
+    hyperlink.append(run)
+    paragraph._p.append(hyperlink)
+    return hyperlink
+
+def _linked_text(paragraph, text, size=None, color=None, bold=False, italic=False):
+    target = external_link_target(text)
+    if target:
+        return _hyperlink(paragraph, text, target, size=size, color=color, bold=bold, italic=italic)
+    return _run_text(paragraph, text, size=size, color=color, bold=bold, italic=italic)
+
+def _contact_runs(paragraph, bits, size=9, color=GREY, sep="    •    "):
+    first = True
+    for bit in [b for b in bits if b]:
+        if not first:
+            _run_text(paragraph, sep, size=size, color=color)
+        _linked_text(paragraph, bit, size=size, color=color)
+        first = False
+
 # Letter-spacing presets (twentieths of a point). Kept tasteful — wide tracking
 # on a name reads as a rendering bug ("A M I T H"), not as design.
 TRACK_NAME = 30
@@ -270,19 +335,18 @@ def _entry(container, primary, topright, secondary, botright, bullets, S, tab_po
     Used for experience (company/location, title/dates), projects and education."""
     head = container.add_paragraph(); _sp(head, before=7 * S["scale"], after=0, line=1.05)
     head.paragraph_format.tab_stops.add_tab_stop(Inches(tab_pos), WD_TAB_ALIGNMENT.RIGHT)
-    r = head.add_run(primary or ""); r.bold = True
-    r.font.size = Pt(S["base_size"] + 0.5); r.font.color.rgb = DARK
+    _linked_text(head, primary or "", size=S["base_size"] + 0.5, color=DARK, bold=True)
     if topright:
-        tr = head.add_run(f"\t{topright}"); tr.bold = True
-        tr.font.size = Pt(S["base_size"]); tr.font.color.rgb = DARK
+        _run_text(head, "\t", size=S["base_size"], color=DARK)
+        _linked_text(head, topright, size=S["base_size"], color=DARK, bold=True)
     if secondary or botright:
         sub = container.add_paragraph(); _sp(sub, after=2, line=1.05)
         sub.paragraph_format.tab_stops.add_tab_stop(Inches(tab_pos), WD_TAB_ALIGNMENT.RIGHT)
         if secondary:
-            sr = sub.add_run(secondary); sr.italic = True; sr.font.size = Pt(S["base_size"])
+            _linked_text(sub, secondary, size=S["base_size"], italic=True)
         if botright:
-            br = sub.add_run(f"\t{botright}"); br.italic = True
-            br.font.size = Pt(S["base_size"] - 1.5); br.font.color.rgb = GREY
+            _run_text(sub, "\t", size=S["base_size"] - 1.5, color=GREY, italic=True)
+            _linked_text(sub, botright, size=S["base_size"] - 1.5, color=GREY, italic=True)
     for b in (bullets or []):
         _bullet(container, b, S)
 
@@ -313,7 +377,7 @@ def _cell_edge_border(cell, edge="right", color="cfcabf", size=8):
     e.set(qn("w:space"), "0"); e.set(qn("w:color"), color)
     borders.append(e); tcPr.append(borders)
 
-def _banner(doc, name, contact, S, headline=""):
+def _banner(doc, name, contact_bits, S, headline=""):
     """Full-width coloured banner holding the name + headline + contact."""
     table = doc.add_table(rows=1, cols=1)
     _no_table_borders(table)
@@ -326,9 +390,9 @@ def _banner(doc, name, contact, S, headline=""):
     if headline:
         hp = cell.add_paragraph(); _sp(hp, before=0, after=2)
         hr = hp.add_run(headline); hr.font.size = Pt(10); hr.font.color.rgb = WHITE; hr.bold = True
-    if contact:
+    if contact_bits:
         cp = cell.add_paragraph(); _sp(cp, before=2, after=2)
-        cr = cp.add_run(contact); cr.font.size = Pt(9); cr.font.color.rgb = BANNER_CONTACT
+        _contact_runs(cp, contact_bits, size=9, color=BANNER_CONTACT)
     doc.add_paragraph()  # spacer below the banner
 
 def _set_cell_width(cell, width):
@@ -389,7 +453,7 @@ def _build_resume_sidebar(resume, doc, S):
     for v in [c.get("email"), c.get("phone"), c.get("location"), *(c.get("links") or [])]:
         if v:
             cp = left.add_paragraph(); _sp(cp, after=1, line=1.05)
-            cr = cp.add_run(v); cr.font.size = Pt(8.5); cr.font.color.rgb = GREY
+            _linked_text(cp, v, size=8.5, color=GREY)
 
     if resume.get("skills"):
         _cell_heading(left, "Skills", S)
@@ -471,11 +535,10 @@ def build_resume(resume, out_path, style=None):
 
     c = resume.get("contact", {}) or {}
     bits = [c.get("email"), c.get("phone"), c.get("location"), *(c.get("links") or [])]
-    contact = "    •    ".join(b for b in bits if b)
 
     headline = (resume.get("headline") or "").strip()
     if S.get("banner"):
-        _banner(doc, resume.get("name", ""), contact, S, headline=headline)
+        _banner(doc, resume.get("name", ""), bits, S, headline=headline)
     else:
         name_p = doc.add_paragraph(); name_p.alignment = S["name_align"]
         _sp(name_p, after=1 if headline else 3)
@@ -484,10 +547,10 @@ def build_resume(resume, out_path, style=None):
         if headline:
             hp = doc.add_paragraph(); hp.alignment = S["name_align"]; _sp(hp, after=4)
             hr = hp.add_run(headline); hr.bold = True; hr.font.size = Pt(10.5); hr.font.color.rgb = S["heading_color"]
-        if contact:
+        if any(bits):
             cp = doc.add_paragraph(); cp.alignment = S["contact_align"]
-            _sp(cp, after=6); cr = cp.add_run(contact)
-            cr.font.size = Pt(9); cr.font.color.rgb = GREY
+            _sp(cp, after=6)
+            _contact_runs(cp, bits, size=9, color=GREY)
             _border(cp, size=8, color="000000")
 
     if resume.get("summary"):
@@ -552,8 +615,8 @@ def build_cover_letter(letter, applicant_name, out_path, contact_line="", links=
     if links: line_bits.extend(links)
     if line_bits:
         cp = doc.add_paragraph(); cp.alignment = S["contact_align"]; _sp(cp, after=6)
-        cr = cp.add_run("   •   ".join(line_bits)); cr.font.size = Pt(9)
-        cr.font.color.rgb = GREY; _border(cp, size=8, color="000000")
+        _contact_runs(cp, line_bits, size=9, color=GREY, sep="   •   ")
+        _border(cp, size=8, color="000000")
     dp = doc.add_paragraph(); _sp(dp, before=2, after=10)
     dp.add_run(datetime.date.today().strftime("%B %d, %Y")).font.color.rgb = GREY
 
