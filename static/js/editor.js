@@ -13,16 +13,17 @@
   const notify = window.toast || ((m) => console.log(m));
 
   const TEMPLATES = [
-    { id: "editorial", name: "Editorial", hint: "Centered · classic" },
-    { id: "classic", name: "Classic", hint: "Serif · refined" },
-    { id: "serif", name: "Serif executive", hint: "Centered serif · small-caps" },
-    { id: "minimal", name: "Minimalist", hint: "Airy · hairline rules" },
-    { id: "sidebar", name: "Sidebar", hint: "Two-column · skills left" },
-    { id: "skyline", name: "Skyline", hint: "Timeline · teal · monogram" },
-    { id: "executive", name: "Executive", hint: "Dark sidebar · gold" },
-    { id: "aurora", name: "Aurora", hint: "Teal sidebar · monogram" },
-    { id: "spotlight", name: "Spotlight", hint: "Colour header band" },
+    { id: "editorial", name: "Editorial", hint: "Classic centered", badge: "ATS" },
+    { id: "minimal", name: "Minimal", hint: "Clean modern", badge: "ATS" },
+    { id: "sidebar", name: "Sidebar", hint: "Structured columns", badge: "Organized" },
+    { id: "executive", name: "Executive", hint: "Premium sidebar", badge: "Premium" },
+    { id: "spotlight", name: "Spotlight", hint: "Bold header", badge: "Creative" },
+    { id: "classic", name: "Classic", hint: "Refined serif", badge: "Formal", optional: true },
+    { id: "serif", name: "Serif executive", hint: "Small-caps serif", badge: "Formal", optional: true },
+    { id: "skyline", name: "Skyline", hint: "Teal timeline", badge: "Creative", optional: true },
+    { id: "aurora", name: "Aurora", hint: "Soft teal sidebar", badge: "Modern", optional: true },
   ];
+  const TWO_COL_TEMPLATES = ["sidebar", "executive", "aurora"];
   // Rich templates carry a curated colour (used unless the user picks a swatch).
   const TEMPLATE_ACCENT = { skyline: "3d8b7d", executive: "b8893f", aurora: "2f8f7d", spotlight: "5f8d6e" };
   const ACCENTS = ["c8462e", "1f6feb", "0f766e", "7c3aed", "be123c", "b45309", "0369a1", "111827"];
@@ -230,38 +231,45 @@
     side.innerHTML = `
       <div class="side-group">
         <h4>Template</h4>
-        <div class="tpl-grid" id="tplGrid">
-          ${TEMPLATES.map(t => `
-            <button type="button" class="tpl-chip ${t.id === ST.style.template ? "active" : ""}" data-tpl="${t.id}">
-              <span class="tpl-mini tpl-mini-${t.id}"><i></i><i></i><i></i></span>
-              <span class="tpl-name">${t.name}</span>
-              <span class="tpl-hint">${t.hint}</span>
-            </button>`).join("")}
+        <div id="tplPicker">
+          <div class="tpl-grid">
+            ${TEMPLATES.filter(t => !t.optional).map(templateChip).join("")}
+          </div>
+          <details class="tpl-more" ${TEMPLATES.find(t => t.id === ST.style.template && t.optional) ? "open" : ""}>
+            <summary>More styles</summary>
+            <div class="tpl-grid tpl-grid-more">
+              ${TEMPLATES.filter(t => t.optional).map(templateChip).join("")}
+            </div>
+          </details>
         </div>
       </div>
-      <div class="side-group">
-        <h4>Accent</h4>
-        <div class="swatches" id="swatches">
-          ${ACCENTS.map(c => `<button type="button" class="swatch ${c === ST.style.accent ? "active" : ""}" data-accent="${c}" style="background:#${c}" aria-label="#${c}"></button>`).join("")}
-          <label class="swatch-custom" title="Custom colour">
-            <input type="color" id="accentCustom" value="#${ST.style.accent}" />
-          </label>
+      <details class="side-group style-customize">
+        <summary>Customize</summary>
+        <div class="customize-stack">
+          <div>
+            <h4>Accent</h4>
+            <div class="swatches" id="swatches">
+              ${ACCENTS.map(c => `<button type="button" class="swatch ${c === ST.style.accent ? "active" : ""}" data-accent="${c}" style="background:#${c}" aria-label="#${c}"></button>`).join("")}
+              <label class="swatch-custom" title="Custom colour">
+                <input type="color" id="accentCustom" value="#${ST.style.accent}" />
+              </label>
+            </div>
+          </div>
+          <div>
+            <h4>Font</h4>
+            <select id="fontSelect" class="side-select">
+              ${FONTS.map(f => `<option value="${f}" ${f === ST.style.font ? "selected" : ""}>${f}</option>`).join("")}
+            </select>
+          </div>
+          <div>
+            <h4>Density</h4>
+            <div class="density-toggle" id="densityToggle">
+              <button type="button" data-density="comfortable" class="${ST.style.density === "comfortable" ? "active" : ""}">Comfortable</button>
+              <button type="button" data-density="compact" class="${ST.style.density === "compact" ? "active" : ""}">Compact</button>
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="side-group">
-        <h4>Font</h4>
-        <select id="fontSelect" class="side-select">
-          ${FONTS.map(f => `<option value="${f}" ${f === ST.style.font ? "selected" : ""}>${f}</option>`).join("")}
-        </select>
-      </div>
-      <div class="side-group">
-        <h4>Density</h4>
-        <div class="density-toggle" id="densityToggle">
-          <button type="button" data-density="comfortable" class="${ST.style.density === "comfortable" ? "active" : ""}">Comfortable</button>
-          <button type="button" data-density="compact" class="${ST.style.density === "compact" ? "active" : ""}">Compact</button>
-        </div>
-        <p class="side-hint">Compact fits more on a page. Use it to keep a long resume to one page.</p>
-      </div>
+      </details>
       <div class="side-group" id="wqGroup">
         <h4>Writing &amp; keywords</h4>
         <button type="button" class="wq-btn" id="wqCheck">Check writing</button>
@@ -270,14 +278,14 @@
       </div>
       <p class="side-note">Edits and style apply to your download. Click any text in the page to edit it. Use ↑ ↓ to reorder bullets and roles.</p>`;
 
-    side.querySelector("#tplGrid").addEventListener("click", e => {
+    side.querySelector("#tplPicker").addEventListener("click", e => {
       const b = e.target.closest("[data-tpl]"); if (!b) return;
       const prev = ST.style.template;
       ST.style.template = b.dataset.tpl;
       side.querySelectorAll(".tpl-chip").forEach(c => c.classList.toggle("active", c === b));
-      // The sidebar template has a different DOM structure (two columns), so a
-      // full re-render is needed when entering or leaving it; others just restyle.
-      if (ST.style.template === "sidebar" || prev === "sidebar") renderStage();
+      const wasTwoCol = TWO_COL_TEMPLATES.includes(prev);
+      const isTwoCol = TWO_COL_TEMPLATES.includes(ST.style.template);
+      if (wasTwoCol !== isTwoCol) renderStage();
       else applyStageStyle();
       markDirty();
     });
@@ -298,6 +306,18 @@
       applyStageStyle(); markDirty();
     });
     bindWritingTools();
+  }
+
+  function templateChip(t) {
+    return `
+      <button type="button" class="tpl-chip ${t.id === ST.style.template ? "active" : ""}" data-tpl="${t.id}">
+        <span class="tpl-mini tpl-mini-${t.id}"><i></i><i></i><i></i><i></i></span>
+        <span class="tpl-name-row">
+          <span class="tpl-name">${t.name}</span>
+          <span class="tpl-badge">${t.badge}</span>
+        </span>
+        <span class="tpl-hint">${t.hint}</span>
+      </button>`;
   }
 
   // ---- Phase 9: writing check + keyword-insert ----------------------------
@@ -514,9 +534,8 @@
       </section>` : "";
 
     const cls = `doc-page tmpl-${ST.style.template} density-${ST.style.density}`;
-    const TWO_COL = ["sidebar", "executive", "aurora"];
 
-    if (TWO_COL.includes(ST.style.template)) {
+    if (TWO_COL_TEMPLATES.includes(ST.style.template)) {
       // Two columns: contact/skills/education/languages left, the rest right.
       return `
       <div class="${cls}">
@@ -635,12 +654,16 @@
     cl = cl || {};
     const paras = (cl.body_paragraphs || []);
     const name = ST.resume.name || "";
+    const coverContact = coverContactHtml();
     return `
     <div class="doc-page tmpl-${ST.style.template} density-${ST.style.density} cover">
-      <div class="cover-top">
-        <span class="doc-name">${esc(name)}</span>
-        <span class="cover-actions">${refineBtn("Regenerate letter", "cover_letter")}</span>
-      </div>
+      <header class="doc-masthead cover-masthead">
+        <div class="cover-top">
+          <span class="doc-name">${esc(name)}</span>
+          <span class="cover-actions">${refineBtn("Regenerate letter", "cover_letter")}</span>
+        </div>
+        ${coverContact}
+      </header>
       <p class="cover-date">${new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}</p>
       ${ed("greeting", cl.greeting || "Dear Hiring Manager,", "cover-greeting", "p")}
       <div data-list="body_paragraphs">
@@ -654,6 +677,14 @@
       ${ed("closing", cl.closing || "Sincerely,", "cover-closing", "p")}
       <p class="cover-sign">${esc(name)}</p>
     </div>`;
+  }
+
+  function coverContactHtml() {
+    const c = (ST.resume && ST.resume.contact) || {};
+    const links = Array.isArray(c.links) ? c.links : [];
+    const parts = [c.email, c.phone, c.location].concat(links).filter(Boolean);
+    if (!parts.length) return "";
+    return `<div class="doc-contact cover-contact">${parts.map(p => `<span class="c-item">${esc(p)}</span>`).join('<span class="c-dot">•</span>')}</div>`;
   }
 
   // ---- stage interactions --------------------------------------------------
